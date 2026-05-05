@@ -59,6 +59,12 @@ def default_config(args: argparse.Namespace) -> sim.StrategyConfig:
         high_adx_drift_threshold=26.0,
         min_high_adx_drift_pct=0.0012,
         min_signal_score=0.50,
+        confirm_timeframes=sim.parse_timeframes(args.confirm_timeframes),
+        confirm_drift_lookback_bars=args.confirm_drift_lookback_bars,
+        confirm_countertrend_drift_limit_pct=args.confirm_countertrend_drift_limit_pct,
+        confirm_countertrend_ema_spread_pct=args.confirm_countertrend_ema_spread_pct,
+        confirm_countertrend_min_adx=args.confirm_countertrend_min_adx,
+        confirm_min_space_pct=args.confirm_min_space_pct,
         adaptive_risk_enabled=True,
         min_risk_multiplier=0.95,
         max_risk_multiplier=1.10,
@@ -376,7 +382,8 @@ def process_candle(
             and paper_index >= int(state.get("cooldown_until_index", 0))
         ):
             signal_index = index - 1
-            signal = sim.signal_for_index(candles[: index + 1], ind, signal_index, cfg)
+            higher_context = sim.build_higher_timeframe_context(candles[: index + 1], cfg)
+            signal = sim.signal_for_index(candles[: index + 1], ind, signal_index, cfg, higher_context)
             if signal is not None:
                 side, reason, score = signal
                 pending = sim.build_pending_entry(candles[: index + 1], ind, signal_index, index, side, reason, score, cfg)
@@ -413,7 +420,7 @@ def closed_candles(candles: Sequence[sim.Candle]) -> List[sim.Candle]:
 
 def run_once(args: argparse.Namespace, cfg: sim.StrategyConfig, state: Dict[str, Any], state_path: Path, trades_path: Path) -> None:
     symbol = sim.normalize_symbol(args.symbol)
-    fetch_days = max(args.fetch_days, 2.0)
+    fetch_days = max(args.fetch_days, 4.0 if cfg.confirm_timeframes else 2.0)
     candles = closed_candles(sim.fetch_futures_klines(symbol, args.interval, fetch_days))
     warmup = max(cfg.bb_period, cfg.rsi_period + 1, cfg.atr_period, cfg.adx_period * 2, cfg.ema_slow) + 2
     if len(candles) <= warmup:
@@ -467,6 +474,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--depth-impact-bps", type=float, default=8.0)
     parser.add_argument("--depth-impact-exponent", type=float, default=0.5)
     parser.add_argument("--min-depth-quote", type=float, default=2_000_000.0)
+    parser.add_argument("--confirm-timeframes", default="15m,30m")
+    parser.add_argument("--confirm-drift-lookback-bars", type=int, default=16)
+    parser.add_argument("--confirm-countertrend-drift-limit-pct", type=float, default=0.0012)
+    parser.add_argument("--confirm-countertrend-ema-spread-pct", type=float, default=0.0005)
+    parser.add_argument("--confirm-countertrend-min-adx", type=float, default=18.0)
+    parser.add_argument("--confirm-min-space-pct", type=float, default=0.0015)
     parser.add_argument("--fetch-days", type=float, default=3.0)
     parser.add_argument("--backfill-bars", type=int, default=1, help="Replay this many latest closed bars when creating new state.")
     parser.add_argument("--poll-seconds", type=int, default=60)

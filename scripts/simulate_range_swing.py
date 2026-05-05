@@ -6,6 +6,7 @@ import csv
 import json
 import math
 import time
+from bisect import bisect_right
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -128,6 +129,12 @@ class StrategyConfig:
     high_adx_drift_threshold: float
     min_high_adx_drift_pct: float
     min_signal_score: float
+    confirm_timeframes: Tuple[str, ...]
+    confirm_drift_lookback_bars: int
+    confirm_countertrend_drift_limit_pct: float
+    confirm_countertrend_ema_spread_pct: float
+    confirm_countertrend_min_adx: float
+    confirm_min_space_pct: float
     adaptive_risk_enabled: bool
     min_risk_multiplier: float
     max_risk_multiplier: float
@@ -416,6 +423,132 @@ def indicators(candles: Sequence[Candle], cfg: StrategyConfig) -> Dict[str, List
     }
 
 
+def aggregate_candles(candles: Sequence[Candle], interval: str) -> List[Candle]:
+    if not candles:
+        return []
+    target_ms = interval_to_ms(interval)
+    if len(candles) >= 2:
+        base_ms = candles[1].open_time_ms - candles[0].open_time_ms
+    else:
+        base_ms = target_ms
+    expected_count = max(int(target_ms / base_ms), 1) if base_ms > 0 and target_ms % base_ms == 0 else 1
+
+    grouped: Dict[int, List[Candle]] = {}
+    for candle in candles:
+        bucket_start = (candle.open_time_ms // target_ms) * target_ms
+        grouped.setdefault(bucket_start, []).append(candle)
+
+    aggregated: List[Candle] = []
+    for bucket_start in sorted(grouped):
+        bucket = sorted(grouped[bucket_start], key=lambda item: item.open_time_ms)
+        if len(bucket) < expected_count or bucket[0].open_time_ms != bucket_start:
+            continue
+        open_time_ms = bucket_start
+        close_time_ms = bucket_start + target_ms - 1
+        aggregated.append(
+            Candle(
+                open_time_ms=open_time_ms,
+                open_time_utc=iso_utc_from_ms(open_time_ms),
+                open=bucket[0].open,
+                high=max(item.high for item in bucket),
+                low=min(item.low for item in bucket),
+                close=bucket[-1].close,
+                volume=sum(item.volume for item in bucket),
+                quote_volume=sum(item.quote_volume for item in bucket),
+                close_time_ms=close_time_ms,
+            )
+        )
+    return aggregated
+
+
+def build_higher_timeframe_context(
+    candles: Sequence[Candle],
+    cfg: StrategyConfig,
+) -> Dict[str, Dict[str, Any]]:
+    context: Dict[str, Dict[str, Any]] = {}
+    for timeframe in cfg.confirm_timeframes:
+        higher_candles = aggregate_candles(candles, timeframe)
+        if not higher_candles:
+            continue
+        context[timeframe] = {
+            "candles": higher_candles,
+            "close_times": [candle.close_time_ms for candle in higher_candles],
+            "indicators": indicators(higher_candles, cfg),
+        }
+    return context
+
+
+def higher_timeframe_allows(
+    side: str,
+    signal_candle: Candle,
+    higher_context: Dict[str, Dict[str, Any]],
+    cfg: StrategyConfig,
+) -> Tuple[bool, str]:
+    if not cfg.confirm_timeframes:
+        return True, ""
+
+    notes: List[str] = []
+    for timeframe in cfg.confirm_timeframes:
+        context = higher_context.get(timeframe)
+        if context is None:
+            return False, f"{timeframe}_missing"
+
+        close_times: Sequence[int] = context["close_times"]
+        higher_index = bisect_right(close_times, signal_candle.close_time_ms) - 1
+        if higher_index < 0:
+            return False, f"{timeframe}_not_closed"
+
+        higher_candles: Sequence[Candle] = context["candles"]
+        higher_ind: Dict[str, List[Optional[float]]] = context["indicators"]
+        candle = higher_candles[higher_index]
+        ema_fast_value = higher_ind["ema_fast"][higher_index]
+        ema_slow_value = higher_ind["ema_slow"][higher_index]
+        adx_value = higher_ind["adx"][higher_index]
+        upper = higher_ind["bb_upper"][higher_index]
+        lower = higher_ind["bb_lower"][higher_index]
+        if not is_ready([ema_fast_value, ema_slow_value, adx_value, upper, lower]):
+            return False, f"{timeframe}_indicators_not_ready"
+
+        drift_value = 0.0
+        drift_index = higher_index - cfg.confirm_drift_lookback_bars
+        if cfg.confirm_drift_lookback_bars > 0 and drift_index >= 0:
+            previous_slow = higher_ind["ema_slow"][drift_index]
+            if previous_slow is None:
+                return False, f"{timeframe}_drift_not_ready"
+            drift_value = (ema_slow_value - previous_slow) / candle.close if candle.close else 0.0
+
+        ema_spread = (ema_fast_value - ema_slow_value) / candle.close if candle.close else 0.0
+        if side == "long":
+            countertrend = (
+                ema_spread <= -cfg.confirm_countertrend_ema_spread_pct
+                and drift_value <= -cfg.confirm_countertrend_drift_limit_pct
+                and adx_value >= cfg.confirm_countertrend_min_adx
+            )
+            space = (upper - signal_candle.close) / signal_candle.close if signal_candle.close else 0.0
+        else:
+            countertrend = (
+                ema_spread >= cfg.confirm_countertrend_ema_spread_pct
+                and drift_value >= cfg.confirm_countertrend_drift_limit_pct
+                and adx_value >= cfg.confirm_countertrend_min_adx
+            )
+            space = (signal_candle.close - lower) / signal_candle.close if signal_candle.close else 0.0
+
+        if countertrend:
+            return False, (
+                f"{timeframe}_countertrend ema_spread={ema_spread:.4f} "
+                f"drift={drift_value:.4f} adx={adx_value:.1f}"
+            )
+        if space < cfg.confirm_min_space_pct:
+            return False, f"{timeframe}_space={space:.4f}"
+
+        notes.append(
+            f"{timeframe}:ema_spread={ema_spread:.4f} drift={drift_value:.4f} "
+            f"adx={adx_value:.1f} space={space:.4f}"
+        )
+
+    return True, " confirm=" + ";".join(notes)
+
+
 def is_ready(values: Iterable[Optional[float]]) -> bool:
     return all(value is not None for value in values)
 
@@ -480,6 +613,7 @@ def signal_for_index(
     ind: Dict[str, List[Optional[float]]],
     index: int,
     cfg: StrategyConfig,
+    higher_context: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Optional[Tuple[str, str, float]]:
     candle = candles[index]
     mid = ind["bb_mid"][index]
@@ -532,9 +666,13 @@ def signal_for_index(
         score = signal_quality_score("long", rsi_value, adx_value, bandwidth, ema_spread, drift_value, cfg)
         if score < cfg.min_signal_score:
             return None
+        confirm_allowed, confirm_text = higher_timeframe_allows("long", candle, higher_context or {}, cfg)
+        if not confirm_allowed:
+            return None
         reason = (
             f"lower_band_reclaim rsi={rsi_value:.1f} adx={adx_value:.1f} "
-            f"bandwidth={bandwidth:.4f} ema_spread={ema_spread:.4f}{drift_text} score={score:.3f}"
+            f"bandwidth={bandwidth:.4f} ema_spread={ema_spread:.4f}{drift_text} "
+            f"score={score:.3f}{confirm_text}"
         )
         return "long", reason, score
 
@@ -542,9 +680,13 @@ def signal_for_index(
         score = signal_quality_score("short", rsi_value, adx_value, bandwidth, ema_spread, drift_value, cfg)
         if score < cfg.min_signal_score:
             return None
+        confirm_allowed, confirm_text = higher_timeframe_allows("short", candle, higher_context or {}, cfg)
+        if not confirm_allowed:
+            return None
         reason = (
             f"upper_band_reclaim rsi={rsi_value:.1f} adx={adx_value:.1f} "
-            f"bandwidth={bandwidth:.4f} ema_spread={ema_spread:.4f}{drift_text} score={score:.3f}"
+            f"bandwidth={bandwidth:.4f} ema_spread={ema_spread:.4f}{drift_text} "
+            f"score={score:.3f}{confirm_text}"
         )
         return "short", reason, score
 
@@ -727,6 +869,7 @@ def close_trade_record(
 
 def simulate(candles: Sequence[Candle], cfg: StrategyConfig) -> Dict[str, Any]:
     ind = indicators(candles, cfg)
+    higher_context = build_higher_timeframe_context(candles, cfg)
     equity = cfg.initial_equity
     peak_equity = equity
     max_drawdown = 0.0
@@ -881,7 +1024,7 @@ def simulate(candles: Sequence[Candle], cfg: StrategyConfig) -> Dict[str, Any]:
 
             if not trading_halted and position is None and pending is None and index >= cooldown_until:
                 signal_index = index - 1
-                signal = signal_for_index(candles, ind, signal_index, cfg)
+                signal = signal_for_index(candles, ind, signal_index, cfg, higher_context)
                 if signal is not None:
                     side, reason, signal_score = signal
                     pending = build_pending_entry(candles, ind, signal_index, index, side, reason, signal_score, cfg)
@@ -1010,6 +1153,12 @@ def print_summary(summary: Dict[str, Any]) -> None:
         print(f"10x target still needs: {gap:.2f}x from this result")
 
 
+def parse_timeframes(raw_value: str) -> Tuple[str, ...]:
+    if not raw_value.strip():
+        return ()
+    return tuple(item.strip() for item in raw_value.split(",") if item.strip())
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Simulate a BTCUSDT futures range-swing strategy without placing real orders.",
@@ -1057,6 +1206,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--high-adx-drift-threshold", type=float, default=26.0)
     parser.add_argument("--min-high-adx-drift-pct", type=float, default=0.0012)
     parser.add_argument("--min-signal-score", type=float, default=0.50)
+    parser.add_argument("--confirm-timeframes", default="15m,30m", help="Comma-separated higher timeframes used to filter 5m entries. Empty disables the filter.")
+    parser.add_argument("--confirm-drift-lookback-bars", type=int, default=16)
+    parser.add_argument("--confirm-countertrend-drift-limit-pct", type=float, default=0.0012)
+    parser.add_argument("--confirm-countertrend-ema-spread-pct", type=float, default=0.0005)
+    parser.add_argument("--confirm-countertrend-min-adx", type=float, default=18.0)
+    parser.add_argument("--confirm-min-space-pct", type=float, default=0.0015)
     parser.add_argument("--adaptive-risk-enabled", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--min-risk-multiplier", type=float, default=0.95)
     parser.add_argument("--max-risk-multiplier", type=float, default=1.10)
@@ -1089,6 +1244,15 @@ def config_from_args(args: argparse.Namespace) -> StrategyConfig:
         raise ValueError("--high-adx-drift-threshold and --min-high-adx-drift-pct must be >= 0")
     if not 0 <= args.min_signal_score <= 1:
         raise ValueError("--min-signal-score must be between 0 and 1")
+    confirm_timeframes = parse_timeframes(args.confirm_timeframes)
+    for timeframe in confirm_timeframes:
+        interval_to_ms(timeframe)
+    if args.confirm_drift_lookback_bars < 0:
+        raise ValueError("--confirm-drift-lookback-bars must be >= 0")
+    if args.confirm_countertrend_drift_limit_pct < 0 or args.confirm_countertrend_ema_spread_pct < 0:
+        raise ValueError("--confirm-countertrend-* values must be >= 0")
+    if args.confirm_countertrend_min_adx < 0 or args.confirm_min_space_pct < 0:
+        raise ValueError("--confirm-countertrend-min-adx and --confirm-min-space-pct must be >= 0")
     if args.min_risk_multiplier <= 0 or args.max_risk_multiplier <= 0:
         raise ValueError("--min-risk-multiplier and --max-risk-multiplier must be > 0")
     if args.min_risk_multiplier > args.max_risk_multiplier:
@@ -1139,6 +1303,12 @@ def config_from_args(args: argparse.Namespace) -> StrategyConfig:
         high_adx_drift_threshold=args.high_adx_drift_threshold,
         min_high_adx_drift_pct=args.min_high_adx_drift_pct,
         min_signal_score=args.min_signal_score,
+        confirm_timeframes=confirm_timeframes,
+        confirm_drift_lookback_bars=args.confirm_drift_lookback_bars,
+        confirm_countertrend_drift_limit_pct=args.confirm_countertrend_drift_limit_pct,
+        confirm_countertrend_ema_spread_pct=args.confirm_countertrend_ema_spread_pct,
+        confirm_countertrend_min_adx=args.confirm_countertrend_min_adx,
+        confirm_min_space_pct=args.confirm_min_space_pct,
         adaptive_risk_enabled=args.adaptive_risk_enabled,
         min_risk_multiplier=args.min_risk_multiplier,
         max_risk_multiplier=args.max_risk_multiplier,
