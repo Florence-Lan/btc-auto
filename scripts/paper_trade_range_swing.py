@@ -38,7 +38,7 @@ def default_config(args: argparse.Namespace) -> sim.StrategyConfig:
         side_mode="auto",
         drift_lookback_bars=144,
         countertrend_drift_limit_pct=0.0015,
-        long_rsi=39.0,
+        long_rsi=35.0,
         short_rsi=67.0,
         reclaim_buffer_pct=0.00012,
         min_band_excursion_pct=0.0,
@@ -53,12 +53,12 @@ def default_config(args: argparse.Namespace) -> sim.StrategyConfig:
         tp2_close_ratio=0.30,
         break_even_buffer_pct=0.00035,
         trail_atr=1.2,
-        max_hold_bars=42,
+        max_hold_bars=24,
         cooldown_bars=4,
         max_drawdown_stop_pct=args.max_drawdown_stop_pct,
         high_adx_drift_threshold=26.0,
         min_high_adx_drift_pct=0.0012,
-        min_signal_score=0.50,
+        min_signal_score=0.60,
         confirm_timeframes=sim.parse_timeframes(args.confirm_timeframes),
         confirm_drift_lookback_bars=args.confirm_drift_lookback_bars,
         confirm_countertrend_drift_limit_pct=args.confirm_countertrend_drift_limit_pct,
@@ -66,8 +66,8 @@ def default_config(args: argparse.Namespace) -> sim.StrategyConfig:
         confirm_countertrend_min_adx=args.confirm_countertrend_min_adx,
         confirm_min_space_pct=args.confirm_min_space_pct,
         adaptive_risk_enabled=True,
-        min_risk_multiplier=0.95,
-        max_risk_multiplier=1.10,
+        min_risk_multiplier=0.65,
+        max_risk_multiplier=0.90,
         maintenance_margin_pct=args.maintenance_margin_pct,
         liquidation_fee_pct=args.liquidation_fee_pct,
         entry_slippage_bps=args.entry_slippage_bps,
@@ -462,11 +462,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--symbol", default="BTCUSDT")
     parser.add_argument("--interval", default="5m")
     parser.add_argument("--initial-equity", type=float, default=100.0)
-    parser.add_argument("--leverage", type=float, default=30.0)
-    parser.add_argument("--risk-per-trade", type=float, default=0.18)
+    parser.add_argument("--leverage", type=float, default=10.0)
+    parser.add_argument("--risk-per-trade", type=float, default=0.06)
     parser.add_argument("--maker-fee", type=float, default=0.0002)
     parser.add_argument("--taker-fee", type=float, default=0.00045)
-    parser.add_argument("--max-drawdown-stop-pct", type=float, default=50.0)
+    parser.add_argument("--max-drawdown-stop-pct", type=float, default=20.0)
     parser.add_argument("--maintenance-margin-pct", type=float, default=0.004)
     parser.add_argument("--liquidation-fee-pct", type=float, default=0.001)
     parser.add_argument("--entry-slippage-bps", type=float, default=0.5)
