@@ -53,21 +53,28 @@ def default_config(args: argparse.Namespace) -> sim.StrategyConfig:
         tp2_close_ratio=0.30,
         break_even_buffer_pct=0.00035,
         trail_atr=1.2,
-        max_hold_bars=24,
+        max_hold_bars=36,
         cooldown_bars=4,
         max_drawdown_stop_pct=args.max_drawdown_stop_pct,
         high_adx_drift_threshold=26.0,
         min_high_adx_drift_pct=0.0012,
-        min_signal_score=0.60,
+        min_signal_score=0.70,
         confirm_timeframes=sim.parse_timeframes(args.confirm_timeframes),
         confirm_drift_lookback_bars=args.confirm_drift_lookback_bars,
         confirm_countertrend_drift_limit_pct=args.confirm_countertrend_drift_limit_pct,
         confirm_countertrend_ema_spread_pct=args.confirm_countertrend_ema_spread_pct,
         confirm_countertrend_min_adx=args.confirm_countertrend_min_adx,
         confirm_min_space_pct=args.confirm_min_space_pct,
+        trend_stretch_filter_timeframes=sim.parse_timeframes(args.trend_stretch_filter_timeframes),
+        max_trend_stretch_ema_spread=args.max_trend_stretch_ema_spread,
+        min_trend_stretch_adx=args.min_trend_stretch_adx,
         adaptive_risk_enabled=True,
-        min_risk_multiplier=0.65,
-        max_risk_multiplier=0.90,
+        min_risk_multiplier=0.80,
+        max_risk_multiplier=1.20,
+        market_context_enabled=args.market_context_enabled,
+        market_context_periods=sim.parse_timeframes(args.market_context_periods),
+        min_market_context_score=args.min_market_context_score,
+        market_context_score_weight=args.market_context_score_weight,
         maintenance_margin_pct=args.maintenance_margin_pct,
         liquidation_fee_pct=args.liquidation_fee_pct,
         entry_slippage_bps=args.entry_slippage_bps,
@@ -343,6 +350,7 @@ def process_candle(
     index: int,
     cfg: sim.StrategyConfig,
     trades_path: Path,
+    market_context: Optional[sim.MarketContext],
 ) -> None:
     candle = candles[index]
     ind = sim.indicators(candles[: index + 1], cfg)
@@ -383,7 +391,7 @@ def process_candle(
         ):
             signal_index = index - 1
             higher_context = sim.build_higher_timeframe_context(candles[: index + 1], cfg)
-            signal = sim.signal_for_index(candles[: index + 1], ind, signal_index, cfg, higher_context)
+            signal = sim.signal_for_index(candles[: index + 1], ind, signal_index, cfg, higher_context, market_context)
             if signal is not None:
                 side, reason, score = signal
                 pending = sim.build_pending_entry(candles[: index + 1], ind, signal_index, index, side, reason, score, cfg)
@@ -420,8 +428,13 @@ def closed_candles(candles: Sequence[sim.Candle]) -> List[sim.Candle]:
 
 def run_once(args: argparse.Namespace, cfg: sim.StrategyConfig, state: Dict[str, Any], state_path: Path, trades_path: Path) -> None:
     symbol = sim.normalize_symbol(args.symbol)
-    fetch_days = max(args.fetch_days, 4.0 if cfg.confirm_timeframes else 2.0)
+    fetch_days = max(args.fetch_days, sim.minimum_history_days(args.interval, cfg) if cfg.confirm_timeframes else 2.0)
     candles = closed_candles(sim.fetch_futures_klines(symbol, args.interval, fetch_days))
+    market_context = (
+        sim.fetch_market_context(symbol, min(fetch_days, 30.0), cfg.market_context_periods)
+        if cfg.market_context_enabled
+        else None
+    )
     warmup = max(cfg.bb_period, cfg.rsi_period + 1, cfg.atr_period, cfg.adx_period * 2, cfg.ema_slow) + 2
     if len(candles) <= warmup:
         raise RuntimeError(f"not enough candles for paper trading warmup: {len(candles)}")
@@ -434,7 +447,7 @@ def run_once(args: argparse.Namespace, cfg: sim.StrategyConfig, state: Dict[str,
 
     processed = 0
     for index in range(start_index, len(candles)):
-        process_candle(state, candles, index, cfg, trades_path)
+        process_candle(state, candles, index, cfg, trades_path, market_context)
         processed += 1
 
     save_state(state_path, state)
@@ -462,11 +475,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--symbol", default="BTCUSDT")
     parser.add_argument("--interval", default="5m")
     parser.add_argument("--initial-equity", type=float, default=100.0)
-    parser.add_argument("--leverage", type=float, default=10.0)
-    parser.add_argument("--risk-per-trade", type=float, default=0.06)
+    parser.add_argument("--leverage", type=float, default=18.0)
+    parser.add_argument("--risk-per-trade", type=float, default=0.12)
     parser.add_argument("--maker-fee", type=float, default=0.0002)
     parser.add_argument("--taker-fee", type=float, default=0.00045)
-    parser.add_argument("--max-drawdown-stop-pct", type=float, default=20.0)
+    parser.add_argument("--max-drawdown-stop-pct", type=float, default=25.0)
     parser.add_argument("--maintenance-margin-pct", type=float, default=0.004)
     parser.add_argument("--liquidation-fee-pct", type=float, default=0.001)
     parser.add_argument("--entry-slippage-bps", type=float, default=0.5)
@@ -474,12 +487,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--depth-impact-bps", type=float, default=8.0)
     parser.add_argument("--depth-impact-exponent", type=float, default=0.5)
     parser.add_argument("--min-depth-quote", type=float, default=2_000_000.0)
-    parser.add_argument("--confirm-timeframes", default="15m,30m")
+    parser.add_argument("--confirm-timeframes", default="15m,30m,1h,4h")
     parser.add_argument("--confirm-drift-lookback-bars", type=int, default=16)
     parser.add_argument("--confirm-countertrend-drift-limit-pct", type=float, default=0.0012)
     parser.add_argument("--confirm-countertrend-ema-spread-pct", type=float, default=0.0005)
     parser.add_argument("--confirm-countertrend-min-adx", type=float, default=18.0)
     parser.add_argument("--confirm-min-space-pct", type=float, default=0.0015)
+    parser.add_argument("--trend-stretch-filter-timeframes", default="4h")
+    parser.add_argument("--max-trend-stretch-ema-spread", type=float, default=0.030)
+    parser.add_argument("--min-trend-stretch-adx", type=float, default=18.0)
+    parser.add_argument("--market-context-enabled", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--market-context-periods", default="5m,15m,1h,4h")
+    parser.add_argument("--min-market-context-score", type=float, default=0.0)
+    parser.add_argument("--market-context-score-weight", type=float, default=0.10)
     parser.add_argument("--fetch-days", type=float, default=3.0)
     parser.add_argument("--backfill-bars", type=int, default=1, help="Replay this many latest closed bars when creating new state.")
     parser.add_argument("--poll-seconds", type=int, default=60)

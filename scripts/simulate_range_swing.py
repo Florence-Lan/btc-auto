@@ -16,6 +16,8 @@ import requests
 
 
 BINANCE_FUTURES_BASE_URL = "https://fapi.binance.com"
+MINUTES_PER_DAY = 24 * 60
+MS_PER_DAY = 24 * 60 * 60 * 1000
 
 
 @dataclass(frozen=True)
@@ -89,6 +91,13 @@ class Trade:
 
 
 @dataclass(frozen=True)
+class MarketContext:
+    periods: Dict[str, Dict[str, Dict[str, List[float]]]]
+    funding_times: List[int]
+    funding_rates: List[float]
+
+
+@dataclass(frozen=True)
 class StrategyConfig:
     initial_equity: float
     leverage: float
@@ -135,9 +144,16 @@ class StrategyConfig:
     confirm_countertrend_ema_spread_pct: float
     confirm_countertrend_min_adx: float
     confirm_min_space_pct: float
+    trend_stretch_filter_timeframes: Tuple[str, ...]
+    max_trend_stretch_ema_spread: float
+    min_trend_stretch_adx: float
     adaptive_risk_enabled: bool
     min_risk_multiplier: float
     max_risk_multiplier: float
+    market_context_enabled: bool
+    market_context_periods: Tuple[str, ...]
+    min_market_context_score: float
+    market_context_score_weight: float
     maintenance_margin_pct: float
     liquidation_fee_pct: float
     entry_slippage_bps: float
@@ -163,6 +179,19 @@ def interval_to_ms(interval: str) -> int:
     if unit not in factors:
         raise ValueError(f"Unsupported interval: {interval}")
     return value * factors[unit]
+
+
+def minimum_history_days(base_interval: str, cfg: StrategyConfig, buffer_days: float = 1.0) -> float:
+    intervals = (base_interval, *cfg.confirm_timeframes)
+    required_days = 0.0
+    indicator_bars = max(cfg.bb_period, cfg.rsi_period + 1, cfg.atr_period, cfg.adx_period * 2, cfg.ema_slow)
+    for interval in intervals:
+        bars = indicator_bars
+        if interval in cfg.confirm_timeframes:
+            bars += cfg.confirm_drift_lookback_bars + 2
+        interval_minutes = interval_to_ms(interval) / 60_000
+        required_days = max(required_days, bars * interval_minutes / MINUTES_PER_DAY)
+    return required_days + buffer_days
 
 
 def normalize_symbol(raw_symbol: str) -> str:
@@ -264,6 +293,191 @@ def fetch_futures_klines(symbol: str, interval: str, days: float) -> List[Candle
 
     candles = sorted(candles, key=lambda candle: candle.open_time_ms)
     return [candle for candle in candles if candle.close_time_ms <= end_ms]
+
+
+def fetch_json_with_retries(session: requests.Session, path: str, params: Dict[str, Any]) -> Any:
+    last_error: Optional[Exception] = None
+    for attempt in range(4):
+        try:
+            response = session.get(
+                f"{BINANCE_FUTURES_BASE_URL}{path}",
+                params=params,
+                timeout=45,
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as exc:
+            last_error = exc
+            time.sleep(1.5 * (attempt + 1))
+    raise RuntimeError(f"failed to fetch Binance endpoint {path}: {last_error}") from last_error
+
+
+def fetch_futures_data_history(
+    session: requests.Session,
+    path: str,
+    base_params: Dict[str, Any],
+    period: str,
+    days: float,
+    timestamp_field: str = "timestamp",
+) -> List[Dict[str, Any]]:
+    interval_ms = interval_to_ms(period)
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    start_ms = now_ms - int(min(days, 29.0) * MS_PER_DAY)
+    rows: List[Dict[str, Any]] = []
+    seen: set[int] = set()
+    cursor = start_ms
+    while cursor < now_ms:
+        params = {
+            **base_params,
+            "period": period,
+            "startTime": cursor,
+            "endTime": now_ms,
+            "limit": 500,
+        }
+        batch = fetch_json_with_retries(session, path, params)
+        if not isinstance(batch, list) or not batch:
+            break
+        for item in batch:
+            timestamp = int(item[timestamp_field])
+            if timestamp not in seen:
+                rows.append(item)
+                seen.add(timestamp)
+        next_cursor = int(batch[-1][timestamp_field]) + interval_ms
+        if next_cursor <= cursor or len(batch) < 500:
+            break
+        cursor = next_cursor
+        time.sleep(0.04)
+    return sorted(rows, key=lambda item: int(item[timestamp_field]))
+
+
+def series_from_rows(rows: Sequence[Dict[str, Any]], value_field: str, timestamp_field: str = "timestamp") -> Dict[str, List[float]]:
+    timestamps: List[float] = []
+    values: List[float] = []
+    for row in rows:
+        value = row.get(value_field)
+        timestamp = row.get(timestamp_field)
+        if value is None or timestamp is None:
+            continue
+        try:
+            timestamps.append(float(timestamp))
+            values.append(float(value))
+        except (TypeError, ValueError):
+            continue
+    return {"timestamps": timestamps, "values": values}
+
+
+def fetch_premium_index_klines(session: requests.Session, symbol: str, period: str, days: float) -> List[Dict[str, Any]]:
+    interval_ms = interval_to_ms(period)
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    start_ms = now_ms - int(min(days, 29.0) * MS_PER_DAY)
+    rows: List[Dict[str, Any]] = []
+    seen: set[int] = set()
+    cursor = start_ms
+    while cursor < now_ms:
+        params = {
+            "symbol": symbol,
+            "interval": period,
+            "startTime": cursor,
+            "endTime": now_ms,
+            "limit": 1500,
+        }
+        batch = fetch_json_with_retries(session, "/fapi/v1/premiumIndexKlines", params)
+        if not isinstance(batch, list) or not batch:
+            break
+        for item in batch:
+            timestamp = int(item[0])
+            if timestamp not in seen:
+                rows.append({"timestamp": timestamp, "premium": item[4]})
+                seen.add(timestamp)
+        next_cursor = int(batch[-1][0]) + interval_ms
+        if next_cursor <= cursor or len(batch) < 1500:
+            break
+        cursor = next_cursor
+        time.sleep(0.04)
+    return sorted(rows, key=lambda item: int(item["timestamp"]))
+
+
+def fetch_market_context(symbol: str, days: float, periods: Sequence[str]) -> MarketContext:
+    periods = tuple(dict.fromkeys(periods))
+    period_payload: Dict[str, Dict[str, Dict[str, List[float]]]] = {}
+    with requests.Session() as session:
+        session.headers.update({"User-Agent": "btc-auto-market-context/1.0"})
+        for period in periods:
+            metrics: Dict[str, Dict[str, List[float]]] = {}
+            metrics["open_interest_value"] = series_from_rows(
+                fetch_futures_data_history(
+                    session,
+                    "/futures/data/openInterestHist",
+                    {"symbol": symbol},
+                    period,
+                    days,
+                ),
+                "sumOpenInterestValue",
+            )
+            metrics["taker_buy_sell_ratio"] = series_from_rows(
+                fetch_futures_data_history(
+                    session,
+                    "/futures/data/takerlongshortRatio",
+                    {"symbol": symbol},
+                    period,
+                    days,
+                ),
+                "buySellRatio",
+            )
+            metrics["top_position_ratio"] = series_from_rows(
+                fetch_futures_data_history(
+                    session,
+                    "/futures/data/topLongShortPositionRatio",
+                    {"symbol": symbol},
+                    period,
+                    days,
+                ),
+                "longShortRatio",
+            )
+            metrics["top_account_ratio"] = series_from_rows(
+                fetch_futures_data_history(
+                    session,
+                    "/futures/data/topLongShortAccountRatio",
+                    {"symbol": symbol},
+                    period,
+                    days,
+                ),
+                "longShortRatio",
+            )
+            metrics["global_account_ratio"] = series_from_rows(
+                fetch_futures_data_history(
+                    session,
+                    "/futures/data/globalLongShortAccountRatio",
+                    {"symbol": symbol},
+                    period,
+                    days,
+                ),
+                "longShortRatio",
+            )
+            metrics["premium_index"] = series_from_rows(
+                fetch_premium_index_klines(session, symbol, period, days),
+                "premium",
+            )
+            period_payload[period] = metrics
+
+        funding_rows = fetch_json_with_retries(
+            session,
+            "/fapi/v1/fundingRate",
+            {"symbol": symbol, "limit": 1000},
+        )
+    funding_times: List[int] = []
+    funding_rates: List[float] = []
+    if isinstance(funding_rows, list):
+        cutoff = int(datetime.now(timezone.utc).timestamp() * 1000) - int(min(days, 29.0) * MS_PER_DAY)
+        for row in funding_rows:
+            try:
+                timestamp = int(row["fundingTime"])
+                if timestamp >= cutoff:
+                    funding_times.append(timestamp)
+                    funding_rates.append(float(row["fundingRate"]))
+            except (KeyError, TypeError, ValueError):
+                continue
+    return MarketContext(periods=period_payload, funding_times=funding_times, funding_rates=funding_rates)
 
 
 def mean(values: Sequence[float]) -> float:
@@ -538,6 +752,15 @@ def higher_timeframe_allows(
                 f"{timeframe}_countertrend ema_spread={ema_spread:.4f} "
                 f"drift={drift_value:.4f} adx={adx_value:.1f}"
             )
+        if (
+            timeframe in cfg.trend_stretch_filter_timeframes
+            and abs(ema_spread) >= cfg.max_trend_stretch_ema_spread
+            and adx_value >= cfg.min_trend_stretch_adx
+        ):
+            return False, (
+                f"{timeframe}_trend_stretch ema_spread={ema_spread:.4f} "
+                f"adx={adx_value:.1f}"
+            )
         if space < cfg.confirm_min_space_pct:
             return False, f"{timeframe}_space={space:.4f}"
 
@@ -561,6 +784,122 @@ def side_aligned_drift(side: str, drift_value: Optional[float]) -> float:
     if drift_value is None:
         return 0.0
     return drift_value if side == "long" else -drift_value
+
+
+def series_value_at(series: Dict[str, List[float]], timestamp_ms: int) -> Optional[float]:
+    timestamps = series.get("timestamps", [])
+    values = series.get("values", [])
+    index = bisect_right(timestamps, float(timestamp_ms)) - 1
+    if index < 0 or index >= len(values):
+        return None
+    return values[index]
+
+
+def series_change_pct_at(series: Dict[str, List[float]], timestamp_ms: int, lookback: int = 6) -> Optional[float]:
+    timestamps = series.get("timestamps", [])
+    values = series.get("values", [])
+    index = bisect_right(timestamps, float(timestamp_ms)) - 1
+    previous_index = index - lookback
+    if previous_index < 0 or index >= len(values):
+        return None
+    previous = values[previous_index]
+    if previous == 0:
+        return None
+    return (values[index] / previous - 1) * 100
+
+
+def funding_rate_at(market_context: MarketContext, timestamp_ms: int) -> Optional[float]:
+    index = bisect_right(market_context.funding_times, timestamp_ms) - 1
+    if index < 0 or index >= len(market_context.funding_rates):
+        return None
+    return market_context.funding_rates[index]
+
+
+def aligned_ratio_delta(side: str, ratio: Optional[float]) -> float:
+    if ratio is None:
+        return 0.0
+    return ratio - 1 if side == "long" else 1 - ratio
+
+
+def market_context_for_signal(
+    side: str,
+    candle: Candle,
+    market_context: Optional[MarketContext],
+    cfg: StrategyConfig,
+) -> Tuple[bool, float, float, str]:
+    if not cfg.market_context_enabled or market_context is None:
+        return True, 0.0, 1.0, ""
+
+    observations = 0
+    score = 0.50
+    notes: List[str] = []
+
+    for period in cfg.market_context_periods:
+        metrics = market_context.periods.get(period)
+        if not metrics:
+            continue
+        taker = series_value_at(metrics.get("taker_buy_sell_ratio", {}), candle.close_time_ms)
+        top_position = series_value_at(metrics.get("top_position_ratio", {}), candle.close_time_ms)
+        top_account = series_value_at(metrics.get("top_account_ratio", {}), candle.close_time_ms)
+        global_account = series_value_at(metrics.get("global_account_ratio", {}), candle.close_time_ms)
+        oi_change = series_change_pct_at(metrics.get("open_interest_value", {}), candle.close_time_ms, 6)
+        premium = series_value_at(metrics.get("premium_index", {}), candle.close_time_ms)
+
+        period_score = 0.0
+        period_observations = 0
+        for ratio, scale, weight in (
+            (taker, 0.35, 0.24),
+            (top_position, 0.20, 0.20),
+            (top_account, 0.35, 0.12),
+            (global_account, 0.35, 0.08),
+        ):
+            if ratio is not None:
+                period_score += weight * clamp(aligned_ratio_delta(side, ratio) / scale, -1.0, 1.0)
+                period_observations += 1
+
+        if oi_change is not None:
+            flow_delta = aligned_ratio_delta(side, taker)
+            if oi_change > 0.15:
+                period_score += 0.12 if flow_delta > 0 else -0.08
+            elif oi_change < -0.15 and flow_delta < 0:
+                period_score -= 0.06
+            period_observations += 1
+
+        if premium is not None:
+            aligned_premium = -premium if side == "long" else premium
+            period_score += 0.08 * clamp(aligned_premium / 0.0015, -1.0, 1.0)
+            period_observations += 1
+
+        if period_observations:
+            score += period_score / max(len(cfg.market_context_periods), 1)
+            observations += period_observations
+            note_parts = []
+            if taker is not None:
+                note_parts.append(f"taker={taker:.3f}")
+            if oi_change is not None:
+                note_parts.append(f"oi6={oi_change:.2f}%")
+            if top_position is not None:
+                note_parts.append(f"topPos={top_position:.3f}")
+            if premium is not None:
+                note_parts.append(f"premium={premium:.5f}")
+            if note_parts:
+                notes.append(f"{period}:" + ",".join(note_parts))
+
+    funding = funding_rate_at(market_context, candle.close_time_ms)
+    if funding is not None:
+        aligned_funding = -funding if side == "long" else funding
+        score += 0.08 * clamp(aligned_funding / 0.00025, -1.0, 1.0)
+        observations += 1
+        notes.append(f"funding={funding:.5f}")
+
+    if observations == 0:
+        return True, 0.0, 1.0, " market=missing"
+
+    score = clamp(score, 0.0, 1.0)
+    allowed = score >= cfg.min_market_context_score
+    score_delta = (score - 0.50) * cfg.market_context_score_weight
+    risk_multiplier = clamp(0.75 + score * 0.55, 0.70, 1.20)
+    return allowed, score_delta, risk_multiplier, f" market_score={score:.3f} " + ";".join(notes)
 
 
 def signal_quality_score(
@@ -614,6 +953,7 @@ def signal_for_index(
     index: int,
     cfg: StrategyConfig,
     higher_context: Optional[Dict[str, Dict[str, Any]]] = None,
+    market_context: Optional[MarketContext] = None,
 ) -> Optional[Tuple[str, str, float]]:
     candle = candles[index]
     mid = ind["bb_mid"][index]
@@ -663,7 +1003,16 @@ def signal_for_index(
     drift_text = f" drift={drift_value:.4f}" if drift_value is not None else ""
 
     if lower_reclaimed and candle.close < mid and rsi_value <= cfg.long_rsi and side_allowed("long"):
-        score = signal_quality_score("long", rsi_value, adx_value, bandwidth, ema_spread, drift_value, cfg)
+        base_score = signal_quality_score("long", rsi_value, adx_value, bandwidth, ema_spread, drift_value, cfg)
+        market_allowed, market_delta, _market_risk, market_text = market_context_for_signal(
+            "long",
+            candle,
+            market_context,
+            cfg,
+        )
+        if not market_allowed:
+            return None
+        score = clamp(base_score + market_delta, 0.0, 1.0)
         if score < cfg.min_signal_score:
             return None
         confirm_allowed, confirm_text = higher_timeframe_allows("long", candle, higher_context or {}, cfg)
@@ -672,12 +1021,21 @@ def signal_for_index(
         reason = (
             f"lower_band_reclaim rsi={rsi_value:.1f} adx={adx_value:.1f} "
             f"bandwidth={bandwidth:.4f} ema_spread={ema_spread:.4f}{drift_text} "
-            f"score={score:.3f}{confirm_text}"
+            f"base_score={base_score:.3f} score={score:.3f}{market_text}{confirm_text}"
         )
         return "long", reason, score
 
     if upper_reclaimed and candle.close > mid and rsi_value >= cfg.short_rsi and side_allowed("short"):
-        score = signal_quality_score("short", rsi_value, adx_value, bandwidth, ema_spread, drift_value, cfg)
+        base_score = signal_quality_score("short", rsi_value, adx_value, bandwidth, ema_spread, drift_value, cfg)
+        market_allowed, market_delta, _market_risk, market_text = market_context_for_signal(
+            "short",
+            candle,
+            market_context,
+            cfg,
+        )
+        if not market_allowed:
+            return None
+        score = clamp(base_score + market_delta, 0.0, 1.0)
         if score < cfg.min_signal_score:
             return None
         confirm_allowed, confirm_text = higher_timeframe_allows("short", candle, higher_context or {}, cfg)
@@ -686,7 +1044,7 @@ def signal_for_index(
         reason = (
             f"upper_band_reclaim rsi={rsi_value:.1f} adx={adx_value:.1f} "
             f"bandwidth={bandwidth:.4f} ema_spread={ema_spread:.4f}{drift_text} "
-            f"score={score:.3f}{confirm_text}"
+            f"base_score={base_score:.3f} score={score:.3f}{market_text}{confirm_text}"
         )
         return "short", reason, score
 
@@ -867,7 +1225,12 @@ def close_trade_record(
     )
 
 
-def simulate(candles: Sequence[Candle], cfg: StrategyConfig) -> Dict[str, Any]:
+def simulate(
+    candles: Sequence[Candle],
+    cfg: StrategyConfig,
+    evaluation_start_ms: Optional[int] = None,
+    market_context: Optional[MarketContext] = None,
+) -> Dict[str, Any]:
     ind = indicators(candles, cfg)
     higher_context = build_higher_timeframe_context(candles, cfg)
     equity = cfg.initial_equity
@@ -884,7 +1247,11 @@ def simulate(candles: Sequence[Candle], cfg: StrategyConfig) -> Dict[str, Any]:
 
     warmup = max(cfg.bb_period, cfg.rsi_period + 1, cfg.atr_period, cfg.adx_period * 2, cfg.ema_slow) + 2
 
-    for index in range(warmup, len(candles)):
+    start_index = warmup
+    if evaluation_start_ms is not None:
+        start_index = max(warmup, next((i for i, candle in enumerate(candles) if candle.open_time_ms >= evaluation_start_ms), len(candles)))
+
+    for index in range(start_index, len(candles)):
         candle = candles[index]
         atr_value = ind["atr"][index]
 
@@ -1024,7 +1391,7 @@ def simulate(candles: Sequence[Candle], cfg: StrategyConfig) -> Dict[str, Any]:
 
             if not trading_halted and position is None and pending is None and index >= cooldown_until:
                 signal_index = index - 1
-                signal = signal_for_index(candles, ind, signal_index, cfg, higher_context)
+                signal = signal_for_index(candles, ind, signal_index, cfg, higher_context, market_context)
                 if signal is not None:
                     side, reason, signal_score = signal
                     pending = build_pending_entry(candles, ind, signal_index, index, side, reason, signal_score, cfg)
@@ -1055,7 +1422,8 @@ def simulate(candles: Sequence[Candle], cfg: StrategyConfig) -> Dict[str, Any]:
         equity += trade.net_pnl
         trades.append(trade)
 
-    summary = summarize_results(candles, trades, equity_curve, cfg, equity, max_drawdown)
+    summary_candles = candles[start_index:] if start_index < len(candles) else candles[-1:]
+    summary = summarize_results(summary_candles, trades, equity_curve, cfg, equity, max_drawdown)
     return {
         "summary": summary,
         "trades": [asdict(trade) for trade in trades],
@@ -1165,11 +1533,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--symbol", default="BTCUSDT")
     parser.add_argument("--interval", default="5m")
-    parser.add_argument("--days", type=float, default=14.0)
+    parser.add_argument("--days", type=float, default=60.0)
     parser.add_argument("--snapshot", type=Path, help="Use a saved snapshot JSON instead of fetching Binance klines.")
     parser.add_argument("--initial-equity", type=float, default=100.0)
-    parser.add_argument("--leverage", type=float, default=10.0)
-    parser.add_argument("--risk-per-trade", type=float, default=0.06)
+    parser.add_argument("--leverage", type=float, default=18.0)
+    parser.add_argument("--risk-per-trade", type=float, default=0.12)
     parser.add_argument("--maker-fee", type=float, default=0.0002)
     parser.add_argument("--taker-fee", type=float, default=0.00045)
     parser.add_argument("--bb-period", type=int, default=36)
@@ -1200,21 +1568,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tp2-close-ratio", type=float, default=0.30)
     parser.add_argument("--break-even-buffer-pct", type=float, default=0.00035)
     parser.add_argument("--trail-atr", type=float, default=1.2)
-    parser.add_argument("--max-hold-bars", type=int, default=24)
+    parser.add_argument("--max-hold-bars", type=int, default=36)
     parser.add_argument("--cooldown-bars", type=int, default=4)
-    parser.add_argument("--max-drawdown-stop-pct", type=float, default=20.0)
+    parser.add_argument("--max-drawdown-stop-pct", type=float, default=25.0)
     parser.add_argument("--high-adx-drift-threshold", type=float, default=26.0)
     parser.add_argument("--min-high-adx-drift-pct", type=float, default=0.0012)
-    parser.add_argument("--min-signal-score", type=float, default=0.60)
-    parser.add_argument("--confirm-timeframes", default="15m,30m", help="Comma-separated higher timeframes used to filter 5m entries. Empty disables the filter.")
+    parser.add_argument("--min-signal-score", type=float, default=0.70)
+    parser.add_argument("--confirm-timeframes", default="15m,30m,1h,4h", help="Comma-separated higher timeframes used to filter 5m entries. Empty disables the filter.")
     parser.add_argument("--confirm-drift-lookback-bars", type=int, default=16)
     parser.add_argument("--confirm-countertrend-drift-limit-pct", type=float, default=0.0012)
     parser.add_argument("--confirm-countertrend-ema-spread-pct", type=float, default=0.0005)
     parser.add_argument("--confirm-countertrend-min-adx", type=float, default=18.0)
     parser.add_argument("--confirm-min-space-pct", type=float, default=0.0015)
+    parser.add_argument("--trend-stretch-filter-timeframes", default="4h")
+    parser.add_argument("--max-trend-stretch-ema-spread", type=float, default=0.030)
+    parser.add_argument("--min-trend-stretch-adx", type=float, default=18.0)
     parser.add_argument("--adaptive-risk-enabled", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--min-risk-multiplier", type=float, default=0.65)
-    parser.add_argument("--max-risk-multiplier", type=float, default=0.90)
+    parser.add_argument("--min-risk-multiplier", type=float, default=0.80)
+    parser.add_argument("--max-risk-multiplier", type=float, default=1.20)
+    parser.add_argument("--market-context-enabled", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--market-context-periods", default="5m,15m,1h,4h")
+    parser.add_argument("--min-market-context-score", type=float, default=0.0)
+    parser.add_argument("--market-context-score-weight", type=float, default=0.10)
     parser.add_argument("--maintenance-margin-pct", type=float, default=0.004)
     parser.add_argument("--liquidation-fee-pct", type=float, default=0.001)
     parser.add_argument("--entry-slippage-bps", type=float, default=0.5)
@@ -1247,16 +1622,28 @@ def config_from_args(args: argparse.Namespace) -> StrategyConfig:
     confirm_timeframes = parse_timeframes(args.confirm_timeframes)
     for timeframe in confirm_timeframes:
         interval_to_ms(timeframe)
+    market_context_periods = parse_timeframes(args.market_context_periods)
+    for period in market_context_periods:
+        interval_to_ms(period)
+    trend_stretch_filter_timeframes = parse_timeframes(args.trend_stretch_filter_timeframes)
+    for timeframe in trend_stretch_filter_timeframes:
+        interval_to_ms(timeframe)
     if args.confirm_drift_lookback_bars < 0:
         raise ValueError("--confirm-drift-lookback-bars must be >= 0")
     if args.confirm_countertrend_drift_limit_pct < 0 or args.confirm_countertrend_ema_spread_pct < 0:
         raise ValueError("--confirm-countertrend-* values must be >= 0")
     if args.confirm_countertrend_min_adx < 0 or args.confirm_min_space_pct < 0:
         raise ValueError("--confirm-countertrend-min-adx and --confirm-min-space-pct must be >= 0")
+    if args.max_trend_stretch_ema_spread < 0 or args.min_trend_stretch_adx < 0:
+        raise ValueError("--max-trend-stretch-ema-spread and --min-trend-stretch-adx must be >= 0")
     if args.min_risk_multiplier <= 0 or args.max_risk_multiplier <= 0:
         raise ValueError("--min-risk-multiplier and --max-risk-multiplier must be > 0")
     if args.min_risk_multiplier > args.max_risk_multiplier:
         raise ValueError("--min-risk-multiplier must be <= --max-risk-multiplier")
+    if not 0 <= args.min_market_context_score <= 1:
+        raise ValueError("--min-market-context-score must be between 0 and 1")
+    if args.market_context_score_weight < 0:
+        raise ValueError("--market-context-score-weight must be >= 0")
     if args.maintenance_margin_pct < 0 or args.liquidation_fee_pct < 0:
         raise ValueError("--maintenance-margin-pct and --liquidation-fee-pct must be >= 0")
     if args.entry_slippage_bps < 0 or args.exit_slippage_bps < 0:
@@ -1309,9 +1696,16 @@ def config_from_args(args: argparse.Namespace) -> StrategyConfig:
         confirm_countertrend_ema_spread_pct=args.confirm_countertrend_ema_spread_pct,
         confirm_countertrend_min_adx=args.confirm_countertrend_min_adx,
         confirm_min_space_pct=args.confirm_min_space_pct,
+        trend_stretch_filter_timeframes=trend_stretch_filter_timeframes,
+        max_trend_stretch_ema_spread=args.max_trend_stretch_ema_spread,
+        min_trend_stretch_adx=args.min_trend_stretch_adx,
         adaptive_risk_enabled=args.adaptive_risk_enabled,
         min_risk_multiplier=args.min_risk_multiplier,
         max_risk_multiplier=args.max_risk_multiplier,
+        market_context_enabled=args.market_context_enabled,
+        market_context_periods=market_context_periods,
+        min_market_context_score=args.min_market_context_score,
+        market_context_score_weight=args.market_context_score_weight,
         maintenance_margin_pct=args.maintenance_margin_pct,
         liquidation_fee_pct=args.liquidation_fee_pct,
         entry_slippage_bps=args.entry_slippage_bps,
@@ -1329,15 +1723,25 @@ def main() -> int:
     if args.snapshot:
         candles = load_candles_from_snapshot(args.snapshot)
         source = str(args.snapshot)
+        evaluation_start_ms = None
+        market_context = None
     else:
         symbol = normalize_symbol(args.symbol)
-        candles = fetch_futures_klines(symbol, args.interval, args.days)
-        source = f"binance_futures:{symbol}:{args.interval}:{args.days}d"
+        required_days = minimum_history_days(args.interval, cfg)
+        fetch_days = args.days + required_days if cfg.confirm_timeframes else args.days
+        candles = fetch_futures_klines(symbol, args.interval, fetch_days)
+        evaluation_start_ms = candles[-1].open_time_ms - int(args.days * MS_PER_DAY) if candles else None
+        source = f"binance_futures:{symbol}:{args.interval}:{args.days}d(+{required_days:.1f}d_warmup)"
+        market_context = (
+            fetch_market_context(symbol, min(args.days, 30.0), cfg.market_context_periods)
+            if cfg.market_context_enabled
+            else None
+        )
 
     if len(candles) < max(cfg.ema_slow, cfg.bb_period, cfg.adx_period * 2) + 10:
         raise ValueError(f"Not enough candles for the configured indicators: {len(candles)}")
 
-    result = simulate(candles, cfg)
+    result = simulate(candles, cfg, evaluation_start_ms, market_context)
     result["source"] = source
     result["generated_at_utc"] = datetime.now(timezone.utc).isoformat()
 
