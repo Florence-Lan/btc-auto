@@ -58,7 +58,7 @@ def default_config(args: argparse.Namespace) -> sim.StrategyConfig:
         max_drawdown_stop_pct=args.max_drawdown_stop_pct,
         high_adx_drift_threshold=26.0,
         min_high_adx_drift_pct=0.0012,
-        min_signal_score=0.70,
+        min_signal_score=args.min_signal_score,
         confirm_timeframes=sim.parse_timeframes(args.confirm_timeframes),
         confirm_drift_lookback_bars=args.confirm_drift_lookback_bars,
         confirm_countertrend_drift_limit_pct=args.confirm_countertrend_drift_limit_pct,
@@ -496,6 +496,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--trend-stretch-filter-timeframes", default="4h")
     parser.add_argument("--max-trend-stretch-ema-spread", type=float, default=0.030)
     parser.add_argument("--min-trend-stretch-adx", type=float, default=18.0)
+    parser.add_argument("--min-signal-score", type=float, default=0.50)
     parser.add_argument("--market-context-enabled", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--market-context-periods", default="5m,15m,1h,4h")
     parser.add_argument("--min-market-context-score", type=float, default=0.0)
@@ -507,7 +508,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reset-state", action="store_true")
     parser.add_argument("--state-path", type=Path, default=repo_root() / "data/paper_trading/state.json")
     parser.add_argument("--trades-path", type=Path, default=repo_root() / "data/paper_trading/trades.csv")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if not 0 <= args.min_signal_score <= 1:
+        raise ValueError("--min-signal-score must be between 0 and 1")
+    return args
 
 
 def main() -> int:

@@ -1,6 +1,4 @@
 .env
 .venv/
 __pycache__/
-data/binance_snapshots/
-data/simulations/
-data/paper_trading/
+data/*

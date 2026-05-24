@@ -1573,7 +1573,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-drawdown-stop-pct", type=float, default=25.0)
     parser.add_argument("--high-adx-drift-threshold", type=float, default=26.0)
     parser.add_argument("--min-high-adx-drift-pct", type=float, default=0.0012)
-    parser.add_argument("--min-signal-score", type=float, default=0.70)
+    parser.add_argument("--min-signal-score", type=float, default=0.50)
     parser.add_argument("--confirm-timeframes", default="15m,30m,1h,4h", help="Comma-separated higher timeframes used to filter 5m entries. Empty disables the filter.")
     parser.add_argument("--confirm-drift-lookback-bars", type=int, default=16)
     parser.add_argument("--confirm-countertrend-drift-limit-pct", type=float, default=0.0012)
