@@ -82,6 +82,30 @@ def default_config(args: argparse.Namespace) -> sim.StrategyConfig:
         depth_impact_bps=args.depth_impact_bps,
         depth_impact_exponent=args.depth_impact_exponent,
         min_depth_quote=args.min_depth_quote,
+        strategy_modes=tuple(item.lower() for item in sim.parse_timeframes(args.strategy_modes)),
+        trend_confirm_timeframes=sim.parse_timeframes(args.trend_confirm_timeframes),
+        trend_min_signal_score=args.trend_min_signal_score,
+        trend_min_adx=args.trend_min_adx,
+        trend_min_ema_spread=args.trend_min_ema_spread,
+        trend_min_drift_pct=args.trend_min_drift_pct,
+        trend_pullback_lookback_bars=args.trend_pullback_lookback_bars,
+        trend_pullback_atr=args.trend_pullback_atr,
+        trend_entry_pullback_atr=args.trend_entry_pullback_atr,
+        trend_stop_atr=args.trend_stop_atr,
+        trend_min_stop_pct=args.trend_min_stop_pct,
+        trend_tp1_rr=args.trend_tp1_rr,
+        trend_tp2_rr=args.trend_tp2_rr,
+        trend_tp3_rr=args.trend_tp3_rr,
+        trend_min_reward_risk=args.trend_min_reward_risk,
+        trend_short_rsi_min=args.trend_short_rsi_min,
+        trend_short_rsi_max=args.trend_short_rsi_max,
+        trend_long_rsi_min=args.trend_long_rsi_min,
+        trend_long_rsi_max=args.trend_long_rsi_max,
+        event_min_signal_score=args.event_min_signal_score,
+        event_risk_multiplier=args.event_risk_multiplier,
+        event_core_score_penalty=args.event_core_score_penalty,
+        event_regime_max_adx=args.event_regime_max_adx,
+        event_regime_max_aligned_ema_spread=args.event_regime_max_aligned_ema_spread,
     )
 
 
@@ -475,11 +499,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--symbol", default="BTCUSDT")
     parser.add_argument("--interval", default="5m")
     parser.add_argument("--initial-equity", type=float, default=100.0)
-    parser.add_argument("--leverage", type=float, default=18.0)
-    parser.add_argument("--risk-per-trade", type=float, default=0.12)
+    parser.add_argument("--leverage", type=float, default=5.0)
+    parser.add_argument("--risk-per-trade", type=float, default=0.03)
     parser.add_argument("--maker-fee", type=float, default=0.0002)
     parser.add_argument("--taker-fee", type=float, default=0.00045)
-    parser.add_argument("--max-drawdown-stop-pct", type=float, default=25.0)
+    parser.add_argument("--max-drawdown-stop-pct", type=float, default=10.0)
     parser.add_argument("--maintenance-margin-pct", type=float, default=0.004)
     parser.add_argument("--liquidation-fee-pct", type=float, default=0.001)
     parser.add_argument("--entry-slippage-bps", type=float, default=0.5)
@@ -487,6 +511,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--depth-impact-bps", type=float, default=8.0)
     parser.add_argument("--depth-impact-exponent", type=float, default=0.5)
     parser.add_argument("--min-depth-quote", type=float, default=2_000_000.0)
+    parser.add_argument("--strategy-modes", default="trend")
     parser.add_argument("--confirm-timeframes", default="15m,30m,1h,4h")
     parser.add_argument("--confirm-drift-lookback-bars", type=int, default=16)
     parser.add_argument("--confirm-countertrend-drift-limit-pct", type=float, default=0.0012)
@@ -501,6 +526,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--market-context-periods", default="5m,15m,1h,4h")
     parser.add_argument("--min-market-context-score", type=float, default=0.0)
     parser.add_argument("--market-context-score-weight", type=float, default=0.10)
+    parser.add_argument("--trend-confirm-timeframes", default="15m,1h,4h")
+    parser.add_argument("--trend-min-signal-score", type=float, default=0.82)
+    parser.add_argument("--trend-min-adx", type=float, default=34.0)
+    parser.add_argument("--trend-min-ema-spread", type=float, default=0.0030)
+    parser.add_argument("--trend-min-drift-pct", type=float, default=0.0015)
+    parser.add_argument("--trend-pullback-lookback-bars", type=int, default=8)
+    parser.add_argument("--trend-pullback-atr", type=float, default=0.80)
+    parser.add_argument("--trend-entry-pullback-atr", type=float, default=0.15)
+    parser.add_argument("--trend-stop-atr", type=float, default=1.35)
+    parser.add_argument("--trend-min-stop-pct", type=float, default=0.0035)
+    parser.add_argument("--trend-tp1-rr", type=float, default=1.0)
+    parser.add_argument("--trend-tp2-rr", type=float, default=2.0)
+    parser.add_argument("--trend-tp3-rr", type=float, default=3.2)
+    parser.add_argument("--trend-min-reward-risk", type=float, default=1.60)
+    parser.add_argument("--trend-short-rsi-min", type=float, default=22.0)
+    parser.add_argument("--trend-short-rsi-max", type=float, default=58.0)
+    parser.add_argument("--trend-long-rsi-min", type=float, default=42.0)
+    parser.add_argument("--trend-long-rsi-max", type=float, default=78.0)
+    parser.add_argument("--event-min-signal-score", type=float, default=0.95)
+    parser.add_argument("--event-risk-multiplier", type=float, default=0.20)
+    parser.add_argument("--event-core-score-penalty", type=float, default=0.10)
+    parser.add_argument("--event-regime-max-adx", type=float, default=32.0)
+    parser.add_argument("--event-regime-max-aligned-ema-spread", type=float, default=0.006)
     parser.add_argument("--fetch-days", type=float, default=3.0)
     parser.add_argument("--backfill-bars", type=int, default=1, help="Replay this many latest closed bars when creating new state.")
     parser.add_argument("--poll-seconds", type=int, default=60)
@@ -511,6 +559,28 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if not 0 <= args.min_signal_score <= 1:
         raise ValueError("--min-signal-score must be between 0 and 1")
+    if not 0 <= args.trend_min_signal_score <= 1:
+        raise ValueError("--trend-min-signal-score must be between 0 and 1")
+    strategy_modes = tuple(item.lower() for item in sim.parse_timeframes(args.strategy_modes))
+    valid_strategy_modes = {
+        "range",
+        "trend",
+        "exhaustion",
+        "fake_breakout",
+        "squeeze",
+        "shock",
+        "sweep",
+        "wide_failure",
+        "all",
+    }
+    if not strategy_modes or any(item not in valid_strategy_modes for item in strategy_modes):
+        raise ValueError("--strategy-modes contains an unknown strategy module")
+    if args.trend_pullback_lookback_bars < 1:
+        raise ValueError("--trend-pullback-lookback-bars must be >= 1")
+    if not 0 <= args.event_min_signal_score <= 1:
+        raise ValueError("--event-min-signal-score must be between 0 and 1")
+    if args.event_risk_multiplier <= 0 or args.event_core_score_penalty < 0:
+        raise ValueError("--event-risk-multiplier must be > 0 and --event-core-score-penalty must be >= 0")
     return args
 
 

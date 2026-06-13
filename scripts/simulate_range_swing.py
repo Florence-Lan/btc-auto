@@ -161,6 +161,53 @@ class StrategyConfig:
     depth_impact_bps: float
     depth_impact_exponent: float
     min_depth_quote: float
+    strategy_modes: Tuple[str, ...] = ("range", "trend")
+    trend_confirm_timeframes: Tuple[str, ...] = ("15m", "1h", "4h")
+    trend_min_signal_score: float = 0.75
+    trend_min_adx: float = 30.0
+    trend_min_ema_spread: float = 0.0030
+    trend_min_drift_pct: float = 0.0015
+    trend_pullback_lookback_bars: int = 8
+    trend_pullback_atr: float = 0.80
+    trend_entry_pullback_atr: float = 0.15
+    trend_stop_atr: float = 1.35
+    trend_min_stop_pct: float = 0.0035
+    trend_tp1_rr: float = 1.0
+    trend_tp2_rr: float = 2.0
+    trend_tp3_rr: float = 3.2
+    trend_min_reward_risk: float = 1.60
+    trend_short_rsi_min: float = 22.0
+    trend_short_rsi_max: float = 58.0
+    trend_long_rsi_min: float = 42.0
+    trend_long_rsi_max: float = 78.0
+    event_min_signal_score: float = 0.95
+    event_risk_multiplier: float = 0.20
+    event_core_score_penalty: float = 0.10
+    event_regime_max_adx: float = 32.0
+    event_regime_max_aligned_ema_spread: float = 0.006
+    event_entry_pullback_atr: float = 0.12
+    event_stop_atr: float = 1.20
+    event_stop_buffer_atr: float = 0.20
+    event_min_stop_pct: float = 0.0030
+    event_tp1_rr: float = 1.0
+    event_tp2_rr: float = 1.8
+    event_tp3_rr: float = 2.8
+    event_min_reward_risk: float = 1.35
+    exhaustion_min_adx: float = 32.0
+    exhaustion_min_ema_spread: float = 0.012
+    exhaustion_volume_ratio: float = 1.15
+    fake_breakout_lookback_bars: int = 48
+    fake_breakout_buffer_atr: float = 0.12
+    squeeze_lookback_bars: int = 48
+    squeeze_max_bandwidth: float = 0.012
+    squeeze_volume_ratio: float = 1.25
+    shock_atr_multiple: float = 3.0
+    shock_volume_ratio: float = 1.8
+    sweep_lookback_bars: int = 36
+    sweep_wick_ratio: float = 0.55
+    sweep_volume_ratio: float = 1.20
+    wide_failure_lookback_bars: int = 72
+    wide_failure_min_range_atr: float = 4.0
 
 
 def repo_root() -> Path:
@@ -182,12 +229,12 @@ def interval_to_ms(interval: str) -> int:
 
 
 def minimum_history_days(base_interval: str, cfg: StrategyConfig, buffer_days: float = 1.0) -> float:
-    intervals = (base_interval, *cfg.confirm_timeframes)
+    intervals = tuple(dict.fromkeys((base_interval, *cfg.confirm_timeframes, *cfg.trend_confirm_timeframes)))
     required_days = 0.0
     indicator_bars = max(cfg.bb_period, cfg.rsi_period + 1, cfg.atr_period, cfg.adx_period * 2, cfg.ema_slow)
     for interval in intervals:
         bars = indicator_bars
-        if interval in cfg.confirm_timeframes:
+        if interval in cfg.confirm_timeframes or interval in cfg.trend_confirm_timeframes:
             bars += cfg.confirm_drift_lookback_bars + 2
         interval_minutes = interval_to_ms(interval) / 60_000
         required_days = max(required_days, bars * interval_minutes / MINUTES_PER_DAY)
@@ -680,7 +727,7 @@ def build_higher_timeframe_context(
     cfg: StrategyConfig,
 ) -> Dict[str, Dict[str, Any]]:
     context: Dict[str, Dict[str, Any]] = {}
-    for timeframe in cfg.confirm_timeframes:
+    for timeframe in dict.fromkeys((*cfg.confirm_timeframes, *cfg.trend_confirm_timeframes)):
         higher_candles = aggregate_candles(candles, timeframe)
         if not higher_candles:
             continue
@@ -947,7 +994,175 @@ def risk_multiplier_from_score(score: float, cfg: StrategyConfig) -> float:
     return cfg.min_risk_multiplier + (cfg.max_risk_multiplier - cfg.min_risk_multiplier) * normalized
 
 
-def signal_for_index(
+def strategy_enabled(name: str, cfg: StrategyConfig) -> bool:
+    return "all" in cfg.strategy_modes or name in cfg.strategy_modes
+
+
+def side_allowed_by_mode(side: str, cfg: StrategyConfig, drift_value: Optional[float] = None) -> bool:
+    if cfg.side_mode == "long" and side != "long":
+        return False
+    if cfg.side_mode == "short" and side != "short":
+        return False
+    if cfg.side_mode == "auto" and drift_value is not None:
+        if side == "short" and drift_value > cfg.countertrend_drift_limit_pct:
+            return False
+        if side == "long" and drift_value < -cfg.countertrend_drift_limit_pct:
+            return False
+    return True
+
+
+def optional_mean(values: Sequence[Optional[float]], end_index: int, lookback: int) -> Optional[float]:
+    start = max(0, end_index - lookback + 1)
+    window = [value for value in values[start : end_index + 1] if value is not None]
+    return mean(window) if window else None
+
+
+def prior_range(candles: Sequence[Candle], index: int, lookback: int) -> Optional[Tuple[float, float]]:
+    start = max(0, index - lookback)
+    window = candles[start:index]
+    if not window:
+        return None
+    return max(item.high for item in window), min(item.low for item in window)
+
+
+def candle_range(candle: Candle) -> float:
+    return max(candle.high - candle.low, 0.0)
+
+
+def candle_body(candle: Candle) -> float:
+    return abs(candle.close - candle.open)
+
+
+def upper_wick_ratio(candle: Candle) -> float:
+    span = candle_range(candle)
+    return 0.0 if span <= 0 else (candle.high - max(candle.open, candle.close)) / span
+
+
+def lower_wick_ratio(candle: Candle) -> float:
+    span = candle_range(candle)
+    return 0.0 if span <= 0 else (min(candle.open, candle.close) - candle.low) / span
+
+
+def close_position_ratio(candle: Candle) -> float:
+    span = candle_range(candle)
+    return 0.5 if span <= 0 else (candle.close - candle.low) / span
+
+
+def volume_ratio(candles: Sequence[Candle], index: int, lookback: int = 48) -> float:
+    start = max(0, index - lookback)
+    window = [item.quote_volume for item in candles[start:index] if item.quote_volume > 0]
+    if not window:
+        return 1.0
+    return candles[index].quote_volume / mean(window)
+
+
+def base_event_score(
+    *,
+    strength: float,
+    rejection: float,
+    volume: float,
+    context: float,
+) -> float:
+    return clamp(
+        0.46
+        + 0.22 * clamp(strength, 0.0, 1.0)
+        + 0.16 * clamp(rejection, 0.0, 1.0)
+        + 0.10 * clamp(volume, 0.0, 1.0)
+        + 0.06 * clamp(context, 0.0, 1.0),
+        0.0,
+        1.0,
+    )
+
+
+def apply_market_score(
+    side: str,
+    candle: Candle,
+    base_score: float,
+    market_context: Optional[MarketContext],
+    cfg: StrategyConfig,
+) -> Optional[Tuple[float, str]]:
+    market_allowed, market_delta, _market_risk, market_text = market_context_for_signal(
+        side,
+        candle,
+        market_context,
+        cfg,
+    )
+    if not market_allowed:
+        return None
+    if market_text == " market=missing":
+        return None
+    return clamp(base_score + market_delta, 0.0, 1.0), market_text
+
+
+def local_ema_spread(ind: Dict[str, List[Optional[float]]], candles: Sequence[Candle], index: int) -> Optional[float]:
+    ema_fast_value = ind["ema_fast"][index]
+    ema_slow_value = ind["ema_slow"][index]
+    close = candles[index].close
+    if not is_ready([ema_fast_value, ema_slow_value]) or not close:
+        return None
+    return (ema_fast_value - ema_slow_value) / close
+
+
+def reversal_regime_allows(side: str, candles: Sequence[Candle], ind: Dict[str, List[Optional[float]]], index: int, cfg: StrategyConfig) -> bool:
+    adx_value = ind["adx"][index]
+    ema_spread = local_ema_spread(ind, candles, index)
+    if not is_ready([adx_value, ema_spread]):
+        return False
+    if side == "short" and ema_spread > cfg.event_regime_max_aligned_ema_spread:
+        return False
+    if side == "long" and ema_spread < -cfg.event_regime_max_aligned_ema_spread:
+        return False
+    if adx_value < cfg.event_regime_max_adx:
+        return True
+    if side == "short":
+        return ema_spread <= cfg.event_regime_max_aligned_ema_spread
+    return ema_spread >= -cfg.event_regime_max_aligned_ema_spread
+
+
+def event_priority(reason: str) -> int:
+    if reason.startswith("exhaustion_"):
+        return 60
+    if reason.startswith("fake_breakout_"):
+        return 50
+    if reason.startswith("sweep_"):
+        return 40
+    if reason.startswith("wide_failure_"):
+        return 30
+    if reason.startswith("squeeze_"):
+        return 20
+    if reason.startswith("shock_"):
+        return 10
+    return 0
+
+
+def is_reversal_event(reason: str) -> bool:
+    return reason.startswith(
+        (
+            "exhaustion_",
+            "fake_breakout_",
+            "sweep_",
+            "wide_failure_",
+        )
+    )
+
+
+def adjusted_candidate_score(candidate: Tuple[str, str, float], cfg: StrategyConfig) -> float:
+    reason = candidate[1]
+    if reason.startswith(
+        (
+            "exhaustion_",
+            "fake_breakout_",
+            "squeeze_",
+            "shock_",
+            "sweep_",
+            "wide_failure_",
+        )
+    ):
+        return candidate[2] - cfg.event_core_score_penalty
+    return candidate[2]
+
+
+def range_signal_for_index(
     candles: Sequence[Candle],
     ind: Dict[str, List[Optional[float]]],
     index: int,
@@ -988,21 +1203,9 @@ def signal_for_index(
     lower_reclaimed = candle.low <= lower - min_excursion and candle.close >= lower + reclaim_buffer
     upper_reclaimed = candle.high >= upper + min_excursion and candle.close <= upper - reclaim_buffer
 
-    def side_allowed(side: str) -> bool:
-        if cfg.side_mode == "long" and side != "long":
-            return False
-        if cfg.side_mode == "short" and side != "short":
-            return False
-        if cfg.side_mode == "auto" and drift_value is not None:
-            if side == "short" and drift_value > cfg.countertrend_drift_limit_pct:
-                return False
-            if side == "long" and drift_value < -cfg.countertrend_drift_limit_pct:
-                return False
-        return True
-
     drift_text = f" drift={drift_value:.4f}" if drift_value is not None else ""
 
-    if lower_reclaimed and candle.close < mid and rsi_value <= cfg.long_rsi and side_allowed("long"):
+    if lower_reclaimed and candle.close < mid and rsi_value <= cfg.long_rsi and side_allowed_by_mode("long", cfg, drift_value):
         base_score = signal_quality_score("long", rsi_value, adx_value, bandwidth, ema_spread, drift_value, cfg)
         market_allowed, market_delta, _market_risk, market_text = market_context_for_signal(
             "long",
@@ -1019,13 +1222,13 @@ def signal_for_index(
         if not confirm_allowed:
             return None
         reason = (
-            f"lower_band_reclaim rsi={rsi_value:.1f} adx={adx_value:.1f} "
+            f"range_lower_band_reclaim rsi={rsi_value:.1f} adx={adx_value:.1f} "
             f"bandwidth={bandwidth:.4f} ema_spread={ema_spread:.4f}{drift_text} "
             f"base_score={base_score:.3f} score={score:.3f}{market_text}{confirm_text}"
         )
         return "long", reason, score
 
-    if upper_reclaimed and candle.close > mid and rsi_value >= cfg.short_rsi and side_allowed("short"):
+    if upper_reclaimed and candle.close > mid and rsi_value >= cfg.short_rsi and side_allowed_by_mode("short", cfg, drift_value):
         base_score = signal_quality_score("short", rsi_value, adx_value, bandwidth, ema_spread, drift_value, cfg)
         market_allowed, market_delta, _market_risk, market_text = market_context_for_signal(
             "short",
@@ -1042,13 +1245,819 @@ def signal_for_index(
         if not confirm_allowed:
             return None
         reason = (
-            f"upper_band_reclaim rsi={rsi_value:.1f} adx={adx_value:.1f} "
+            f"range_upper_band_reclaim rsi={rsi_value:.1f} adx={adx_value:.1f} "
             f"bandwidth={bandwidth:.4f} ema_spread={ema_spread:.4f}{drift_text} "
             f"base_score={base_score:.3f} score={score:.3f}{market_text}{confirm_text}"
         )
         return "short", reason, score
 
     return None
+
+
+def higher_timeframe_trend_allows(
+    side: str,
+    signal_candle: Candle,
+    higher_context: Dict[str, Dict[str, Any]],
+    cfg: StrategyConfig,
+) -> Tuple[bool, str]:
+    if not cfg.trend_confirm_timeframes:
+        return True, ""
+
+    notes: List[str] = []
+    for timeframe in cfg.trend_confirm_timeframes:
+        context = higher_context.get(timeframe)
+        if context is None:
+            return False, f"{timeframe}_missing"
+
+        close_times: Sequence[int] = context["close_times"]
+        higher_index = bisect_right(close_times, signal_candle.close_time_ms) - 1
+        if higher_index < 0:
+            return False, f"{timeframe}_not_closed"
+
+        higher_candles: Sequence[Candle] = context["candles"]
+        higher_ind: Dict[str, List[Optional[float]]] = context["indicators"]
+        candle = higher_candles[higher_index]
+        ema_fast_value = higher_ind["ema_fast"][higher_index]
+        ema_slow_value = higher_ind["ema_slow"][higher_index]
+        adx_value = higher_ind["adx"][higher_index]
+        if not is_ready([ema_fast_value, ema_slow_value, adx_value]):
+            return False, f"{timeframe}_indicators_not_ready"
+
+        drift_value = 0.0
+        drift_index = higher_index - cfg.confirm_drift_lookback_bars
+        if cfg.confirm_drift_lookback_bars > 0 and drift_index >= 0:
+            previous_slow = higher_ind["ema_slow"][drift_index]
+            if previous_slow is None:
+                return False, f"{timeframe}_drift_not_ready"
+            drift_value = (ema_slow_value - previous_slow) / candle.close if candle.close else 0.0
+
+        ema_spread = (ema_fast_value - ema_slow_value) / candle.close if candle.close else 0.0
+        aligned_spread = ema_spread if side == "long" else -ema_spread
+        aligned_drift = drift_value if side == "long" else -drift_value
+        if aligned_spread < cfg.trend_min_ema_spread:
+            return False, f"{timeframe}_spread={ema_spread:.4f}"
+        if aligned_drift < cfg.trend_min_drift_pct:
+            return False, f"{timeframe}_drift={drift_value:.4f}"
+        if adx_value < cfg.trend_min_adx:
+            return False, f"{timeframe}_adx={adx_value:.1f}"
+
+        notes.append(
+            f"{timeframe}:ema_spread={ema_spread:.4f} drift={drift_value:.4f} adx={adx_value:.1f}"
+        )
+
+    return True, " trend_confirm=" + ";".join(notes)
+
+
+def trend_signal_score(
+    side: str,
+    rsi_value: float,
+    adx_value: float,
+    ema_spread: float,
+    drift_value: float,
+    pullback_distance_atr: float,
+    cfg: StrategyConfig,
+) -> float:
+    aligned_spread = ema_spread if side == "long" else -ema_spread
+    aligned_drift = drift_value if side == "long" else -drift_value
+    trend_strength = clamp((adx_value - cfg.trend_min_adx) / 22, 0.0, 1.0)
+    spread_strength = clamp(aligned_spread / 0.010, 0.0, 1.0)
+    drift_strength = clamp(aligned_drift / 0.010, 0.0, 1.0)
+    pullback_quality = clamp(1.0 - abs(pullback_distance_atr - 0.35) / 1.25, 0.0, 1.0)
+    if side == "short":
+        rsi_quality = clamp((cfg.trend_short_rsi_max - rsi_value) / 22, 0.0, 1.0)
+    else:
+        rsi_quality = clamp((rsi_value - cfg.trend_long_rsi_min) / 22, 0.0, 1.0)
+    return clamp(
+        0.38
+        + 0.18 * trend_strength
+        + 0.18 * spread_strength
+        + 0.14 * drift_strength
+        + 0.08 * pullback_quality
+        + 0.04 * rsi_quality,
+        0.0,
+        1.0,
+    )
+
+
+def trend_signal_for_index(
+    candles: Sequence[Candle],
+    ind: Dict[str, List[Optional[float]]],
+    index: int,
+    cfg: StrategyConfig,
+    higher_context: Optional[Dict[str, Dict[str, Any]]] = None,
+    market_context: Optional[MarketContext] = None,
+) -> Optional[Tuple[str, str, float]]:
+    candle = candles[index]
+    atr_value = ind["atr"][index]
+    rsi_value = ind["rsi"][index]
+    adx_value = ind["adx"][index]
+    ema_fast_value = ind["ema_fast"][index]
+    ema_slow_value = ind["ema_slow"][index]
+    if not is_ready([atr_value, rsi_value, adx_value, ema_fast_value, ema_slow_value]):
+        return None
+
+    drift_value = 0.0
+    if cfg.drift_lookback_bars > 0 and index - cfg.drift_lookback_bars >= 0:
+        previous_slow = ind["ema_slow"][index - cfg.drift_lookback_bars]
+        if previous_slow is None:
+            return None
+        drift_value = (ema_slow_value - previous_slow) / candle.close if candle.close else 0.0
+
+    ema_spread = (ema_fast_value - ema_slow_value) / candle.close if candle.close else 0.0
+    if adx_value < cfg.trend_min_adx:
+        return None
+
+    lookback_start = max(0, index - cfg.trend_pullback_lookback_bars + 1)
+    recent = candles[lookback_start : index + 1]
+    candidates: List[Tuple[str, str, float]] = []
+
+    short_pullback = max(item.high for item in recent) >= ema_fast_value - atr_value * cfg.trend_pullback_atr
+    short_trigger = candle.close < ema_fast_value and candle.close < candle.open
+    short_rsi_ok = cfg.trend_short_rsi_min <= rsi_value <= cfg.trend_short_rsi_max
+    short_aligned = -ema_spread >= cfg.trend_min_ema_spread and -drift_value >= cfg.trend_min_drift_pct
+    if short_aligned and short_pullback and short_trigger and short_rsi_ok and side_allowed_by_mode("short", cfg, None):
+        pullback_distance_atr = abs(max(item.high for item in recent) - ema_fast_value) / atr_value if atr_value else 0.0
+        base_score = trend_signal_score("short", rsi_value, adx_value, ema_spread, drift_value, pullback_distance_atr, cfg)
+        market_allowed, market_delta, _market_risk, market_text = market_context_for_signal("short", candle, market_context, cfg)
+        if market_allowed:
+            score = clamp(base_score + market_delta, 0.0, 1.0)
+            if score >= cfg.trend_min_signal_score:
+                confirm_allowed, confirm_text = higher_timeframe_trend_allows("short", candle, higher_context or {}, cfg)
+                if confirm_allowed:
+                    candidates.append(
+                        (
+                            "short",
+                            (
+                                f"trend_short_pullback rsi={rsi_value:.1f} adx={adx_value:.1f} "
+                                f"ema_spread={ema_spread:.4f} drift={drift_value:.4f} "
+                                f"pullback_atr={pullback_distance_atr:.2f} base_score={base_score:.3f} "
+                                f"score={score:.3f}{market_text}{confirm_text}"
+                            ),
+                            score,
+                        )
+                    )
+
+    long_pullback = min(item.low for item in recent) <= ema_fast_value + atr_value * cfg.trend_pullback_atr
+    long_trigger = candle.close > ema_fast_value and candle.close > candle.open
+    long_rsi_ok = cfg.trend_long_rsi_min <= rsi_value <= cfg.trend_long_rsi_max
+    long_aligned = ema_spread >= cfg.trend_min_ema_spread and drift_value >= cfg.trend_min_drift_pct
+    if long_aligned and long_pullback and long_trigger and long_rsi_ok and side_allowed_by_mode("long", cfg, None):
+        pullback_distance_atr = abs(ema_fast_value - min(item.low for item in recent)) / atr_value if atr_value else 0.0
+        base_score = trend_signal_score("long", rsi_value, adx_value, ema_spread, drift_value, pullback_distance_atr, cfg)
+        market_allowed, market_delta, _market_risk, market_text = market_context_for_signal("long", candle, market_context, cfg)
+        if market_allowed:
+            score = clamp(base_score + market_delta, 0.0, 1.0)
+            if score >= cfg.trend_min_signal_score:
+                confirm_allowed, confirm_text = higher_timeframe_trend_allows("long", candle, higher_context or {}, cfg)
+                if confirm_allowed:
+                    candidates.append(
+                        (
+                            "long",
+                            (
+                                f"trend_long_pullback rsi={rsi_value:.1f} adx={adx_value:.1f} "
+                                f"ema_spread={ema_spread:.4f} drift={drift_value:.4f} "
+                                f"pullback_atr={pullback_distance_atr:.2f} base_score={base_score:.3f} "
+                                f"score={score:.3f}{market_text}{confirm_text}"
+                            ),
+                            score,
+                        )
+                    )
+
+    return max(candidates, key=lambda item: item[2]) if candidates else None
+
+
+def exhaustion_signal_for_index(
+    candles: Sequence[Candle],
+    ind: Dict[str, List[Optional[float]]],
+    index: int,
+    cfg: StrategyConfig,
+    market_context: Optional[MarketContext] = None,
+) -> Optional[Tuple[str, str, float]]:
+    if index < 1:
+        return None
+    setup_index = index - 1
+    setup = candles[setup_index]
+    candle = candles[index]
+    upper = ind["bb_upper"][setup_index]
+    lower = ind["bb_lower"][setup_index]
+    rsi_value = ind["rsi"][setup_index]
+    adx_value = ind["adx"][setup_index]
+    atr_value = ind["atr"][setup_index]
+    ema_fast_value = ind["ema_fast"][setup_index]
+    ema_slow_value = ind["ema_slow"][setup_index]
+    if not is_ready([upper, lower, rsi_value, adx_value, atr_value, ema_fast_value, ema_slow_value]):
+        return None
+
+    ema_spread = (ema_fast_value - ema_slow_value) / candle.close if candle.close else 0.0
+    if adx_value < cfg.exhaustion_min_adx or abs(ema_spread) < cfg.exhaustion_min_ema_spread:
+        return None
+
+    vol_ratio = volume_ratio(candles, index)
+    if vol_ratio < cfg.exhaustion_volume_ratio:
+        return None
+
+    candidates: List[Tuple[str, str, float]] = []
+    if (
+        ema_spread > 0
+        and rsi_value >= 74
+        and setup.high >= upper
+        and candle.close < setup.close
+        and candle.close < setup.open
+        and candle.close < candle.open
+        and close_position_ratio(setup) <= 0.45
+        and upper_wick_ratio(setup) >= 0.30
+        and reversal_regime_allows("short", candles, ind, setup_index, cfg)
+        and side_allowed_by_mode("short", cfg, None)
+    ):
+        base_score = base_event_score(
+            strength=clamp((adx_value - cfg.exhaustion_min_adx) / 22, 0.0, 1.0),
+            rejection=upper_wick_ratio(setup),
+            volume=clamp((vol_ratio - 1.0) / 1.5, 0.0, 1.0),
+            context=clamp((rsi_value - 70) / 15, 0.0, 1.0),
+        )
+        scored = apply_market_score("short", candle, base_score, market_context, cfg)
+        if scored is not None:
+            score, market_text = scored
+            if score >= cfg.event_min_signal_score:
+                candidates.append(
+                    (
+                        "short",
+                        (
+                            f"exhaustion_top_reversal rsi={rsi_value:.1f} adx={adx_value:.1f} "
+                            f"ema_spread={ema_spread:.4f} upper_wick={upper_wick_ratio(setup):.2f} "
+                            f"vol_ratio={vol_ratio:.2f} base_score={base_score:.3f} score={score:.3f}{market_text}"
+                        ),
+                        score,
+                    )
+                )
+
+    if (
+        ema_spread < 0
+        and rsi_value <= 26
+        and setup.low <= lower
+        and candle.close > setup.close
+        and candle.close > setup.open
+        and candle.close > candle.open
+        and close_position_ratio(setup) >= 0.55
+        and lower_wick_ratio(setup) >= 0.30
+        and reversal_regime_allows("long", candles, ind, setup_index, cfg)
+        and side_allowed_by_mode("long", cfg, None)
+    ):
+        base_score = base_event_score(
+            strength=clamp((adx_value - cfg.exhaustion_min_adx) / 22, 0.0, 1.0),
+            rejection=lower_wick_ratio(setup),
+            volume=clamp((vol_ratio - 1.0) / 1.5, 0.0, 1.0),
+            context=clamp((30 - rsi_value) / 15, 0.0, 1.0),
+        )
+        scored = apply_market_score("long", candle, base_score, market_context, cfg)
+        if scored is not None:
+            score, market_text = scored
+            if score >= cfg.event_min_signal_score:
+                candidates.append(
+                    (
+                        "long",
+                        (
+                            f"exhaustion_bottom_reversal rsi={rsi_value:.1f} adx={adx_value:.1f} "
+                            f"ema_spread={ema_spread:.4f} lower_wick={lower_wick_ratio(setup):.2f} "
+                            f"vol_ratio={vol_ratio:.2f} base_score={base_score:.3f} score={score:.3f}{market_text}"
+                        ),
+                        score,
+                    )
+                )
+    return max(candidates, key=lambda item: item[2]) if candidates else None
+
+
+def fake_breakout_signal_for_index(
+    candles: Sequence[Candle],
+    ind: Dict[str, List[Optional[float]]],
+    index: int,
+    cfg: StrategyConfig,
+    market_context: Optional[MarketContext] = None,
+) -> Optional[Tuple[str, str, float]]:
+    if index < 1:
+        return None
+    setup_index = index - 1
+    setup = candles[setup_index]
+    candle = candles[index]
+    atr_value = ind["atr"][setup_index]
+    rsi_value = ind["rsi"][setup_index]
+    if not is_ready([atr_value, rsi_value]):
+        return None
+    bounds = prior_range(candles, setup_index, cfg.fake_breakout_lookback_bars)
+    if bounds is None:
+        return None
+    prior_high, prior_low = bounds
+    buffer = atr_value * cfg.fake_breakout_buffer_atr
+    vol_ratio = volume_ratio(candles, index)
+    candidates: List[Tuple[str, str, float]] = []
+
+    if (
+        setup.high > prior_high + buffer
+        and setup.close < prior_high
+        and candle.close < setup.close
+        and candle.close < prior_high
+        and candle.close < candle.open
+        and reversal_regime_allows("short", candles, ind, setup_index, cfg)
+        and side_allowed_by_mode("short", cfg, None)
+    ):
+        rejection = clamp((setup.high - candle.close) / max(atr_value, 1e-9), 0.0, 1.0)
+        base_score = base_event_score(
+            strength=clamp((setup.high - prior_high) / max(atr_value, 1e-9), 0.0, 1.0),
+            rejection=max(rejection, upper_wick_ratio(setup)),
+            volume=clamp((vol_ratio - 1.0) / 1.4, 0.0, 1.0),
+            context=clamp((rsi_value - 55) / 25, 0.0, 1.0),
+        )
+        scored = apply_market_score("short", candle, base_score, market_context, cfg)
+        if scored is not None:
+            score, market_text = scored
+            if score >= cfg.event_min_signal_score:
+                candidates.append(("short", f"fake_breakout_bull_trap prior_high={prior_high:.2f} rsi={rsi_value:.1f} vol_ratio={vol_ratio:.2f} base_score={base_score:.3f} score={score:.3f}{market_text}", score))
+
+    if (
+        setup.low < prior_low - buffer
+        and setup.close > prior_low
+        and candle.close > setup.close
+        and candle.close > prior_low
+        and candle.close > candle.open
+        and reversal_regime_allows("long", candles, ind, setup_index, cfg)
+        and side_allowed_by_mode("long", cfg, None)
+    ):
+        rejection = clamp((candle.close - setup.low) / max(atr_value, 1e-9), 0.0, 1.0)
+        base_score = base_event_score(
+            strength=clamp((prior_low - setup.low) / max(atr_value, 1e-9), 0.0, 1.0),
+            rejection=max(rejection, lower_wick_ratio(setup)),
+            volume=clamp((vol_ratio - 1.0) / 1.4, 0.0, 1.0),
+            context=clamp((45 - rsi_value) / 25, 0.0, 1.0),
+        )
+        scored = apply_market_score("long", candle, base_score, market_context, cfg)
+        if scored is not None:
+            score, market_text = scored
+            if score >= cfg.event_min_signal_score:
+                candidates.append(("long", f"fake_breakout_bear_trap prior_low={prior_low:.2f} rsi={rsi_value:.1f} vol_ratio={vol_ratio:.2f} base_score={base_score:.3f} score={score:.3f}{market_text}", score))
+
+    return max(candidates, key=lambda item: item[2]) if candidates else None
+
+
+def squeeze_signal_for_index(
+    candles: Sequence[Candle],
+    ind: Dict[str, List[Optional[float]]],
+    index: int,
+    cfg: StrategyConfig,
+    market_context: Optional[MarketContext] = None,
+) -> Optional[Tuple[str, str, float]]:
+    candle = candles[index]
+    upper = ind["bb_upper"][index]
+    lower = ind["bb_lower"][index]
+    bandwidth = ind["bb_bandwidth"][index]
+    atr_value = ind["atr"][index]
+    ema_fast_value = ind["ema_fast"][index]
+    ema_slow_value = ind["ema_slow"][index]
+    if not is_ready([upper, lower, bandwidth, atr_value, ema_fast_value, ema_slow_value]):
+        return None
+    avg_bandwidth = optional_mean(ind["bb_bandwidth"], index - 1, cfg.squeeze_lookback_bars)
+    if avg_bandwidth is None or avg_bandwidth > cfg.squeeze_max_bandwidth:
+        return None
+    vol_ratio = volume_ratio(candles, index)
+    if vol_ratio < cfg.squeeze_volume_ratio:
+        return None
+    bounds = prior_range(candles, index, cfg.squeeze_lookback_bars)
+    if bounds is None:
+        return None
+    prior_high, prior_low = bounds
+    ema_spread = (ema_fast_value - ema_slow_value) / candle.close if candle.close else 0.0
+    previous = candles[index - 1] if index > 0 else candle
+    previous_upper = ind["bb_upper"][index - 1] if index > 0 else None
+    previous_lower = ind["bb_lower"][index - 1] if index > 0 else None
+    if not is_ready([previous_upper, previous_lower]):
+        return None
+    previous_inside_band = previous_lower <= previous.close <= previous_upper
+    body_ratio = candle_body(candle) / max(candle_range(candle), 1e-9)
+    candidates: List[Tuple[str, str, float]] = []
+
+    if (
+        previous_inside_band
+        and candle.close > upper
+        and candle.close > prior_high
+        and ema_spread >= cfg.trend_min_ema_spread * 0.5
+        and close_position_ratio(candle) >= 0.70
+        and body_ratio >= 0.45
+        and side_allowed_by_mode("long", cfg, None)
+    ):
+        base_score = base_event_score(
+            strength=clamp((candle.close - prior_high) / max(atr_value, 1e-9), 0.0, 1.0),
+            rejection=close_position_ratio(candle),
+            volume=clamp((vol_ratio - 1.0) / 1.8, 0.0, 1.0),
+            context=clamp((cfg.squeeze_max_bandwidth - avg_bandwidth) / cfg.squeeze_max_bandwidth, 0.0, 1.0),
+        )
+        scored = apply_market_score("long", candle, base_score, market_context, cfg)
+        if scored is not None:
+            score, market_text = scored
+            if score >= cfg.event_min_signal_score:
+                candidates.append(("long", f"squeeze_breakout_long avg_bandwidth={avg_bandwidth:.4f} vol_ratio={vol_ratio:.2f} ema_spread={ema_spread:.4f} base_score={base_score:.3f} score={score:.3f}{market_text}", score))
+
+    if (
+        previous_inside_band
+        and candle.close < lower
+        and candle.close < prior_low
+        and ema_spread <= -cfg.trend_min_ema_spread * 0.5
+        and close_position_ratio(candle) <= 0.30
+        and body_ratio >= 0.45
+        and side_allowed_by_mode("short", cfg, None)
+    ):
+        base_score = base_event_score(
+            strength=clamp((prior_low - candle.close) / max(atr_value, 1e-9), 0.0, 1.0),
+            rejection=1.0 - close_position_ratio(candle),
+            volume=clamp((vol_ratio - 1.0) / 1.8, 0.0, 1.0),
+            context=clamp((cfg.squeeze_max_bandwidth - avg_bandwidth) / cfg.squeeze_max_bandwidth, 0.0, 1.0),
+        )
+        scored = apply_market_score("short", candle, base_score, market_context, cfg)
+        if scored is not None:
+            score, market_text = scored
+            if score >= cfg.event_min_signal_score:
+                candidates.append(("short", f"squeeze_breakout_short avg_bandwidth={avg_bandwidth:.4f} vol_ratio={vol_ratio:.2f} ema_spread={ema_spread:.4f} base_score={base_score:.3f} score={score:.3f}{market_text}", score))
+
+    return max(candidates, key=lambda item: item[2]) if candidates else None
+
+
+def shock_signal_for_index(
+    candles: Sequence[Candle],
+    ind: Dict[str, List[Optional[float]]],
+    index: int,
+    cfg: StrategyConfig,
+    market_context: Optional[MarketContext] = None,
+) -> Optional[Tuple[str, str, float]]:
+    if index < 1:
+        return None
+    setup_index = index - 1
+    setup = candles[setup_index]
+    candle = candles[index]
+    atr_value = ind["atr"][setup_index]
+    ema_fast_value = ind["ema_fast"][setup_index]
+    if not is_ready([atr_value, ema_fast_value]):
+        return None
+    span_atr = candle_range(setup) / max(atr_value, 1e-9)
+    vol_ratio = volume_ratio(candles, setup_index)
+    if span_atr < cfg.shock_atr_multiple or vol_ratio < cfg.shock_volume_ratio:
+        return None
+
+    candidates: List[Tuple[str, str, float]] = []
+    body_ratio = candle_body(setup) / max(candle_range(setup), 1e-9)
+    if (
+        setup.close > setup.open
+        and setup.close > ema_fast_value
+        and close_position_ratio(setup) >= 0.75
+        and body_ratio >= 0.55
+        and candle.close > setup.close
+        and candle.close > candle.open
+        and side_allowed_by_mode("long", cfg, None)
+    ):
+        base_score = base_event_score(
+            strength=clamp((span_atr - cfg.shock_atr_multiple) / 2.5, 0.0, 1.0),
+            rejection=close_position_ratio(setup),
+            volume=clamp((vol_ratio - cfg.shock_volume_ratio) / 2.5, 0.0, 1.0),
+            context=body_ratio,
+        )
+        scored = apply_market_score("long", candle, base_score, market_context, cfg)
+        if scored is not None:
+            score, market_text = scored
+            if score >= cfg.event_min_signal_score + 0.04:
+                candidates.append(("long", f"shock_momentum_long span_atr={span_atr:.2f} vol_ratio={vol_ratio:.2f} body={body_ratio:.2f} base_score={base_score:.3f} score={score:.3f}{market_text}", score))
+
+    if (
+        setup.close < setup.open
+        and setup.close < ema_fast_value
+        and close_position_ratio(setup) <= 0.25
+        and body_ratio >= 0.55
+        and candle.close < setup.close
+        and candle.close < candle.open
+        and side_allowed_by_mode("short", cfg, None)
+    ):
+        base_score = base_event_score(
+            strength=clamp((span_atr - cfg.shock_atr_multiple) / 2.5, 0.0, 1.0),
+            rejection=1.0 - close_position_ratio(setup),
+            volume=clamp((vol_ratio - cfg.shock_volume_ratio) / 2.5, 0.0, 1.0),
+            context=body_ratio,
+        )
+        scored = apply_market_score("short", candle, base_score, market_context, cfg)
+        if scored is not None:
+            score, market_text = scored
+            if score >= cfg.event_min_signal_score + 0.04:
+                candidates.append(("short", f"shock_momentum_short span_atr={span_atr:.2f} vol_ratio={vol_ratio:.2f} body={body_ratio:.2f} base_score={base_score:.3f} score={score:.3f}{market_text}", score))
+
+    return max(candidates, key=lambda item: item[2]) if candidates else None
+
+
+def sweep_signal_for_index(
+    candles: Sequence[Candle],
+    ind: Dict[str, List[Optional[float]]],
+    index: int,
+    cfg: StrategyConfig,
+    market_context: Optional[MarketContext] = None,
+) -> Optional[Tuple[str, str, float]]:
+    if index < 1:
+        return None
+    setup_index = index - 1
+    setup = candles[setup_index]
+    candle = candles[index]
+    atr_value = ind["atr"][setup_index]
+    rsi_value = ind["rsi"][setup_index]
+    if not is_ready([atr_value, rsi_value]):
+        return None
+    bounds = prior_range(candles, setup_index, cfg.sweep_lookback_bars)
+    if bounds is None:
+        return None
+    prior_high, prior_low = bounds
+    vol_ratio = volume_ratio(candles, setup_index)
+    if vol_ratio < cfg.sweep_volume_ratio:
+        return None
+    candidates: List[Tuple[str, str, float]] = []
+
+    if (
+        setup.high > prior_high
+        and setup.close < prior_high
+        and upper_wick_ratio(setup) >= cfg.sweep_wick_ratio
+        and candle.close < setup.close
+        and candle.close < prior_high
+        and candle.close < candle.open
+        and reversal_regime_allows("short", candles, ind, setup_index, cfg)
+        and side_allowed_by_mode("short", cfg, None)
+    ):
+        base_score = base_event_score(
+            strength=clamp((setup.high - prior_high) / max(atr_value, 1e-9), 0.0, 1.0),
+            rejection=upper_wick_ratio(setup),
+            volume=clamp((vol_ratio - 1.0) / 1.6, 0.0, 1.0),
+            context=clamp((rsi_value - 50) / 30, 0.0, 1.0),
+        )
+        scored = apply_market_score("short", candle, base_score, market_context, cfg)
+        if scored is not None:
+            score, market_text = scored
+            if score >= cfg.event_min_signal_score:
+                candidates.append(("short", f"sweep_upper_liquidity prior_high={prior_high:.2f} wick={upper_wick_ratio(setup):.2f} vol_ratio={vol_ratio:.2f} base_score={base_score:.3f} score={score:.3f}{market_text}", score))
+
+    if (
+        setup.low < prior_low
+        and setup.close > prior_low
+        and lower_wick_ratio(setup) >= cfg.sweep_wick_ratio
+        and candle.close > setup.close
+        and candle.close > prior_low
+        and candle.close > candle.open
+        and reversal_regime_allows("long", candles, ind, setup_index, cfg)
+        and side_allowed_by_mode("long", cfg, None)
+    ):
+        base_score = base_event_score(
+            strength=clamp((prior_low - setup.low) / max(atr_value, 1e-9), 0.0, 1.0),
+            rejection=lower_wick_ratio(setup),
+            volume=clamp((vol_ratio - 1.0) / 1.6, 0.0, 1.0),
+            context=clamp((50 - rsi_value) / 30, 0.0, 1.0),
+        )
+        scored = apply_market_score("long", candle, base_score, market_context, cfg)
+        if scored is not None:
+            score, market_text = scored
+            if score >= cfg.event_min_signal_score:
+                candidates.append(("long", f"sweep_lower_liquidity prior_low={prior_low:.2f} wick={lower_wick_ratio(setup):.2f} vol_ratio={vol_ratio:.2f} base_score={base_score:.3f} score={score:.3f}{market_text}", score))
+
+    return max(candidates, key=lambda item: item[2]) if candidates else None
+
+
+def wide_failure_signal_for_index(
+    candles: Sequence[Candle],
+    ind: Dict[str, List[Optional[float]]],
+    index: int,
+    cfg: StrategyConfig,
+    market_context: Optional[MarketContext] = None,
+) -> Optional[Tuple[str, str, float]]:
+    if index < 1:
+        return None
+    setup_index = index - 1
+    setup = candles[setup_index]
+    candle = candles[index]
+    atr_value = ind["atr"][setup_index]
+    bandwidth = ind["bb_bandwidth"][setup_index]
+    if not is_ready([atr_value, bandwidth]):
+        return None
+    bounds = prior_range(candles, setup_index, cfg.wide_failure_lookback_bars)
+    if bounds is None:
+        return None
+    prior_high, prior_low = bounds
+    range_width_atr = (prior_high - prior_low) / max(atr_value, 1e-9)
+    if range_width_atr < cfg.wide_failure_min_range_atr and bandwidth < cfg.max_bandwidth * 0.70:
+        return None
+
+    candidates: List[Tuple[str, str, float]] = []
+    if (
+        setup.high > prior_high
+        and setup.close < prior_high
+        and candle.close < setup.close
+        and candle.close < prior_high
+        and close_position_ratio(setup) <= 0.45
+        and reversal_regime_allows("short", candles, ind, setup_index, cfg)
+        and side_allowed_by_mode("short", cfg, None)
+    ):
+        base_score = base_event_score(
+            strength=clamp(range_width_atr / 8, 0.0, 1.0),
+            rejection=clamp((setup.high - candle.close) / max(atr_value, 1e-9), 0.0, 1.0),
+            volume=clamp((volume_ratio(candles, setup_index) - 1.0) / 1.5, 0.0, 1.0),
+            context=clamp(bandwidth / cfg.max_bandwidth, 0.0, 1.0),
+        )
+        scored = apply_market_score("short", candle, base_score, market_context, cfg)
+        if scored is not None:
+            score, market_text = scored
+            if score >= cfg.event_min_signal_score:
+                candidates.append(("short", f"wide_failure_upper range_atr={range_width_atr:.2f} bandwidth={bandwidth:.4f} base_score={base_score:.3f} score={score:.3f}{market_text}", score))
+
+    if (
+        setup.low < prior_low
+        and setup.close > prior_low
+        and candle.close > setup.close
+        and candle.close > prior_low
+        and close_position_ratio(setup) >= 0.55
+        and reversal_regime_allows("long", candles, ind, setup_index, cfg)
+        and side_allowed_by_mode("long", cfg, None)
+    ):
+        base_score = base_event_score(
+            strength=clamp(range_width_atr / 8, 0.0, 1.0),
+            rejection=clamp((candle.close - setup.low) / max(atr_value, 1e-9), 0.0, 1.0),
+            volume=clamp((volume_ratio(candles, setup_index) - 1.0) / 1.5, 0.0, 1.0),
+            context=clamp(bandwidth / cfg.max_bandwidth, 0.0, 1.0),
+        )
+        scored = apply_market_score("long", candle, base_score, market_context, cfg)
+        if scored is not None:
+            score, market_text = scored
+            if score >= cfg.event_min_signal_score:
+                candidates.append(("long", f"wide_failure_lower range_atr={range_width_atr:.2f} bandwidth={bandwidth:.4f} base_score={base_score:.3f} score={score:.3f}{market_text}", score))
+
+    return max(candidates, key=lambda item: item[2]) if candidates else None
+
+
+def signal_for_index(
+    candles: Sequence[Candle],
+    ind: Dict[str, List[Optional[float]]],
+    index: int,
+    cfg: StrategyConfig,
+    higher_context: Optional[Dict[str, Dict[str, Any]]] = None,
+    market_context: Optional[MarketContext] = None,
+) -> Optional[Tuple[str, str, float]]:
+    candidates: List[Tuple[str, str, float]] = []
+    if strategy_enabled("trend", cfg):
+        trend_signal = trend_signal_for_index(candles, ind, index, cfg, higher_context, market_context)
+        if trend_signal is not None:
+            candidates.append(trend_signal)
+    if strategy_enabled("exhaustion", cfg):
+        exhaustion_signal = exhaustion_signal_for_index(candles, ind, index, cfg, market_context)
+        if exhaustion_signal is not None:
+            candidates.append(exhaustion_signal)
+    if strategy_enabled("fake_breakout", cfg):
+        fake_breakout_signal = fake_breakout_signal_for_index(candles, ind, index, cfg, market_context)
+        if fake_breakout_signal is not None:
+            candidates.append(fake_breakout_signal)
+    if strategy_enabled("squeeze", cfg):
+        squeeze_signal = squeeze_signal_for_index(candles, ind, index, cfg, market_context)
+        if squeeze_signal is not None:
+            candidates.append(squeeze_signal)
+    if strategy_enabled("shock", cfg):
+        shock_signal = shock_signal_for_index(candles, ind, index, cfg, market_context)
+        if shock_signal is not None:
+            candidates.append(shock_signal)
+    if strategy_enabled("sweep", cfg):
+        sweep_signal = sweep_signal_for_index(candles, ind, index, cfg, market_context)
+        if sweep_signal is not None:
+            candidates.append(sweep_signal)
+    if strategy_enabled("wide_failure", cfg):
+        wide_failure_signal = wide_failure_signal_for_index(candles, ind, index, cfg, market_context)
+        if wide_failure_signal is not None:
+            candidates.append(wide_failure_signal)
+    if strategy_enabled("range", cfg):
+        range_signal = range_signal_for_index(candles, ind, index, cfg, higher_context, market_context)
+        if range_signal is not None:
+            candidates.append(range_signal)
+    if not candidates:
+        return None
+
+    reversal_events = [item for item in candidates if is_reversal_event(item[1])]
+    if len(reversal_events) > 1:
+        best_reversal = max(reversal_events, key=lambda item: (event_priority(item[1]), item[2]))
+        candidates = [item for item in candidates if not is_reversal_event(item[1])]
+        candidates.append(best_reversal)
+
+    return max(candidates, key=lambda item: (adjusted_candidate_score(item, cfg), event_priority(item[1])))
+
+
+def build_trend_pending_entry(
+    candles: Sequence[Candle],
+    ind: Dict[str, List[Optional[float]]],
+    signal_index: int,
+    created_index: int,
+    side: str,
+    reason: str,
+    signal_score: float,
+    cfg: StrategyConfig,
+) -> Optional[PendingEntry]:
+    signal_candle = candles[signal_index]
+    atr_value = ind["atr"][signal_index]
+    if atr_value is None:
+        return None
+
+    pullback = atr_value * cfg.trend_entry_pullback_atr
+    if side == "long":
+        target = signal_candle.close - pullback
+        stop = target - max(atr_value * cfg.trend_stop_atr, target * cfg.trend_min_stop_pct)
+        risk = target - stop
+        tp1 = target + risk * cfg.trend_tp1_rr
+        tp2 = target + risk * cfg.trend_tp2_rr
+        tp3 = target + risk * cfg.trend_tp3_rr
+        reward_risk = (tp2 - target) / risk if risk > 0 else 0.0
+    else:
+        target = signal_candle.close + pullback
+        stop = target + max(atr_value * cfg.trend_stop_atr, target * cfg.trend_min_stop_pct)
+        risk = stop - target
+        tp1 = target - risk * cfg.trend_tp1_rr
+        tp2 = target - risk * cfg.trend_tp2_rr
+        tp3 = target - risk * cfg.trend_tp3_rr
+        reward_risk = (target - tp2) / risk if risk > 0 else 0.0
+
+    if risk <= 0 or reward_risk < cfg.trend_min_reward_risk:
+        return None
+
+    return PendingEntry(
+        side=side,
+        signal_index=signal_index,
+        created_index=created_index,
+        expires_index=created_index + cfg.max_wait_bars,
+        target_price=target,
+        stop_price=stop,
+        tp1=tp1,
+        tp2=tp2,
+        tp3=tp3,
+        signal_score=signal_score,
+        risk_multiplier=risk_multiplier_from_score(signal_score, cfg),
+        signal_reason=reason,
+    )
+
+
+def build_event_pending_entry(
+    candles: Sequence[Candle],
+    ind: Dict[str, List[Optional[float]]],
+    signal_index: int,
+    created_index: int,
+    side: str,
+    reason: str,
+    signal_score: float,
+    cfg: StrategyConfig,
+) -> Optional[PendingEntry]:
+    signal_candle = candles[signal_index]
+    atr_value = ind["atr"][signal_index]
+    if atr_value is None:
+        return None
+
+    pullback = atr_value * cfg.event_entry_pullback_atr
+    min_stop = max(atr_value * cfg.event_stop_atr, signal_candle.close * cfg.event_min_stop_pct)
+    stop_buffer = atr_value * cfg.event_stop_buffer_atr
+    reversal_prefixes = (
+        "exhaustion_",
+        "fake_breakout_",
+        "sweep_",
+        "wide_failure_",
+    )
+    use_extreme_stop = reason.startswith(reversal_prefixes)
+
+    if side == "long":
+        target = signal_candle.close - pullback
+        stop = target - min_stop
+        if use_extreme_stop:
+            stop = min(stop, signal_candle.low - stop_buffer)
+        risk = target - stop
+        tp1 = target + risk * cfg.event_tp1_rr
+        tp2 = target + risk * cfg.event_tp2_rr
+        tp3 = target + risk * cfg.event_tp3_rr
+        reward_risk = (tp2 - target) / risk if risk > 0 else 0.0
+    else:
+        target = signal_candle.close + pullback
+        stop = target + min_stop
+        if use_extreme_stop:
+            stop = max(stop, signal_candle.high + stop_buffer)
+        risk = stop - target
+        tp1 = target - risk * cfg.event_tp1_rr
+        tp2 = target - risk * cfg.event_tp2_rr
+        tp3 = target - risk * cfg.event_tp3_rr
+        reward_risk = (target - tp2) / risk if risk > 0 else 0.0
+
+    if risk <= 0 or reward_risk < cfg.event_min_reward_risk:
+        return None
+
+    return PendingEntry(
+        side=side,
+        signal_index=signal_index,
+        created_index=created_index,
+        expires_index=created_index + cfg.max_wait_bars,
+        target_price=target,
+        stop_price=stop,
+        tp1=tp1,
+        tp2=tp2,
+        tp3=tp3,
+        signal_score=signal_score,
+        risk_multiplier=risk_multiplier_from_score(signal_score, cfg) * cfg.event_risk_multiplier,
+        signal_reason=reason,
+    )
 
 
 def build_pending_entry(
@@ -1061,6 +2070,20 @@ def build_pending_entry(
     signal_score: float,
     cfg: StrategyConfig,
 ) -> Optional[PendingEntry]:
+    if reason.startswith("trend_"):
+        return build_trend_pending_entry(candles, ind, signal_index, created_index, side, reason, signal_score, cfg)
+    if reason.startswith(
+        (
+            "exhaustion_",
+            "fake_breakout_",
+            "squeeze_",
+            "shock_",
+            "sweep_",
+            "wide_failure_",
+        )
+    ):
+        return build_event_pending_entry(candles, ind, signal_index, created_index, side, reason, signal_score, cfg)
+
     signal_candle = candles[signal_index]
     atr_value = ind["atr"][signal_index]
     mid = ind["bb_mid"][signal_index]
@@ -1501,7 +2524,7 @@ def save_trades_csv(path: Path, trades: Sequence[Dict[str, Any]]) -> None:
 
 def print_summary(summary: Dict[str, Any]) -> None:
     window = summary["symbol_window"]
-    print("Range swing simulation")
+    print("Multi-strategy futures simulation")
     print(f"Window: {window['start_utc']} -> {window['end_utc']} ({window['candles']} candles)")
     print(f"Initial equity: {summary['initial_equity']:.2f}")
     print(f"Final equity: {summary['final_equity']:.2f}")
@@ -1536,8 +2559,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--days", type=float, default=60.0)
     parser.add_argument("--snapshot", type=Path, help="Use a saved snapshot JSON instead of fetching Binance klines.")
     parser.add_argument("--initial-equity", type=float, default=100.0)
-    parser.add_argument("--leverage", type=float, default=18.0)
-    parser.add_argument("--risk-per-trade", type=float, default=0.12)
+    parser.add_argument("--leverage", type=float, default=5.0)
+    parser.add_argument("--risk-per-trade", type=float, default=0.03)
     parser.add_argument("--maker-fee", type=float, default=0.0002)
     parser.add_argument("--taker-fee", type=float, default=0.00045)
     parser.add_argument("--bb-period", type=int, default=36)
@@ -1570,7 +2593,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--trail-atr", type=float, default=1.2)
     parser.add_argument("--max-hold-bars", type=int, default=36)
     parser.add_argument("--cooldown-bars", type=int, default=4)
-    parser.add_argument("--max-drawdown-stop-pct", type=float, default=25.0)
+    parser.add_argument("--max-drawdown-stop-pct", type=float, default=10.0)
     parser.add_argument("--high-adx-drift-threshold", type=float, default=26.0)
     parser.add_argument("--min-high-adx-drift-pct", type=float, default=0.0012)
     parser.add_argument("--min-signal-score", type=float, default=0.50)
@@ -1597,6 +2620,34 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--depth-impact-bps", type=float, default=8.0)
     parser.add_argument("--depth-impact-exponent", type=float, default=0.5)
     parser.add_argument("--min-depth-quote", type=float, default=2_000_000.0)
+    parser.add_argument(
+        "--strategy-modes",
+        default="trend",
+        help="Comma-separated strategy modules: range,trend,exhaustion,fake_breakout,squeeze,shock,sweep,wide_failure,all.",
+    )
+    parser.add_argument("--trend-confirm-timeframes", default="15m,1h,4h")
+    parser.add_argument("--trend-min-signal-score", type=float, default=0.82)
+    parser.add_argument("--trend-min-adx", type=float, default=34.0)
+    parser.add_argument("--trend-min-ema-spread", type=float, default=0.0030)
+    parser.add_argument("--trend-min-drift-pct", type=float, default=0.0015)
+    parser.add_argument("--trend-pullback-lookback-bars", type=int, default=8)
+    parser.add_argument("--trend-pullback-atr", type=float, default=0.80)
+    parser.add_argument("--trend-entry-pullback-atr", type=float, default=0.15)
+    parser.add_argument("--trend-stop-atr", type=float, default=1.35)
+    parser.add_argument("--trend-min-stop-pct", type=float, default=0.0035)
+    parser.add_argument("--trend-tp1-rr", type=float, default=1.0)
+    parser.add_argument("--trend-tp2-rr", type=float, default=2.0)
+    parser.add_argument("--trend-tp3-rr", type=float, default=3.2)
+    parser.add_argument("--trend-min-reward-risk", type=float, default=1.60)
+    parser.add_argument("--trend-short-rsi-min", type=float, default=22.0)
+    parser.add_argument("--trend-short-rsi-max", type=float, default=58.0)
+    parser.add_argument("--trend-long-rsi-min", type=float, default=42.0)
+    parser.add_argument("--trend-long-rsi-max", type=float, default=78.0)
+    parser.add_argument("--event-min-signal-score", type=float, default=0.95)
+    parser.add_argument("--event-risk-multiplier", type=float, default=0.20)
+    parser.add_argument("--event-core-score-penalty", type=float, default=0.10)
+    parser.add_argument("--event-regime-max-adx", type=float, default=32.0)
+    parser.add_argument("--event-regime-max-aligned-ema-spread", type=float, default=0.006)
     parser.add_argument("--output-json", type=Path)
     parser.add_argument("--trades-csv", type=Path)
     return parser.parse_args()
@@ -1628,6 +2679,23 @@ def config_from_args(args: argparse.Namespace) -> StrategyConfig:
     trend_stretch_filter_timeframes = parse_timeframes(args.trend_stretch_filter_timeframes)
     for timeframe in trend_stretch_filter_timeframes:
         interval_to_ms(timeframe)
+    strategy_modes = tuple(item.lower() for item in parse_timeframes(args.strategy_modes))
+    valid_strategy_modes = {
+        "range",
+        "trend",
+        "exhaustion",
+        "fake_breakout",
+        "squeeze",
+        "shock",
+        "sweep",
+        "wide_failure",
+        "all",
+    }
+    if not strategy_modes or any(item not in valid_strategy_modes for item in strategy_modes):
+        raise ValueError("--strategy-modes must contain one or more of: range,trend,all")
+    trend_confirm_timeframes = parse_timeframes(args.trend_confirm_timeframes)
+    for timeframe in trend_confirm_timeframes:
+        interval_to_ms(timeframe)
     if args.confirm_drift_lookback_bars < 0:
         raise ValueError("--confirm-drift-lookback-bars must be >= 0")
     if args.confirm_countertrend_drift_limit_pct < 0 or args.confirm_countertrend_ema_spread_pct < 0:
@@ -1650,6 +2718,29 @@ def config_from_args(args: argparse.Namespace) -> StrategyConfig:
         raise ValueError("--entry-slippage-bps and --exit-slippage-bps must be >= 0")
     if args.depth_impact_bps < 0 or args.depth_impact_exponent < 0 or args.min_depth_quote <= 0:
         raise ValueError("--depth-impact-bps and --depth-impact-exponent must be >= 0; --min-depth-quote must be > 0")
+    if not 0 <= args.trend_min_signal_score <= 1:
+        raise ValueError("--trend-min-signal-score must be between 0 and 1")
+    if args.trend_pullback_lookback_bars < 1:
+        raise ValueError("--trend-pullback-lookback-bars must be >= 1")
+    if (
+        args.trend_min_adx < 0
+        or args.trend_min_ema_spread < 0
+        or args.trend_min_drift_pct < 0
+        or args.trend_pullback_atr < 0
+        or args.trend_entry_pullback_atr < 0
+        or args.trend_stop_atr <= 0
+        or args.trend_min_stop_pct <= 0
+        or args.trend_min_reward_risk <= 0
+    ):
+        raise ValueError("--trend-* thresholds must be non-negative; stop/reward values must be > 0")
+    if not (0 <= args.trend_short_rsi_min <= args.trend_short_rsi_max <= 100):
+        raise ValueError("--trend-short-rsi-min/max must be ordered within 0..100")
+    if not (0 <= args.trend_long_rsi_min <= args.trend_long_rsi_max <= 100):
+        raise ValueError("--trend-long-rsi-min/max must be ordered within 0..100")
+    if not 0 <= args.event_min_signal_score <= 1:
+        raise ValueError("--event-min-signal-score must be between 0 and 1")
+    if args.event_risk_multiplier <= 0 or args.event_core_score_penalty < 0:
+        raise ValueError("--event-risk-multiplier must be > 0 and --event-core-score-penalty must be >= 0")
     return StrategyConfig(
         initial_equity=args.initial_equity,
         leverage=args.leverage,
@@ -1713,6 +2804,30 @@ def config_from_args(args: argparse.Namespace) -> StrategyConfig:
         depth_impact_bps=args.depth_impact_bps,
         depth_impact_exponent=args.depth_impact_exponent,
         min_depth_quote=args.min_depth_quote,
+        strategy_modes=strategy_modes,
+        trend_confirm_timeframes=trend_confirm_timeframes,
+        trend_min_signal_score=args.trend_min_signal_score,
+        trend_min_adx=args.trend_min_adx,
+        trend_min_ema_spread=args.trend_min_ema_spread,
+        trend_min_drift_pct=args.trend_min_drift_pct,
+        trend_pullback_lookback_bars=args.trend_pullback_lookback_bars,
+        trend_pullback_atr=args.trend_pullback_atr,
+        trend_entry_pullback_atr=args.trend_entry_pullback_atr,
+        trend_stop_atr=args.trend_stop_atr,
+        trend_min_stop_pct=args.trend_min_stop_pct,
+        trend_tp1_rr=args.trend_tp1_rr,
+        trend_tp2_rr=args.trend_tp2_rr,
+        trend_tp3_rr=args.trend_tp3_rr,
+        trend_min_reward_risk=args.trend_min_reward_risk,
+        trend_short_rsi_min=args.trend_short_rsi_min,
+        trend_short_rsi_max=args.trend_short_rsi_max,
+        trend_long_rsi_min=args.trend_long_rsi_min,
+        trend_long_rsi_max=args.trend_long_rsi_max,
+        event_min_signal_score=args.event_min_signal_score,
+        event_risk_multiplier=args.event_risk_multiplier,
+        event_core_score_penalty=args.event_core_score_penalty,
+        event_regime_max_adx=args.event_regime_max_adx,
+        event_regime_max_aligned_ema_spread=args.event_regime_max_aligned_ema_spread,
     )
 
 
