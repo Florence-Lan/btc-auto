@@ -2590,7 +2590,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tp1-close-ratio", type=float, default=0.35)
     parser.add_argument("--tp2-close-ratio", type=float, default=0.30)
     parser.add_argument("--break-even-buffer-pct", type=float, default=0.00035)
-    parser.add_argument("--trail-atr", type=float, default=1.2)
+    parser.add_argument("--trail-atr", type=float, default=2.0)
     parser.add_argument("--max-hold-bars", type=int, default=36)
     parser.add_argument("--cooldown-bars", type=int, default=4)
     parser.add_argument("--max-drawdown-stop-pct", type=float, default=10.0)

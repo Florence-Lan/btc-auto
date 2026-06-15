@@ -52,7 +52,7 @@ def default_config(args: argparse.Namespace) -> sim.StrategyConfig:
         tp1_close_ratio=0.35,
         tp2_close_ratio=0.30,
         break_even_buffer_pct=0.00035,
-        trail_atr=1.2,
+        trail_atr=2.0,
         max_hold_bars=36,
         cooldown_bars=4,
         max_drawdown_stop_pct=args.max_drawdown_stop_pct,
