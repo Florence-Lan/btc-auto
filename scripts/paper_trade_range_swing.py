@@ -201,7 +201,9 @@ def close_position_if_needed(
     atr_value: Optional[float],
     cfg: sim.StrategyConfig,
     trades_path: Path,
+    funding_history: Optional[sim.FundingHistory] = None,
 ) -> Optional[sim.Position]:
+    sim.settle_position_funding(position, candle, funding_history)
     exit_reason = ""
 
     if position.side == "long":
@@ -335,6 +337,8 @@ def fill_pending_if_possible(
         return None
 
     entry_price = sim.execution_price(pending.target_price, pending.side, True, qty, candle, cfg)
+    if not sim.price_within_candle(entry_price, candle):
+        return None
     entry_fee = abs(entry_price * qty) * cfg.maker_fee
     liq_price = sim.liquidation_price(entry_price, pending.side, cfg.leverage, cfg)
     state["position_equity_base"] = float(state["equity"])
@@ -365,6 +369,8 @@ def fill_pending_if_possible(
         liquidation_price=liq_price,
         best_price=candle.high if pending.side == "long" else candle.low,
         fees_paid=entry_fee,
+        slippage_cost=abs(entry_price - pending.target_price) * qty,
+        last_funding_time_ms=candle.open_time_ms - 1,
     )
 
 
@@ -375,6 +381,7 @@ def process_candle(
     cfg: sim.StrategyConfig,
     trades_path: Path,
     market_context: Optional[sim.MarketContext],
+    funding_history: Optional[sim.FundingHistory],
 ) -> None:
     candle = candles[index]
     ind = sim.indicators(candles[: index + 1], cfg)
@@ -384,7 +391,16 @@ def process_candle(
     pending = pending_from_dict(state.get("pending"))
 
     if position is not None:
-        position = close_position_if_needed(state, position, candle, paper_index, atr_value, cfg, trades_path)
+        position = close_position_if_needed(
+            state,
+            position,
+            candle,
+            paper_index,
+            atr_value,
+            cfg,
+            trades_path,
+            funding_history,
+        )
 
     marked = mark_equity(float(state["equity"]), position, candle, cfg)
     state["peak_equity"] = max(float(state.get("peak_equity", marked)), marked)
@@ -393,9 +409,11 @@ def process_candle(
     state["max_drawdown_pct"] = max(float(state.get("max_drawdown_pct", 0.0)), drawdown_pct)
 
     if position is None:
-        trading_halted = cfg.max_drawdown_stop_pct > 0 and float(state["max_drawdown_pct"]) >= cfg.max_drawdown_stop_pct
+        trading_halted = sim.drawdown_halted(float(state["max_drawdown_pct"]) / 100, cfg)
         if trading_halted:
             pending = None
+            if not state.get("halted_at_utc"):
+                state["halted_at_utc"] = datetime.now(timezone.utc).isoformat()
 
         if not trading_halted and pending is not None and paper_index > pending.expires_index:
             add_event(state, "pending_expired", {"side": pending.side, "target_price": pending.target_price})
@@ -406,6 +424,17 @@ def process_candle(
             if filled_position is not None:
                 position = filled_position
                 pending = None
+                if cfg.intrabar_policy == "pessimistic":
+                    position = close_position_if_needed(
+                        state,
+                        position,
+                        candle,
+                        paper_index,
+                        atr_value,
+                        cfg,
+                        trades_path,
+                        funding_history,
+                    )
 
         if (
             not trading_halted
@@ -436,6 +465,11 @@ def process_candle(
                         },
                     )
 
+    marked = mark_equity(float(state["equity"]), position, candle, cfg)
+    state["peak_equity"] = max(float(state.get("peak_equity", marked)), marked)
+    peak = float(state["peak_equity"])
+    drawdown_pct = ((peak - marked) / peak * 100) if peak else 0.0
+    state["max_drawdown_pct"] = max(float(state.get("max_drawdown_pct", 0.0)), drawdown_pct)
     state["position"] = asdict(position) if position is not None else None
     state["pending"] = asdict(pending) if pending is not None else None
     state["last_processed_open_time_ms"] = candle.open_time_ms
@@ -462,6 +496,11 @@ def run_once(args: argparse.Namespace, cfg: sim.StrategyConfig, state: Dict[str,
     warmup = max(cfg.bb_period, cfg.rsi_period + 1, cfg.atr_period, cfg.adx_period * 2, cfg.ema_slow) + 2
     if len(candles) <= warmup:
         raise RuntimeError(f"not enough candles for paper trading warmup: {len(candles)}")
+    funding_history = sim.fetch_funding_history(
+        symbol,
+        candles[0].open_time_ms,
+        candles[-1].close_time_ms,
+    )
 
     last_processed = state.get("last_processed_open_time_ms")
     if last_processed is None:
@@ -471,7 +510,7 @@ def run_once(args: argparse.Namespace, cfg: sim.StrategyConfig, state: Dict[str,
 
     processed = 0
     for index in range(start_index, len(candles)):
-        process_candle(state, candles, index, cfg, trades_path, market_context)
+        process_candle(state, candles, index, cfg, trades_path, market_context, funding_history)
         processed += 1
 
     save_state(state_path, state)
@@ -522,10 +561,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-trend-stretch-ema-spread", type=float, default=0.030)
     parser.add_argument("--min-trend-stretch-adx", type=float, default=18.0)
     parser.add_argument("--min-signal-score", type=float, default=0.50)
-    parser.add_argument("--market-context-enabled", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--market-context-enabled", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--market-context-periods", default="5m,15m,1h,4h")
     parser.add_argument("--min-market-context-score", type=float, default=0.0)
-    parser.add_argument("--market-context-score-weight", type=float, default=0.10)
+    parser.add_argument("--market-context-score-weight", type=float, default=0.0)
     parser.add_argument("--trend-confirm-timeframes", default="15m,1h,4h")
     parser.add_argument("--trend-min-signal-score", type=float, default=0.82)
     parser.add_argument("--trend-min-adx", type=float, default=34.0)
@@ -554,6 +593,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--poll-seconds", type=int, default=60)
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--reset-state", action="store_true")
+    parser.add_argument("--resume-after-drawdown", action="store_true")
     parser.add_argument("--state-path", type=Path, default=repo_root() / "data/paper_trading/state.json")
     parser.add_argument("--trades-path", type=Path, default=repo_root() / "data/paper_trading/trades.csv")
     args = parser.parse_args()
@@ -591,6 +631,12 @@ def main() -> int:
         args.state_path.unlink()
 
     state = load_state(args.state_path, args)
+    if args.resume_after_drawdown:
+        state["max_drawdown_pct"] = 0.0
+        state["peak_equity"] = float(state.get("last_marked_equity", state["equity"]))
+        state["halted_at_utc"] = None
+        add_event(state, "manual_drawdown_resume", {"equity": state["peak_equity"]})
+        save_state(args.state_path, state)
     if state.get("symbol") != sim.normalize_symbol(args.symbol) or state.get("interval") != args.interval:
         raise RuntimeError("state symbol/interval does not match args; use --reset-state to start a new paper account")
 

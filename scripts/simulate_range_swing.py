@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import json
 import math
 import time
 from bisect import bisect_right
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -70,6 +71,9 @@ class Position:
     exit_notional_sum: float = 0.0
     exited_qty: float = 0.0
     exit_notes: Optional[str] = None
+    funding_pnl: float = 0.0
+    slippage_cost: float = 0.0
+    last_funding_time_ms: int = 0
 
 
 @dataclass
@@ -88,6 +92,9 @@ class Trade:
     exit_reason: str
     signal_reason: str
     liquidation_price: float
+    funding_pnl: float = 0.0
+    slippage_cost: float = 0.0
+    strategy: str = "trend_pullback_5m"
 
 
 @dataclass(frozen=True)
@@ -95,6 +102,12 @@ class MarketContext:
     periods: Dict[str, Dict[str, Dict[str, List[float]]]]
     funding_times: List[int]
     funding_rates: List[float]
+
+
+@dataclass(frozen=True)
+class FundingHistory:
+    times: List[int]
+    rates: List[float]
 
 
 @dataclass(frozen=True)
@@ -208,6 +221,16 @@ class StrategyConfig:
     sweep_volume_ratio: float = 1.20
     wide_failure_lookback_bars: int = 72
     wide_failure_min_range_atr: float = 4.0
+    intrabar_policy: str = "pessimistic"
+    missing_context_policy: str = "fail"
+    timeseries_timeframe: str = "6h"
+    timeseries_fast_ema: int = 12
+    timeseries_slow_ema: int = 48
+    timeseries_vol_lookback_bars: int = 120
+    timeseries_target_vol: float = 0.10
+    timeseries_max_leverage: float = 1.50
+    portfolio_mode: str = "single"
+    portfolio_leverage_cap: float = 1.50
 
 
 def repo_root() -> Path:
@@ -266,6 +289,33 @@ def candle_from_kline(entry: Sequence[Any]) -> Candle:
     )
 
 
+def candle_to_compact(candle: Candle) -> List[Any]:
+    return [
+        candle.open_time_ms,
+        candle.open,
+        candle.high,
+        candle.low,
+        candle.close,
+        candle.volume,
+        candle.quote_volume,
+        candle.close_time_ms,
+    ]
+
+
+def candle_from_compact(entry: Sequence[Any]) -> Candle:
+    return Candle(
+        open_time_ms=int(entry[0]),
+        open_time_utc=iso_utc_from_ms(int(entry[0])),
+        open=float(entry[1]),
+        high=float(entry[2]),
+        low=float(entry[3]),
+        close=float(entry[4]),
+        volume=float(entry[5]),
+        quote_volume=float(entry[6]),
+        close_time_ms=int(entry[7]),
+    )
+
+
 def load_candles_from_snapshot(path: Path) -> List[Candle]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     candles: List[Candle] = []
@@ -286,6 +336,142 @@ def load_candles_from_snapshot(path: Path) -> List[Candle]:
             )
         )
     return sorted(candles, key=lambda candle: candle.open_time_ms)
+
+
+def load_market_snapshot(path: Path) -> Tuple[Dict[str, List[Candle]], FundingHistory, Dict[str, Any]]:
+    if path.suffix.lower() == ".gz":
+        handle = gzip.open(path, "rt", encoding="utf-8")
+    else:
+        handle = path.open("r", encoding="utf-8")
+    with handle:
+        payload = json.load(handle)
+    if int(payload.get("version", 0)) != 2:
+        raise ValueError(f"Unsupported market snapshot version: {payload.get('version')}")
+    intervals = {
+        interval: [candle_from_compact(item) for item in rows]
+        for interval, rows in payload.get("intervals", {}).items()
+    }
+    funding_rows = payload.get("funding_rates", [])
+    funding = FundingHistory(
+        times=[int(item[0]) for item in funding_rows],
+        rates=[float(item[1]) for item in funding_rows],
+    )
+    return intervals, funding, payload.get("metadata", {})
+
+
+def save_market_snapshot(
+    path: Path,
+    symbol: str,
+    intervals: Dict[str, Sequence[Candle]],
+    funding: FundingHistory,
+    start_ms: int,
+    end_ms: int,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "version": 2,
+        "metadata": {
+            "symbol": symbol,
+            "start_utc": iso_utc_from_ms(start_ms),
+            "end_utc": iso_utc_from_ms(end_ms),
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            "source": "binance_futures_public_api",
+        },
+        "intervals": {
+            interval: [candle_to_compact(candle) for candle in candles]
+            for interval, candles in intervals.items()
+        },
+        "funding_rates": list(zip(funding.times, funding.rates)),
+    }
+    if path.suffix.lower() == ".gz":
+        handle = gzip.open(path, "wt", encoding="utf-8")
+    else:
+        handle = path.open("w", encoding="utf-8")
+    with handle:
+        json.dump(payload, handle, separators=(",", ":"))
+
+
+def fetch_futures_klines_range(symbol: str, interval: str, start_ms: int, end_ms: int) -> List[Candle]:
+    interval_ms = interval_to_ms(interval)
+    candles: List[Candle] = []
+    seen: set[int] = set()
+    with requests.Session() as session:
+        session.headers.update({"User-Agent": "btc-auto-snapshot/2.0"})
+        cursor = start_ms
+        while cursor < end_ms:
+            params = {
+                "symbol": symbol,
+                "interval": interval,
+                "startTime": cursor,
+                "endTime": end_ms,
+                "limit": 1500,
+            }
+            batch = fetch_json_with_retries(session, "/fapi/v1/klines", params)
+            if not isinstance(batch, list) or not batch:
+                break
+            for raw in batch:
+                candle = candle_from_kline(raw)
+                if candle.open_time_ms not in seen and candle.close_time_ms <= end_ms:
+                    candles.append(candle)
+                    seen.add(candle.open_time_ms)
+            next_cursor = int(batch[-1][0]) + interval_ms
+            if next_cursor <= cursor:
+                break
+            cursor = next_cursor
+            if len(batch) < 1500:
+                break
+            time.sleep(0.05)
+    return sorted(candles, key=lambda candle: candle.open_time_ms)
+
+
+def fetch_funding_history(symbol: str, start_ms: int, end_ms: int) -> FundingHistory:
+    rows: List[Tuple[int, float]] = []
+    seen: set[int] = set()
+    with requests.Session() as session:
+        session.headers.update({"User-Agent": "btc-auto-funding/2.0"})
+        cursor = start_ms
+        while cursor < end_ms:
+            batch = fetch_json_with_retries(
+                session,
+                "/fapi/v1/fundingRate",
+                {
+                    "symbol": symbol,
+                    "startTime": cursor,
+                    "endTime": end_ms,
+                    "limit": 1000,
+                },
+            )
+            if not isinstance(batch, list) or not batch:
+                break
+            for item in batch:
+                timestamp = int(item["fundingTime"])
+                if timestamp not in seen:
+                    rows.append((timestamp, float(item["fundingRate"])))
+                    seen.add(timestamp)
+            next_cursor = int(batch[-1]["fundingTime"]) + 1
+            if next_cursor <= cursor:
+                break
+            cursor = next_cursor
+            if len(batch) < 1000:
+                break
+            time.sleep(0.05)
+    rows.sort(key=lambda item: item[0])
+    return FundingHistory(
+        times=[item[0] for item in rows],
+        rates=[item[1] for item in rows],
+    )
+
+
+def funding_events_between(
+    funding: Optional[FundingHistory],
+    start_exclusive_ms: int,
+    end_inclusive_ms: int,
+) -> Iterable[Tuple[int, float]]:
+    if funding is None or not funding.times:
+        return ()
+    start_index = bisect_right(funding.times, start_exclusive_ms)
+    end_index = bisect_right(funding.times, end_inclusive_ms)
+    return zip(funding.times[start_index:end_index], funding.rates[start_index:end_index])
 
 
 def fetch_futures_klines(symbol: str, interval: str, days: float) -> List[Candle]:
@@ -2171,6 +2357,37 @@ def execution_price(
     return adverse_price(raw_price, side, is_entry, total_bps)
 
 
+def price_within_candle(price: float, candle: Candle) -> bool:
+    return candle.low <= price <= candle.high
+
+
+def stop_hit_for_position(position: Position, candle: Candle) -> bool:
+    if position.side == "long":
+        return candle.low <= position.stop_price
+    return candle.high >= position.stop_price
+
+
+def drawdown_halted(max_drawdown_fraction: float, cfg: StrategyConfig) -> bool:
+    return cfg.max_drawdown_stop_pct > 0 and max_drawdown_fraction * 100 >= cfg.max_drawdown_stop_pct
+
+
+def settle_position_funding(
+    position: Position,
+    candle: Candle,
+    funding: Optional[FundingHistory],
+) -> float:
+    start_ms = max(position.last_funding_time_ms, candle.open_time_ms - 1)
+    settled = 0.0
+    for timestamp, rate in funding_events_between(funding, start_ms, candle.close_time_ms):
+        notional = abs(candle.close * position.qty)
+        payment = -direction(position.side) * notional * rate
+        position.realized_pnl += payment
+        position.funding_pnl += payment
+        position.last_funding_time_ms = timestamp
+        settled += payment
+    return settled
+
+
 def liquidation_price(entry_price: float, side: str, leverage: float, cfg: StrategyConfig) -> float:
     margin_rate = 1 / leverage
     maintenance = cfg.maintenance_margin_pct + cfg.liquidation_fee_pct
@@ -2188,6 +2405,7 @@ def exit_position_part(
     qty: float,
     fee_rate: float,
     reason: str,
+    raw_price: Optional[float] = None,
 ) -> Tuple[float, float]:
     qty = min(qty, position.qty)
     side_dir = direction(position.side)
@@ -2199,6 +2417,8 @@ def exit_position_part(
     position.exit_notional_sum += exit_price * qty
     position.exited_qty += qty
     position.exit_notes = reason
+    if raw_price is not None:
+        position.slippage_cost += abs(exit_price - raw_price) * qty
     return gross, fee
 
 
@@ -2245,6 +2465,9 @@ def close_trade_record(
         exit_reason=exit_reason,
         signal_reason=signal_reason,
         liquidation_price=position.liquidation_price,
+        funding_pnl=position.funding_pnl,
+        slippage_cost=position.slippage_cost,
+        strategy="trend_pullback_5m" if signal_reason.startswith("trend_") else signal_reason.split("_", 1)[0],
     )
 
 
@@ -2253,6 +2476,7 @@ def simulate(
     cfg: StrategyConfig,
     evaluation_start_ms: Optional[int] = None,
     market_context: Optional[MarketContext] = None,
+    funding_history: Optional[FundingHistory] = None,
 ) -> Dict[str, Any]:
     ind = indicators(candles, cfg)
     higher_context = build_higher_timeframe_context(candles, cfg)
@@ -2279,6 +2503,7 @@ def simulate(
         atr_value = ind["atr"][index]
 
         if position is not None:
+            settle_position_funding(position, candle, funding_history)
             exit_reason = ""
             if position.side == "long":
                 liquidation_hit = candle.low <= position.liquidation_price
@@ -2290,31 +2515,31 @@ def simulate(
 
                 if liquidation_hit:
                     fill_price = execution_price(position.liquidation_price, position.side, False, position.qty, candle, cfg)
-                    exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "liquidation")
+                    exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "liquidation", position.liquidation_price)
                     exit_reason = "liquidation"
                 elif stop_hit:
                     fill_price = execution_price(position.stop_price, position.side, False, position.qty, candle, cfg)
-                    exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "stop")
+                    exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "stop", position.stop_price)
                     exit_reason = "stop"
                 else:
                     if tp1_hit:
                         exit_qty = position.initial_qty * cfg.tp1_close_ratio
                         fill_price = execution_price(position.tp1, position.side, False, exit_qty, candle, cfg)
-                        exit_position_part(position, candle, fill_price, exit_qty, cfg.taker_fee, "tp1")
+                        exit_position_part(position, candle, fill_price, exit_qty, cfg.taker_fee, "tp1", position.tp1)
                         position.tp1_hit = True
                         position.stop_price = max(position.stop_price, position.entry_price * (1 + cfg.break_even_buffer_pct))
                     if tp2_hit and position.qty > 0:
                         exit_qty = position.initial_qty * cfg.tp2_close_ratio
                         fill_price = execution_price(position.tp2, position.side, False, exit_qty, candle, cfg)
-                        exit_position_part(position, candle, fill_price, exit_qty, cfg.taker_fee, "tp2")
+                        exit_position_part(position, candle, fill_price, exit_qty, cfg.taker_fee, "tp2", position.tp2)
                         position.tp2_hit = True
                     if tp3_hit and position.qty > 0:
                         fill_price = execution_price(position.tp3, position.side, False, position.qty, candle, cfg)
-                        exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "tp3")
+                        exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "tp3", position.tp3)
                         exit_reason = "tp3"
                     elif max_hold_hit and position.qty > 0:
                         fill_price = execution_price(candle.close, position.side, False, position.qty, candle, cfg)
-                        exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "max_hold")
+                        exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "max_hold", candle.close)
                         exit_reason = "max_hold"
             else:
                 liquidation_hit = candle.high >= position.liquidation_price
@@ -2326,31 +2551,31 @@ def simulate(
 
                 if liquidation_hit:
                     fill_price = execution_price(position.liquidation_price, position.side, False, position.qty, candle, cfg)
-                    exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "liquidation")
+                    exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "liquidation", position.liquidation_price)
                     exit_reason = "liquidation"
                 elif stop_hit:
                     fill_price = execution_price(position.stop_price, position.side, False, position.qty, candle, cfg)
-                    exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "stop")
+                    exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "stop", position.stop_price)
                     exit_reason = "stop"
                 else:
                     if tp1_hit:
                         exit_qty = position.initial_qty * cfg.tp1_close_ratio
                         fill_price = execution_price(position.tp1, position.side, False, exit_qty, candle, cfg)
-                        exit_position_part(position, candle, fill_price, exit_qty, cfg.taker_fee, "tp1")
+                        exit_position_part(position, candle, fill_price, exit_qty, cfg.taker_fee, "tp1", position.tp1)
                         position.tp1_hit = True
                         position.stop_price = min(position.stop_price, position.entry_price * (1 - cfg.break_even_buffer_pct))
                     if tp2_hit and position.qty > 0:
                         exit_qty = position.initial_qty * cfg.tp2_close_ratio
                         fill_price = execution_price(position.tp2, position.side, False, exit_qty, candle, cfg)
-                        exit_position_part(position, candle, fill_price, exit_qty, cfg.taker_fee, "tp2")
+                        exit_position_part(position, candle, fill_price, exit_qty, cfg.taker_fee, "tp2", position.tp2)
                         position.tp2_hit = True
                     if tp3_hit and position.qty > 0:
                         fill_price = execution_price(position.tp3, position.side, False, position.qty, candle, cfg)
-                        exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "tp3")
+                        exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "tp3", position.tp3)
                         exit_reason = "tp3"
                     elif max_hold_hit and position.qty > 0:
                         fill_price = execution_price(candle.close, position.side, False, position.qty, candle, cfg)
-                        exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "max_hold")
+                        exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "max_hold", candle.close)
                         exit_reason = "max_hold"
 
             if position is not None and position.qty > 0 and not exit_reason:
@@ -2366,7 +2591,7 @@ def simulate(
                 cooldown_until = index + cfg.cooldown_bars
 
         if position is None:
-            trading_halted = cfg.max_drawdown_stop_pct > 0 and max_drawdown * 100 >= cfg.max_drawdown_stop_pct
+            trading_halted = drawdown_halted(max_drawdown, cfg)
             if trading_halted:
                 pending = None
 
@@ -2387,9 +2612,8 @@ def simulate(
                     qty_by_leverage = (max(equity, 0.0) * cfg.leverage) / entry_price
                     qty = min(qty_by_risk, qty_by_leverage)
                     entry_price = execution_price(pending.target_price, pending.side, True, qty, candle, cfg)
-                    if qty <= 0:
+                    if qty <= 0 or not price_within_candle(entry_price, candle):
                         skipped_low_equity += 1
-                        pending = None
                     else:
                         entry_fee = abs(entry_price * qty) * cfg.maker_fee
                         position_equity_base = equity
@@ -2409,8 +2633,35 @@ def simulate(
                             liquidation_price=liq_price,
                             best_price=candle.high if pending.side == "long" else candle.low,
                             fees_paid=entry_fee,
+                            slippage_cost=abs(entry_price - pending.target_price) * qty,
+                            last_funding_time_ms=candle.open_time_ms - 1,
                         )
                         pending = None
+                        settle_position_funding(position, candle, funding_history)
+                        stop_hit_on_entry = stop_hit_for_position(position, candle)
+                        if cfg.intrabar_policy == "pessimistic" and stop_hit_on_entry:
+                            raw_stop = position.stop_price
+                            fill_price = execution_price(raw_stop, position.side, False, position.qty, candle, cfg)
+                            exit_position_part(
+                                position,
+                                candle,
+                                fill_price,
+                                position.qty,
+                                cfg.taker_fee,
+                                "entry_bar_stop",
+                                raw_stop,
+                            )
+                            trade = close_trade_record(
+                                position,
+                                candle,
+                                position_equity_base,
+                                "entry_bar_stop",
+                                position_signal_reason,
+                            )
+                            equity += trade.net_pnl
+                            trades.append(trade)
+                            position = None
+                            cooldown_until = index + cfg.cooldown_bars
 
             if not trading_halted and position is None and pending is None and index >= cooldown_until:
                 signal_index = index - 1
@@ -2433,13 +2684,16 @@ def simulate(
                 "time_ms": candle.open_time_ms,
                 "equity": marked_equity,
                 "drawdown_pct": drawdown * 100,
+                "exposure": 1.0 if position is not None else 0.0,
+                "signed_qty": position.qty * direction(position.side) if position is not None else 0.0,
+                "price": candle.close,
             }
         )
 
     if position is not None:
         last = candles[-1]
         fill_price = execution_price(last.close, position.side, False, position.qty, last, cfg)
-        exit_position_part(position, last, fill_price, position.qty, cfg.taker_fee, "end")
+        exit_position_part(position, last, fill_price, position.qty, cfg.taker_fee, "end", last.close)
         trade = close_trade_record(position, last, position_equity_base, "end", position_signal_reason)
         trade.bars_held = len(candles) - 1 - position.entry_index
         equity += trade.net_pnl
@@ -2452,6 +2706,323 @@ def simulate(
         "trades": [asdict(trade) for trade in trades],
         "equity_curve": equity_curve,
         "config": asdict(cfg),
+    }
+
+
+def simulate_timeseries_trend(
+    candles: Sequence[Candle],
+    cfg: StrategyConfig,
+    evaluation_start_ms: Optional[int] = None,
+    funding_history: Optional[FundingHistory] = None,
+) -> Dict[str, Any]:
+    if cfg.timeseries_fast_ema >= cfg.timeseries_slow_ema:
+        raise ValueError("timeseries fast EMA must be less than slow EMA")
+    closes = [candle.close for candle in candles]
+    fast = ema(closes, cfg.timeseries_fast_ema)
+    slow = ema(closes, cfg.timeseries_slow_ema)
+    log_returns = [0.0]
+    for index in range(1, len(closes)):
+        log_returns.append(math.log(closes[index] / closes[index - 1]) if closes[index - 1] > 0 else 0.0)
+
+    warmup = max(cfg.timeseries_slow_ema, cfg.timeseries_vol_lookback_bars) + 1
+    start_index = warmup
+    if evaluation_start_ms is not None:
+        start_index = max(
+            warmup,
+            next(
+                (index for index, candle in enumerate(candles) if candle.open_time_ms >= evaluation_start_ms),
+                len(candles),
+            ),
+        )
+
+    equity = cfg.initial_equity
+    peak_equity = equity
+    max_drawdown = 0.0
+    trades: List[Trade] = []
+    equity_curve: List[Dict[str, float]] = []
+    position: Optional[Position] = None
+    position_equity_base = equity
+    pending_side: Optional[str] = None
+    periods_per_year = 365 * (MS_PER_DAY / interval_to_ms(cfg.timeseries_timeframe))
+
+    for index in range(start_index, len(candles)):
+        candle = candles[index]
+
+        if pending_side is not None:
+            if position is not None:
+                raw_exit = candle.open
+                fill = execution_price(raw_exit, position.side, False, position.qty, candle, cfg)
+                exit_position_part(
+                    position,
+                    candle,
+                    fill,
+                    position.qty,
+                    cfg.taker_fee,
+                    "ema_cross",
+                    raw_exit,
+                )
+                trade = close_trade_record(
+                    position,
+                    candle,
+                    position_equity_base,
+                    "ema_cross",
+                    f"timeseries_trend_{position.side}",
+                )
+                trade.bars_held = index - position.entry_index
+                trade.strategy = "timeseries_trend_6h"
+                equity += trade.net_pnl
+                trades.append(trade)
+                position = None
+
+            desired_side = pending_side
+            pending_side = None
+            allowed = cfg.side_mode in ("auto", "both", desired_side)
+            halted = drawdown_halted(max_drawdown, cfg)
+            if allowed and not halted and equity > 0:
+                window = log_returns[index - cfg.timeseries_vol_lookback_bars : index]
+                realized_vol = stddev(window) * math.sqrt(periods_per_year) if len(window) > 1 else 0.0
+                target_leverage = min(
+                    cfg.timeseries_max_leverage,
+                    cfg.timeseries_target_vol / max(realized_vol, 0.05),
+                )
+                side_dir = direction(desired_side)
+                raw_entry = candle.open
+                rough_qty = equity * target_leverage / raw_entry
+                entry = execution_price(raw_entry, desired_side, True, rough_qty, candle, cfg)
+                qty = equity * target_leverage / entry if entry > 0 else 0.0
+                if qty > 0:
+                    entry_fee = abs(entry * qty) * cfg.taker_fee
+                    position_equity_base = equity
+                    position = Position(
+                        side=desired_side,
+                        entry_index=index,
+                        entry_time_utc=candle.open_time_utc,
+                        entry_price=entry,
+                        qty=qty,
+                        initial_qty=qty,
+                        stop_price=0.0 if side_dir > 0 else float("inf"),
+                        tp1=0.0,
+                        tp2=0.0,
+                        tp3=0.0,
+                        liquidation_price=liquidation_price(
+                            entry,
+                            desired_side,
+                            max(target_leverage, 1e-6),
+                            cfg,
+                        ),
+                        best_price=entry,
+                        fees_paid=entry_fee,
+                        slippage_cost=abs(entry - raw_entry) * qty,
+                        last_funding_time_ms=candle.open_time_ms - 1,
+                    )
+
+        if position is not None:
+            settle_position_funding(position, candle, funding_history)
+
+        if fast[index] is not None and slow[index] is not None and fast[index - 1] is not None and slow[index - 1] is not None:
+            current_side = "long" if fast[index] > slow[index] else "short"
+            previous_side = "long" if fast[index - 1] > slow[index - 1] else "short"
+            if current_side != previous_side and (position is None or position.side != current_side):
+                pending_side = current_side
+
+        marked_equity = equity
+        signed_qty = 0.0
+        if position is not None:
+            signed_qty = position.qty * direction(position.side)
+            unrealized = (candle.close - position.entry_price) * signed_qty
+            close_fee = abs(candle.close * position.qty) * cfg.taker_fee
+            marked_equity = equity + position.realized_pnl + unrealized - position.fees_paid - close_fee
+        peak_equity = max(peak_equity, marked_equity)
+        drawdown = (peak_equity - marked_equity) / peak_equity if peak_equity else 0.0
+        max_drawdown = max(max_drawdown, drawdown)
+        equity_curve.append(
+            {
+                "time_ms": candle.open_time_ms,
+                "equity": marked_equity,
+                "drawdown_pct": drawdown * 100,
+                "exposure": 1.0 if position is not None else 0.0,
+                "signed_qty": signed_qty,
+                "price": candle.close,
+            }
+        )
+
+    if position is not None:
+        candle = candles[-1]
+        raw_exit = candle.close
+        fill = execution_price(raw_exit, position.side, False, position.qty, candle, cfg)
+        exit_position_part(position, candle, fill, position.qty, cfg.taker_fee, "end", raw_exit)
+        trade = close_trade_record(
+            position,
+            candle,
+            position_equity_base,
+            "end",
+            f"timeseries_trend_{position.side}",
+        )
+        trade.bars_held = len(candles) - 1 - position.entry_index
+        trade.strategy = "timeseries_trend_6h"
+        equity += trade.net_pnl
+        trades.append(trade)
+
+    summary_candles = candles[start_index:] if start_index < len(candles) else candles[-1:]
+    summary = summarize_results(summary_candles, trades, equity_curve, cfg, equity, max_drawdown)
+    return {
+        "summary": summary,
+        "trades": [asdict(trade) for trade in trades],
+        "equity_curve": equity_curve,
+        "config": asdict(cfg),
+    }
+
+
+def _utc_ms(value: str) -> int:
+    return int(datetime.fromisoformat(value).timestamp() * 1000)
+
+
+def scaled_trade_from_raw(raw: Dict[str, Any], scale: float, equity_at_entry: float) -> Trade:
+    net_pnl = float(raw["net_pnl"]) * scale
+    return Trade(
+        side=str(raw["side"]),
+        entry_time_utc=str(raw["entry_time_utc"]),
+        exit_time_utc=str(raw["exit_time_utc"]),
+        entry_price=float(raw["entry_price"]),
+        avg_exit_price=float(raw["avg_exit_price"]),
+        initial_qty=float(raw["initial_qty"]) * scale,
+        pnl=float(raw["pnl"]) * scale,
+        fees=float(raw["fees"]) * scale,
+        net_pnl=net_pnl,
+        return_on_equity_pct=net_pnl / equity_at_entry * 100 if equity_at_entry else 0.0,
+        bars_held=int(raw["bars_held"]),
+        exit_reason=str(raw["exit_reason"]),
+        signal_reason=str(raw["signal_reason"]),
+        liquidation_price=float(raw.get("liquidation_price", 0.0)),
+        funding_pnl=float(raw.get("funding_pnl", 0.0)) * scale,
+        slippage_cost=float(raw.get("slippage_cost", 0.0)) * scale,
+        strategy=str(raw.get("strategy", "unknown")),
+    )
+
+
+def combine_sleeve_results(
+    candles: Sequence[Candle],
+    sleeve_results: Sequence[Dict[str, Any]],
+    cfg: StrategyConfig,
+    evaluation_start_ms: Optional[int] = None,
+) -> Dict[str, Any]:
+    entries: Dict[int, List[Dict[str, Any]]] = {}
+    exits: Dict[int, List[Dict[str, Any]]] = {}
+    for result in sleeve_results:
+        for raw_trade in result.get("trades", []):
+            trade = dict(raw_trade)
+            entry_ms = _utc_ms(trade["entry_time_utc"])
+            exit_ms = _utc_ms(trade["exit_time_utc"])
+            trade["_immediate"] = exit_ms <= entry_ms
+            entries.setdefault(entry_ms, []).append(trade)
+            if not trade["_immediate"]:
+                exits.setdefault(exit_ms, []).append(trade)
+
+    start_index = 0
+    if evaluation_start_ms is not None:
+        start_index = next(
+            (index for index, candle in enumerate(candles) if candle.open_time_ms >= evaluation_start_ms),
+            len(candles),
+        )
+
+    equity = cfg.initial_equity
+    peak = equity
+    max_drawdown = 0.0
+    active: Dict[int, Dict[str, Any]] = {}
+    scaled_trades: List[Trade] = []
+    equity_curve: List[Dict[str, float]] = []
+    trade_id = 0
+
+    for candle in candles[start_index:]:
+        timestamp = candle.open_time_ms
+        for raw in exits.get(timestamp, []):
+            matching_id = next(
+                (
+                    key
+                    for key, value in active.items()
+                    if value["raw"] is raw
+                ),
+                None,
+            )
+            if matching_id is None:
+                continue
+            item = active.pop(matching_id)
+            scale = item["scale"]
+            scaled_trade = scaled_trade_from_raw(raw, scale, item["equity_at_entry"])
+            equity += scaled_trade.net_pnl
+            scaled_trades.append(scaled_trade)
+
+        for raw in entries.get(timestamp, []):
+            desired_signed_notional = (
+                float(raw["entry_price"])
+                * float(raw["initial_qty"])
+                * direction(str(raw["side"]))
+            )
+            current_signed_notional = sum(
+                value["signed_qty"] * candle.open
+                for value in active.values()
+            )
+            cap = max(equity, 0.0) * cfg.portfolio_leverage_cap
+            proposed = current_signed_notional + desired_signed_notional
+            if abs(proposed) <= cap:
+                scale = 1.0
+            else:
+                allowed_delta = math.copysign(cap, proposed) - current_signed_notional
+                scale = clamp(
+                    abs(allowed_delta / desired_signed_notional) if desired_signed_notional else 0.0,
+                    0.0,
+                    1.0,
+                )
+            if scale <= 0:
+                continue
+            if raw.get("_immediate"):
+                scaled_trade = scaled_trade_from_raw(raw, scale, equity)
+                equity += scaled_trade.net_pnl
+                scaled_trades.append(scaled_trade)
+                continue
+            active[trade_id] = {
+                "raw": raw,
+                "scale": scale,
+                "signed_qty": float(raw["initial_qty"]) * direction(str(raw["side"])) * scale,
+                "equity_at_entry": equity,
+            }
+            trade_id += 1
+
+        unrealized = sum(
+            (candle.close - float(item["raw"]["entry_price"])) * item["signed_qty"]
+            for item in active.values()
+        )
+        marked = equity + unrealized
+        peak = max(peak, marked)
+        drawdown = (peak - marked) / peak if peak else 0.0
+        max_drawdown = max(max_drawdown, drawdown)
+        net_qty = sum(item["signed_qty"] for item in active.values())
+        equity_curve.append(
+            {
+                "time_ms": timestamp,
+                "equity": marked,
+                "drawdown_pct": drawdown * 100,
+                "exposure": 1.0 if active else 0.0,
+                "signed_qty": net_qty,
+                "price": candle.close,
+            }
+        )
+
+    summary_candles = candles[start_index:] if start_index < len(candles) else candles[-1:]
+    summary = summarize_results(
+        summary_candles,
+        scaled_trades,
+        equity_curve,
+        cfg,
+        equity,
+        max_drawdown,
+    )
+    return {
+        "summary": summary,
+        "trades": [asdict(trade) for trade in scaled_trades],
+        "equity_curve": equity_curve,
+        "config": asdict(cfg),
+        "sleeves": [result["summary"] for result in sleeve_results],
     }
 
 
@@ -2477,6 +3048,91 @@ def summarize_results(
         else:
             current_losses = 0
 
+    duration_years = 0.0
+    if candles:
+        duration_years = max((candles[-1].close_time_ms - candles[0].open_time_ms) / MS_PER_DAY / 365, 1 / 365)
+    cagr_pct = (
+        ((final_equity / cfg.initial_equity) ** (1 / duration_years) - 1) * 100
+        if duration_years > 0 and final_equity > 0 and cfg.initial_equity > 0
+        else None
+    )
+
+    daily_points: Dict[str, float] = {}
+    for point in equity_curve:
+        timestamp = int(point["time_ms"])
+        day = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc).date().isoformat()
+        daily_points[day] = float(point["equity"])
+    daily_values = list(daily_points.values())
+    daily_returns = [
+        daily_values[index] / daily_values[index - 1] - 1
+        for index in range(1, len(daily_values))
+        if daily_values[index - 1] > 0
+    ]
+    daily_mean = mean(daily_returns) if daily_returns else 0.0
+    daily_std = stddev(daily_returns) if len(daily_returns) > 1 else 0.0
+    downside = [min(value, 0.0) for value in daily_returns]
+    downside_std = math.sqrt(mean([value * value for value in downside])) if downside else 0.0
+    sharpe = daily_mean / daily_std * math.sqrt(365) if daily_std > 0 else None
+    sortino = daily_mean / downside_std * math.sqrt(365) if downside_std > 0 else None
+    calmar = cagr_pct / (max_drawdown * 100) if cagr_pct is not None and max_drawdown > 0 else None
+
+    by_side: Dict[str, Dict[str, float]] = {}
+    by_strategy: Dict[str, Dict[str, float]] = {}
+    for key, getter in (
+        ("side", lambda trade: trade.side),
+        ("strategy", lambda trade: trade.strategy),
+    ):
+        groups: Dict[str, List[Trade]] = {}
+        for trade in trades:
+            groups.setdefault(getter(trade), []).append(trade)
+        target = by_side if key == "side" else by_strategy
+        for name, group in groups.items():
+            group_wins = [trade.net_pnl for trade in group if trade.net_pnl > 0]
+            group_losses = [trade.net_pnl for trade in group if trade.net_pnl < 0]
+            target[name] = {
+                "trades": len(group),
+                "net_pnl": sum(trade.net_pnl for trade in group),
+                "win_rate_pct": len(group_wins) / len(group) * 100 if group else 0.0,
+                "profit_factor": (
+                    sum(group_wins) / abs(sum(group_losses))
+                    if group_losses
+                    else None
+                ),
+            }
+
+    annual_returns: Dict[str, float] = {}
+    annual_first: Dict[str, float] = {}
+    annual_last: Dict[str, float] = {}
+    for day, value in daily_points.items():
+        year = day[:4]
+        annual_first.setdefault(year, value)
+        annual_last[year] = value
+    previous_year_end = cfg.initial_equity
+    for year in sorted(annual_last):
+        start_value = previous_year_end if year != sorted(annual_last)[0] else annual_first[year]
+        annual_returns[year] = (annual_last[year] / start_value - 1) * 100 if start_value else 0.0
+        previous_year_end = annual_last[year]
+
+    total_fees = sum(trade.fees for trade in trades)
+    total_slippage = sum(trade.slippage_cost for trade in trades)
+    total_funding = sum(trade.funding_pnl for trade in trades)
+    total_costs = total_fees + total_slippage
+    turnover_notional = sum(
+        abs(trade.entry_price * trade.initial_qty)
+        + abs(trade.avg_exit_price * trade.initial_qty)
+        for trade in trades
+    )
+    exposure_pct = (
+        mean([float(point.get("exposure", 0.0)) for point in equity_curve]) * 100
+        if equity_curve
+        else 0.0
+    )
+    largest_profit_share_pct = (
+        max((trade.net_pnl for trade in trades), default=0.0) / gross_profit * 100
+        if gross_profit > 0
+        else None
+    )
+
     return {
         "symbol_window": {
             "start_utc": candles[0].open_time_utc if candles else None,
@@ -2487,7 +3143,11 @@ def summarize_results(
         "final_equity": final_equity,
         "equity_multiple": final_equity / cfg.initial_equity if cfg.initial_equity else 0.0,
         "total_return_pct": (final_equity / cfg.initial_equity - 1) * 100 if cfg.initial_equity else 0.0,
+        "cagr_pct": cagr_pct,
         "max_drawdown_pct": max_drawdown * 100,
+        "sharpe": sharpe,
+        "sortino": sortino,
+        "calmar": calmar,
         "trades": len(trades),
         "win_rate_pct": len(wins) / len(trades) * 100 if trades else 0.0,
         "profit_factor": gross_profit / gross_loss if gross_loss else None,
@@ -2500,7 +3160,18 @@ def summarize_results(
         "max_consecutive_losses": max_consecutive_losses,
         "liquidations": liquidation_count,
         "average_bars_held": mean([trade.bars_held for trade in trades]) if trades else 0.0,
-        "total_fees": sum(trade.fees for trade in trades),
+        "total_fees": total_fees,
+        "total_slippage": total_slippage,
+        "total_funding_pnl": total_funding,
+        "total_costs": total_costs,
+        "cost_to_gross_profit_pct": total_costs / gross_profit * 100 if gross_profit > 0 else None,
+        "turnover_notional": turnover_notional,
+        "exposure_pct": exposure_pct,
+        "trades_per_year": len(trades) / duration_years if duration_years > 0 else 0.0,
+        "largest_profit_share_pct": largest_profit_share_pct,
+        "annual_returns_pct": annual_returns,
+        "by_side": by_side,
+        "by_strategy": by_strategy,
         "target_10x_gap_multiple": 10 / (final_equity / cfg.initial_equity) if final_equity > 0 and cfg.initial_equity else None,
         "last_equity_point": equity_curve[-1] if equity_curve else None,
     }
@@ -2516,8 +3187,9 @@ def save_trades_csv(path: Path, trades: Sequence[Dict[str, Any]]) -> None:
     if not trades:
         path.write_text("", encoding="utf-8")
         return
+    fieldnames = list(dict.fromkeys(key for trade in trades for key in trade.keys()))
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(trades[0].keys()))
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(trades)
 
@@ -2530,7 +3202,16 @@ def print_summary(summary: Dict[str, Any]) -> None:
     print(f"Final equity: {summary['final_equity']:.2f}")
     print(f"Equity multiple: {summary['equity_multiple']:.3f}x")
     print(f"Total return: {summary['total_return_pct']:.2f}%")
+    if summary.get("cagr_pct") is not None:
+        print(f"CAGR: {summary['cagr_pct']:.2f}%")
     print(f"Max drawdown: {summary['max_drawdown_pct']:.2f}%")
+    print(
+        "Sharpe / Sortino / Calmar: "
+        + " / ".join(
+            f"{summary[key]:.3f}" if summary.get(key) is not None else "n/a"
+            for key in ("sharpe", "sortino", "calmar")
+        )
+    )
     print(f"Trades: {summary['trades']}")
     print(f"Win rate: {summary['win_rate_pct']:.2f}%")
     profit_factor = summary["profit_factor"]
@@ -2539,6 +3220,8 @@ def print_summary(summary: Dict[str, Any]) -> None:
     print(f"Max consecutive losses: {summary['max_consecutive_losses']}")
     print(f"Liquidations: {summary['liquidations']}")
     print(f"Total fees: {summary['total_fees']:.2f}")
+    print(f"Slippage / funding PnL: {summary.get('total_slippage', 0.0):.2f} / {summary.get('total_funding_pnl', 0.0):.2f}")
+    print(f"Exposure / trades per year: {summary.get('exposure_pct', 0.0):.2f}% / {summary.get('trades_per_year', 0.0):.2f}")
     gap = summary["target_10x_gap_multiple"]
     if gap is not None:
         print(f"10x target still needs: {gap:.2f}x from this result")
@@ -2558,6 +3241,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--interval", default="5m")
     parser.add_argument("--days", type=float, default=60.0)
     parser.add_argument("--snapshot", type=Path, help="Use a saved snapshot JSON instead of fetching Binance klines.")
+    parser.add_argument("--data-snapshot", type=Path, help="Use an immutable version-2 multi-timeframe snapshot (.json or .json.gz).")
     parser.add_argument("--initial-equity", type=float, default=100.0)
     parser.add_argument("--leverage", type=float, default=5.0)
     parser.add_argument("--risk-per-trade", type=float, default=0.03)
@@ -2609,10 +3293,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--adaptive-risk-enabled", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--min-risk-multiplier", type=float, default=0.80)
     parser.add_argument("--max-risk-multiplier", type=float, default=1.20)
-    parser.add_argument("--market-context-enabled", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--market-context-enabled", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--missing-context-policy", choices=["fail", "disable"], default="fail")
     parser.add_argument("--market-context-periods", default="5m,15m,1h,4h")
     parser.add_argument("--min-market-context-score", type=float, default=0.0)
-    parser.add_argument("--market-context-score-weight", type=float, default=0.10)
+    parser.add_argument("--market-context-score-weight", type=float, default=0.0)
     parser.add_argument("--maintenance-margin-pct", type=float, default=0.004)
     parser.add_argument("--liquidation-fee-pct", type=float, default=0.001)
     parser.add_argument("--entry-slippage-bps", type=float, default=0.5)
@@ -2623,8 +3308,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--strategy-modes",
         default="trend",
-        help="Comma-separated strategy modules: range,trend,exhaustion,fake_breakout,squeeze,shock,sweep,wide_failure,all.",
+        help="Comma-separated strategy modules: trend,timeseries_trend and experimental event modules.",
     )
+    parser.add_argument("--portfolio-mode", choices=["single", "sleeves"], default="single")
+    parser.add_argument("--portfolio-leverage-cap", type=float, default=1.5)
+    parser.add_argument("--intrabar-policy", choices=["pessimistic", "legacy"], default="pessimistic")
+    parser.add_argument("--timeseries-timeframe", default="6h")
+    parser.add_argument("--timeseries-fast-ema", type=int, default=12)
+    parser.add_argument("--timeseries-slow-ema", type=int, default=48)
+    parser.add_argument("--timeseries-vol-lookback-bars", type=int, default=120)
+    parser.add_argument("--timeseries-target-vol", type=float, default=0.10)
+    parser.add_argument("--timeseries-max-leverage", type=float, default=1.5)
     parser.add_argument("--trend-confirm-timeframes", default="15m,1h,4h")
     parser.add_argument("--trend-min-signal-score", type=float, default=0.82)
     parser.add_argument("--trend-min-adx", type=float, default=34.0)
@@ -2689,10 +3383,20 @@ def config_from_args(args: argparse.Namespace) -> StrategyConfig:
         "shock",
         "sweep",
         "wide_failure",
+        "timeseries_trend",
         "all",
     }
     if not strategy_modes or any(item not in valid_strategy_modes for item in strategy_modes):
-        raise ValueError("--strategy-modes must contain one or more of: range,trend,all")
+        raise ValueError("--strategy-modes contains an unknown strategy module")
+    interval_to_ms(args.timeseries_timeframe)
+    if args.timeseries_fast_ema < 1 or args.timeseries_slow_ema <= args.timeseries_fast_ema:
+        raise ValueError("--timeseries EMA periods must satisfy 1 <= fast < slow")
+    if args.timeseries_vol_lookback_bars < 2:
+        raise ValueError("--timeseries-vol-lookback-bars must be >= 2")
+    if args.timeseries_target_vol <= 0 or args.timeseries_max_leverage <= 0:
+        raise ValueError("--timeseries target volatility and max leverage must be > 0")
+    if args.portfolio_leverage_cap <= 0:
+        raise ValueError("--portfolio-leverage-cap must be > 0")
     trend_confirm_timeframes = parse_timeframes(args.trend_confirm_timeframes)
     for timeframe in trend_confirm_timeframes:
         interval_to_ms(timeframe)
@@ -2828,35 +3532,128 @@ def config_from_args(args: argparse.Namespace) -> StrategyConfig:
         event_core_score_penalty=args.event_core_score_penalty,
         event_regime_max_adx=args.event_regime_max_adx,
         event_regime_max_aligned_ema_spread=args.event_regime_max_aligned_ema_spread,
+        intrabar_policy=args.intrabar_policy,
+        missing_context_policy=args.missing_context_policy,
+        timeseries_timeframe=args.timeseries_timeframe,
+        timeseries_fast_ema=args.timeseries_fast_ema,
+        timeseries_slow_ema=args.timeseries_slow_ema,
+        timeseries_vol_lookback_bars=args.timeseries_vol_lookback_bars,
+        timeseries_target_vol=args.timeseries_target_vol,
+        timeseries_max_leverage=args.timeseries_max_leverage,
+        portfolio_mode=args.portfolio_mode,
+        portfolio_leverage_cap=args.portfolio_leverage_cap,
     )
 
 
 def main() -> int:
     args = parse_args()
     cfg = config_from_args(args)
+    symbol = normalize_symbol(args.symbol)
+    market_context: Optional[MarketContext] = None
+    funding_history: Optional[FundingHistory] = None
+    interval_candles: Dict[str, List[Candle]] = {}
 
-    if args.snapshot:
+    if args.data_snapshot:
+        interval_candles, funding_history, metadata = load_market_snapshot(args.data_snapshot)
+        if metadata.get("symbol") and normalize_symbol(str(metadata["symbol"])) != symbol:
+            raise ValueError("Snapshot symbol does not match --symbol")
+        if args.interval not in interval_candles:
+            raise ValueError(f"Snapshot does not contain base interval {args.interval}")
+        candles = interval_candles[args.interval]
+        source = str(args.data_snapshot)
+        evaluation_start_ms = candles[-1].open_time_ms - int(args.days * MS_PER_DAY) if candles else None
+        if cfg.market_context_enabled and cfg.missing_context_policy == "fail":
+            raise ValueError(
+                "Version-2 snapshot has no point-in-time market context; "
+                "use --no-market-context-enabled or --missing-context-policy disable."
+            )
+    elif args.snapshot:
         candles = load_candles_from_snapshot(args.snapshot)
         source = str(args.snapshot)
         evaluation_start_ms = None
-        market_context = None
+        interval_candles[args.interval] = candles
     else:
-        symbol = normalize_symbol(args.symbol)
         required_days = minimum_history_days(args.interval, cfg)
-        fetch_days = args.days + required_days if cfg.confirm_timeframes else args.days
-        candles = fetch_futures_klines(symbol, args.interval, fetch_days)
-        evaluation_start_ms = candles[-1].open_time_ms - int(args.days * MS_PER_DAY) if candles else None
-        source = f"binance_futures:{symbol}:{args.interval}:{args.days}d(+{required_days:.1f}d_warmup)"
-        market_context = (
-            fetch_market_context(symbol, min(args.days, 30.0), cfg.market_context_periods)
-            if cfg.market_context_enabled
-            else None
+        timeseries_warmup_days = (
+            max(cfg.timeseries_slow_ema, cfg.timeseries_vol_lookback_bars)
+            * interval_to_ms(cfg.timeseries_timeframe)
+            / MS_PER_DAY
+            + 2
         )
+        fetch_days = args.days + max(required_days, timeseries_warmup_days)
+        candles = fetch_futures_klines(symbol, args.interval, fetch_days)
+        interval_candles[args.interval] = candles
+        if "timeseries_trend" in cfg.strategy_modes:
+            interval_candles[cfg.timeseries_timeframe] = fetch_futures_klines(
+                symbol,
+                cfg.timeseries_timeframe,
+                fetch_days,
+            )
+        evaluation_start_ms = candles[-1].open_time_ms - int(args.days * MS_PER_DAY) if candles else None
+        source = (
+            f"binance_futures:{symbol}:{args.interval}:{args.days}d"
+            f"(+{max(required_days, timeseries_warmup_days):.1f}d_warmup)"
+        )
+        if candles:
+            funding_history = fetch_funding_history(
+                symbol,
+                candles[0].open_time_ms,
+                candles[-1].close_time_ms,
+            )
+        if cfg.market_context_enabled:
+            if args.days > 29 and cfg.missing_context_policy == "fail":
+                raise ValueError(
+                    "Binance point-in-time market context is limited to about 30 days; "
+                    "use --no-market-context-enabled or a complete snapshot."
+                )
+            market_context = fetch_market_context(symbol, min(args.days, 29.0), cfg.market_context_periods)
 
     if len(candles) < max(cfg.ema_slow, cfg.bb_period, cfg.adx_period * 2) + 10:
         raise ValueError(f"Not enough candles for the configured indicators: {len(candles)}")
 
-    result = simulate(candles, cfg, evaluation_start_ms, market_context)
+    run_timeseries = "timeseries_trend" in cfg.strategy_modes
+    tactical_modes = tuple(
+        mode
+        for mode in cfg.strategy_modes
+        if mode != "timeseries_trend"
+    )
+    run_tactical = bool(tactical_modes) and tactical_modes != ("all",)
+    if "all" in cfg.strategy_modes:
+        run_tactical = True
+        tactical_modes = ("all",)
+
+    sleeve_results: List[Dict[str, Any]] = []
+    if run_tactical:
+        tactical_cfg = replace(cfg, strategy_modes=tactical_modes)
+        sleeve_results.append(
+            simulate(
+                candles,
+                tactical_cfg,
+                evaluation_start_ms,
+                market_context,
+                funding_history,
+            )
+        )
+    if run_timeseries:
+        if cfg.timeseries_timeframe not in interval_candles:
+            raise ValueError(f"Snapshot does not contain {cfg.timeseries_timeframe} candles")
+        sleeve_results.append(
+            simulate_timeseries_trend(
+                interval_candles[cfg.timeseries_timeframe],
+                cfg,
+                evaluation_start_ms,
+                funding_history,
+            )
+        )
+
+    if not sleeve_results:
+        raise ValueError("No strategy module selected")
+    if len(sleeve_results) > 1:
+        if cfg.portfolio_mode != "sleeves":
+            raise ValueError("Multiple strategy modules require --portfolio-mode sleeves")
+        result = combine_sleeve_results(candles, sleeve_results, cfg, evaluation_start_ms)
+    else:
+        result = sleeve_results[0]
     result["source"] = source
     result["generated_at_utc"] = datetime.now(timezone.utc).isoformat()
 
