@@ -11,6 +11,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import simulate_range_swing as sim
+import frozen_strategy
+import paper_trade_range_swing as paper_range
+import paper_trade_frozen_portfolio as paper_frozen
+import paper_trade_timeseries_trend as paper_timeseries
+import validate_frozen_strategy as frozen_validation
 
 
 def candle(index: int, open_: float, high: float, low: float, close: float, interval_ms: int = 300_000) -> sim.Candle:
@@ -68,6 +73,88 @@ class StrategyEngineTests(unittest.TestCase):
         self.assertFalse(sim.drawdown_halted(0.099, cfg))
         self.assertTrue(sim.drawdown_halted(0.10, cfg))
         self.assertFalse(sim.drawdown_halted(0.50, replace(cfg, max_drawdown_stop_pct=0.0)))
+
+    def test_default_trend_entry_uses_near_touch_limit(self) -> None:
+        cfg = config()
+        bar = candle(1, 100, 102, 98, 100)
+        indicator_values = {"atr": [None, 2.0]}
+        pending = sim.build_trend_pending_entry(
+            [candle(0, 100, 101, 99, 100), bar],
+            indicator_values,
+            signal_index=1,
+            created_index=2,
+            side="long",
+            reason="trend_long_pullback",
+            signal_score=cfg.trend_min_signal_score,
+            cfg=cfg,
+        )
+        self.assertEqual(cfg.trend_entry_pullback_atr, 0.05)
+        self.assertIsNotNone(pending)
+        self.assertAlmostEqual(pending.target_price, 99.9)
+
+    def test_default_portfolio_adds_timeseries_trend_sleeve(self) -> None:
+        cfg = config()
+        self.assertEqual(cfg.strategy_modes, ("trend", "timeseries_trend"))
+        self.assertEqual(cfg.portfolio_mode, "sleeves")
+        self.assertEqual(cfg.timeseries_fast_ema, 24)
+        self.assertEqual(cfg.timeseries_slow_ema, 120)
+        self.assertEqual(cfg.timeseries_target_vol, 1.0)
+        self.assertEqual(cfg.timeseries_max_leverage, 5.0)
+        self.assertEqual(cfg.portfolio_leverage_cap, 5.0)
+
+    def test_paper_defaults_match_promoted_strategies(self) -> None:
+        original = sys.argv
+        try:
+            sys.argv = ["paper_trade_range_swing.py"]
+            range_args = paper_range.parse_args()
+            sys.argv = ["paper_trade_timeseries_trend.py"]
+            timeseries_args = paper_timeseries.parse_args()
+        finally:
+            sys.argv = original
+        self.assertEqual(range_args.trend_entry_pullback_atr, 0.05)
+        self.assertEqual(timeseries_args.target_vol, 1.0)
+        self.assertEqual(timeseries_args.max_leverage, 5.0)
+
+    def test_frozen_strategy_manifest_is_valid(self) -> None:
+        manifest_path = ROOT / "config/frozen_strategy_20260705.json"
+        manifest, cfg = frozen_strategy.load_frozen_strategy(manifest_path)
+        self.assertEqual(manifest["freeze_id"], "btc_default_20260705_v1")
+        self.assertEqual(cfg.timeseries_fast_ema, 24)
+        self.assertEqual(cfg.timeseries_slow_ema, 120)
+        self.assertEqual(
+            frozen_strategy.canonical_config_hash(manifest["config"]),
+            manifest["config_sha256"],
+        )
+
+    def test_frozen_paper_state_never_places_orders(self) -> None:
+        manifest, _ = frozen_strategy.load_frozen_strategy(
+            ROOT / "config/frozen_strategy_20260705.json",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            state = paper_frozen.load_or_create_state(
+                Path(directory) / "state.json",
+                manifest,
+                "BTCUSDT",
+            )
+        self.assertFalse(state["places_orders"])
+        self.assertEqual(state["freeze_id"], manifest["freeze_id"])
+
+    def test_block_bootstrap_is_deterministic(self) -> None:
+        returns = [0.01, -0.005, 0.002, 0.004] * 30
+        first = frozen_validation.bootstrap_distribution(
+            returns,
+            block_days=5,
+            samples=100,
+            seed=7,
+        )
+        second = frozen_validation.bootstrap_distribution(
+            returns,
+            block_days=5,
+            samples=100,
+            seed=7,
+        )
+        self.assertEqual(first, second)
+        self.assertIsNotNone(first["annualized_p05_pct"])
 
     def test_execution_cost_stress_is_adverse(self) -> None:
         bar = candle(1, 100, 101, 99, 100)

@@ -174,7 +174,7 @@ class StrategyConfig:
     depth_impact_bps: float
     depth_impact_exponent: float
     min_depth_quote: float
-    strategy_modes: Tuple[str, ...] = ("range", "trend")
+    strategy_modes: Tuple[str, ...] = ("trend", "timeseries_trend")
     trend_confirm_timeframes: Tuple[str, ...] = ("15m", "1h", "4h")
     trend_min_signal_score: float = 0.75
     trend_min_adx: float = 30.0
@@ -182,7 +182,7 @@ class StrategyConfig:
     trend_min_drift_pct: float = 0.0015
     trend_pullback_lookback_bars: int = 8
     trend_pullback_atr: float = 0.80
-    trend_entry_pullback_atr: float = 0.15
+    trend_entry_pullback_atr: float = 0.05
     trend_stop_atr: float = 1.35
     trend_min_stop_pct: float = 0.0035
     trend_tp1_rr: float = 1.0
@@ -224,13 +224,13 @@ class StrategyConfig:
     intrabar_policy: str = "pessimistic"
     missing_context_policy: str = "fail"
     timeseries_timeframe: str = "6h"
-    timeseries_fast_ema: int = 12
-    timeseries_slow_ema: int = 48
+    timeseries_fast_ema: int = 24
+    timeseries_slow_ema: int = 120
     timeseries_vol_lookback_bars: int = 120
-    timeseries_target_vol: float = 0.10
-    timeseries_max_leverage: float = 1.50
-    portfolio_mode: str = "single"
-    portfolio_leverage_cap: float = 1.50
+    timeseries_target_vol: float = 1.00
+    timeseries_max_leverage: float = 5.0
+    portfolio_mode: str = "sleeves"
+    portfolio_leverage_cap: float = 5.0
 
 
 def repo_root() -> Path:
@@ -3307,18 +3307,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-depth-quote", type=float, default=2_000_000.0)
     parser.add_argument(
         "--strategy-modes",
-        default="trend",
+        default="trend,timeseries_trend",
         help="Comma-separated strategy modules: trend,timeseries_trend and experimental event modules.",
     )
-    parser.add_argument("--portfolio-mode", choices=["single", "sleeves"], default="single")
-    parser.add_argument("--portfolio-leverage-cap", type=float, default=1.5)
+    parser.add_argument("--portfolio-mode", choices=["single", "sleeves"], default="sleeves")
+    parser.add_argument("--portfolio-leverage-cap", type=float, default=5.0)
     parser.add_argument("--intrabar-policy", choices=["pessimistic", "legacy"], default="pessimistic")
     parser.add_argument("--timeseries-timeframe", default="6h")
-    parser.add_argument("--timeseries-fast-ema", type=int, default=12)
-    parser.add_argument("--timeseries-slow-ema", type=int, default=48)
+    parser.add_argument("--timeseries-fast-ema", type=int, default=24)
+    parser.add_argument("--timeseries-slow-ema", type=int, default=120)
     parser.add_argument("--timeseries-vol-lookback-bars", type=int, default=120)
-    parser.add_argument("--timeseries-target-vol", type=float, default=0.10)
-    parser.add_argument("--timeseries-max-leverage", type=float, default=1.5)
+    parser.add_argument("--timeseries-target-vol", type=float, default=1.00)
+    parser.add_argument("--timeseries-max-leverage", type=float, default=5.0)
     parser.add_argument("--trend-confirm-timeframes", default="15m,1h,4h")
     parser.add_argument("--trend-min-signal-score", type=float, default=0.82)
     parser.add_argument("--trend-min-adx", type=float, default=34.0)
@@ -3326,7 +3326,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--trend-min-drift-pct", type=float, default=0.0015)
     parser.add_argument("--trend-pullback-lookback-bars", type=int, default=8)
     parser.add_argument("--trend-pullback-atr", type=float, default=0.80)
-    parser.add_argument("--trend-entry-pullback-atr", type=float, default=0.15)
+    parser.add_argument("--trend-entry-pullback-atr", type=float, default=0.05)
     parser.add_argument("--trend-stop-atr", type=float, default=1.35)
     parser.add_argument("--trend-min-stop-pct", type=float, default=0.0035)
     parser.add_argument("--trend-tp1-rr", type=float, default=1.0)

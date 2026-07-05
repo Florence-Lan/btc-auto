@@ -572,7 +572,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--trend-min-drift-pct", type=float, default=0.0015)
     parser.add_argument("--trend-pullback-lookback-bars", type=int, default=8)
     parser.add_argument("--trend-pullback-atr", type=float, default=0.80)
-    parser.add_argument("--trend-entry-pullback-atr", type=float, default=0.15)
+    parser.add_argument("--trend-entry-pullback-atr", type=float, default=0.05)
     parser.add_argument("--trend-stop-atr", type=float, default=1.35)
     parser.add_argument("--trend-min-stop-pct", type=float, default=0.0035)
     parser.add_argument("--trend-tp1-rr", type=float, default=1.0)
