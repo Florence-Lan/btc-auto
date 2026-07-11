@@ -77,6 +77,47 @@ python scripts\validate_frozen_strategy.py `
 Historical rolling folds are explicitly reported as post-selection pseudo-OOS. Only observations
 after the manifest freeze time are genuinely out of sample.
 
+## Macro risk overlay
+
+Freeze daily S&P 500 and Nasdaq futures, VIX, U.S. Dollar Index, gold futures, and silver
+futures into a separate point-in-time snapshot. Daily closes are delayed by 24 hours before
+they can affect a BTC decision, preventing same-day close lookahead:
+
+```powershell
+python scripts\download_macro_snapshot.py `
+  --start-utc 2019-10-01T00:00:00Z `
+  --end-utc 2026-06-28T15:00:00Z `
+  --output data\snapshots\macro_20191001_20260628.json.gz
+```
+
+Run a continuous, non-resetting ablation against the active frozen portfolio:
+
+```powershell
+python scripts\validate_macro_overlay.py `
+  --manifest config\frozen_strategy_active_20260711.json `
+  --macro-snapshot data\snapshots\macro_20191001_20260628.json.gz `
+  --output-json data\validation\macro_overlay_20260711.json
+```
+
+The macro overlay is research-only and never increases the original position size. The snapshot
+also contains the Alternative.me Crypto Fear & Greed Index. A nonzero validation exit means the
+candidate remains unpromoted.
+
+Validate the no-range shadow candidate with continuous tiered drawdown control, block bootstrap,
+and doubled execution costs:
+
+```powershell
+python scripts\validate_candidate_portfolio.py `
+  --manifest config\frozen_strategy_active_20260711.json `
+  --macro-snapshot data\snapshots\macro_20191001_20260628.json.gz `
+  --output-json data\validation\candidate_portfolio_20260711.json
+
+python scripts\verify_shadow_candidate.py
+```
+
+The frozen shadow profile starts reducing new position sizes after an 8% drawdown and permanently
+blocks new entries at 15%. It does not resume automatically.
+
 ## Shadow Mode
 
 The time-series strategy has a separate shadow state and never places orders:
@@ -96,6 +137,45 @@ Track the exact frozen portfolio prospectively without placing orders:
 ```powershell
 python scripts\paper_trade_frozen_portfolio.py --loop --poll-seconds 300
 ```
+
+Enable the research macro overlay in shadow mode explicitly:
+
+```powershell
+python scripts\download_macro_snapshot.py `
+  --start-utc 2019-10-01T00:00:00Z `
+  --output data\snapshots\macro_shadow_latest.json.gz `
+  --force
+
+python scripts\paper_trade_frozen_portfolio.py `
+  --manifest config\frozen_strategy_active_20260711.json `
+  --state-path data\paper_trading\macro_candidate_state.json `
+  --report-path data\paper_trading\macro_candidate_report.json `
+  --trades-path data\paper_trading\macro_candidate_trades.csv `
+  --strategy-modes-override trend,timeseries_trend `
+  --macro-snapshot data\snapshots\macro_shadow_latest.json.gz `
+  --macro-factors vix,dollar,metals,sentiment `
+  --tiered-drawdown `
+  --soft-drawdown-start-pct 8 `
+  --hard-drawdown-stop-pct 15 `
+  --drawdown-min-multiplier 0.35 `
+  --event-snapshot config\event_risk_template.json `
+  --loop --poll-seconds 300
+```
+
+Refresh the shadow macro snapshot at least once per trading day. If every factor is older than
+five days, the overlay fails closed and blocks new entries.
+
+For unattended shadow tracking, use the supervisor. It refreshes macro data every 12 hours and
+recomputes the order-disabled portfolio every five minutes:
+
+```powershell
+python scripts\run_macro_candidate_shadow.py
+```
+
+`config/event_risk_template.json` is the point-in-time input for scheduled macro events and major
+news. An event cannot affect a decision before `published_at_utc`; severity only reduces risk or
+blocks entries and never creates a directional trade. Keep the template empty until a timestamped,
+auditable event feed is available.
 
 An optional higher-coverage profile adds the range module and reduces tactical risk to 0.75%.
 It is frozen separately because it trades more often but had lower historical CAGR than the

@@ -11,6 +11,13 @@ const profiles = {
     manifest: "../config/frozen_strategy_active_20260711.json",
     paper: "../data/paper_trading/frozen_portfolio_active_20260711_report.json",
   },
+  candidate: {
+    label: "宏观影子候选",
+    validation: "../data/validation/candidate_portfolio_20260711.json",
+    manifest: "../config/frozen_strategy_active_20260711.json",
+    candidate: "../config/shadow_candidate_macro_20260711.json",
+    paper: "../data/paper_trading/macro_candidate_report.json",
+  },
 };
 
 let currentProfile = "controlled";
@@ -94,6 +101,47 @@ function renderFoldChart(folds) {
   }).join("");
 }
 
+function normalizeCandidate(data, manifest, candidate) {
+  const summary = data.normal.summary;
+  const start = new Date(data.market_snapshot_metadata.start_utc).getTime() + 365 * 86400000;
+  const folds = data.normal.quarterly.returns_pct.map((value, index) => ({
+    window: {
+      start_utc: new Date(start + index * 90 * 86400000).toISOString(),
+      end_utc: new Date(start + (index + 1) * 90 * 86400000).toISOString(),
+    },
+    total_return_pct: value,
+    max_drawdown_pct: null,
+    profit_factor: null,
+    trades: 0,
+  }));
+  return {
+    data: {
+      ...data,
+      aggregate: {
+        ...summary,
+        initial_equity: 100,
+        profitable_fold_pct: data.normal.quarterly.profitable_pct,
+      },
+      bootstrap: data.normal.bootstrap,
+      double_cost_stress: data.double_cost.summary,
+      fold_count: folds.length,
+      folds,
+      evidence_pass: data.candidate_pass,
+      freeze_id: candidate.candidate_id,
+      config_sha256: candidate.macro.snapshot_sha256,
+      snapshot_metadata: data.market_snapshot_metadata,
+    },
+    manifest: {
+      ...manifest,
+      config: {
+        ...manifest.config,
+        strategy_modes: candidate.strategy_modes,
+        max_drawdown_stop_pct: candidate.drawdown_policy.hard_stop_pct,
+      },
+    },
+  };
+}
+
 const strategyInfo = {
   trend: { icon: "↗", title: "多周期趋势", description: "15m / 1h / 4h 共振，回调后顺势进入" },
   range: { icon: "↔", title: "震荡回归", description: "布林带 + RSI，在低趋势强度区间捕捉回归" },
@@ -137,8 +185,11 @@ function render(data, manifest, paper, profile) {
   setText("#exitRules", `止盈 ${config.trend_tp1_rr}R / ${config.trend_tp2_rr}R / ${config.trend_tp3_rr}R\n回撤 ${pct(config.max_drawdown_stop_pct, 0)} 自动停止`);
   $("#exitRules").style.whiteSpace = "pre-line";
   setText("#foldCount", `${data.fold_count} 个独立季度窗口`);
-  setText("#evidenceBadge", data.evidence_pass ? "EVIDENCE PASS" : "REVIEW REQUIRED");
-  setText("#gateStatus", data.evidence_pass ? "收益、回撤、盈亏比、频次与稳定性门槛均通过" : "部分历史验收门槛未通过，请检查验证报告");
+  const shadowCandidate = profile === "candidate";
+  setText("#evidenceBadge", shadowCandidate ? "SHADOW ONLY" : (data.evidence_pass ? "EVIDENCE PASS" : "REVIEW REQUIRED"));
+  setText("#gateStatus", shadowCandidate
+    ? `收益与风险门槛通过；盈利季度 ${pct(aggregate.profitable_fold_pct)} 未达 60%，禁止实盘`
+    : (data.evidence_pass ? "收益、回撤、盈亏比、频次与稳定性门槛均通过" : "部分历史验收门槛未通过，请检查验证报告"));
   const stress = data.double_cost_stress;
   setText("#stressStatus", `成本翻倍后年化 ${pct(stress.cagr_pct)} · 盈亏比 ${num(stress.profit_factor)} · 回撤 ${pct(stress.max_drawdown_pct)}`);
   setText("#paperStatus", `始于 ${paper.paper_inception_utc.slice(0, 10)} · 当前 ${paper.summary.trades} 笔 · ${paper.places_orders ? "会下单" : "不下单"}`);
@@ -157,9 +208,15 @@ async function loadProfile(profile = currentProfile) {
   refresh.classList.add("loading");
   try {
     const paths = profiles[profile];
-    const [validation, manifest, paper] = await Promise.all([
+    const [rawValidation, rawManifest, paper, candidate] = await Promise.all([
       fetchJson(paths.validation), fetchJson(paths.manifest), fetchJson(paths.paper),
+      paths.candidate ? fetchJson(paths.candidate) : Promise.resolve(null),
     ]);
+    const normalized = candidate
+      ? normalizeCandidate(rawValidation, rawManifest, candidate)
+      : { data: rawValidation, manifest: rawManifest };
+    const validation = normalized.data;
+    const manifest = normalized.manifest;
     render(validation, manifest, paper, profile);
     $("#errorToast").hidden = true;
   } catch (error) {

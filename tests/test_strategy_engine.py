@@ -13,9 +13,12 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import simulate_range_swing as sim
 import frozen_strategy
+import event_risk
+import macro_regime
 import paper_trade_range_swing as paper_range
 import paper_trade_frozen_portfolio as paper_frozen
 import paper_trade_timeseries_trend as paper_timeseries
+import portfolio_risk
 import validate_frozen_strategy as frozen_validation
 import validate_strategies as strategy_validation
 
@@ -46,6 +49,53 @@ def config(**changes: object) -> sim.StrategyConfig:
 
 
 class StrategyEngineTests(unittest.TestCase):
+    def test_event_risk_never_uses_unpublished_news(self) -> None:
+        event = event_risk.RiskEvent(
+            "news-1",
+            published_at_ms=200,
+            starts_at_ms=100,
+            ends_at_ms=400,
+            severity=1.0,
+            block_entries=True,
+            category="regulation",
+            headline="test",
+        )
+        before_publication = event_risk.event_decision_at((event,), 150)
+        after_publication = event_risk.event_decision_at((event,), 250)
+        self.assertTrue(before_publication.allowed)
+        self.assertFalse(after_publication.allowed)
+
+    def test_tiered_drawdown_policy_throttles_before_hard_stop(self) -> None:
+        policy = portfolio_risk.DrawdownRiskPolicy(8.0, 15.0, 0.35)
+        self.assertEqual(portfolio_risk.drawdown_multiplier(0.07, policy), 1.0)
+        middle = portfolio_risk.drawdown_multiplier(0.115, policy)
+        self.assertGreater(middle, 0.35)
+        self.assertLess(middle, 1.0)
+        self.assertEqual(portfolio_risk.drawdown_multiplier(0.15, policy), 0.0)
+
+    def test_macro_snapshot_is_point_in_time_and_scales_without_amplifying(self) -> None:
+        day = macro_regime.MS_PER_DAY
+        rows = tuple(index * day for index in range(8))
+        snapshot = macro_regime.MacroSnapshot(
+            {
+                "sp500": macro_regime.MacroSeries(rows, (100, 100, 100, 100, 100, 95, 94, 93)),
+                "nasdaq": macro_regime.MacroSeries(rows, (100, 100, 100, 100, 100, 94, 92, 90)),
+                "vix": macro_regime.MacroSeries(rows, (20, 20, 20, 20, 20, 25, 28, 30)),
+                "dollar": macro_regime.MacroSeries(rows, (100, 100, 100, 100, 100, 101, 102, 103)),
+                "gold": macro_regime.MacroSeries(rows, (100, 100, 100, 100, 100, 102, 103, 104)),
+                "silver": macro_regime.MacroSeries(rows, (100, 100, 100, 100, 100, 99, 98, 97)),
+                "fear_greed": macro_regime.MacroSeries(rows, (50, 50, 50, 50, 50, 35, 25, 20)),
+            },
+            {},
+        )
+        decision = macro_regime.macro_decision_at(snapshot, 7 * day)
+        self.assertLess(decision.score, 0)
+        self.assertLessEqual(decision.score, min(decision.contributions.values()) * 0.50)
+        self.assertGreaterEqual(decision.risk_multiplier, 0.35)
+        self.assertLessEqual(decision.risk_multiplier, 1.0)
+        stale = macro_regime.macro_decision_at(snapshot, 20 * day, max_staleness_days=5)
+        self.assertFalse(stale.allowed)
+
     def test_higher_timeframe_aggregation_uses_only_complete_buckets(self) -> None:
         candles = [candle(index, 100, 101, 99, 100 + index / 10) for index in range(13)]
         aggregated = sim.aggregate_candles(candles, "1h")

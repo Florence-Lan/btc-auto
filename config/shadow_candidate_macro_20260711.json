@@ -1,0 +1,60 @@
+{
+  "candidate_id": "btc_macro_shadow_20260711_v1",
+  "created_at_utc": "2026-07-11T14:05:14.7062861Z",
+  "status": "shadow_eligible_not_live",
+  "base_freeze_id": "btc_active_20260711_v1",
+  "base_manifest": "config/frozen_strategy_active_20260711.json",
+  "strategy_modes": [
+    "trend",
+    "timeseries_trend"
+  ],
+  "excluded_modules": {
+    "range": "Negative continuous expectancy and profit factor below 1.0"
+  },
+  "macro": {
+    "factors": [
+      "vix",
+      "dollar",
+      "metals",
+      "sentiment"
+    ],
+    "collected_but_excluded": {
+      "equities": "Increased drawdown in the fixed historical ablation"
+    },
+    "min_multiplier": 0.35,
+    "block_score": -0.8,
+    "daily_availability_lag_hours": 24,
+    "max_staleness_days": 5,
+    "snapshot_path": "data/snapshots/macro_20191001_20260628.json.gz",
+    "snapshot_sha256": "e7062bdb55b1aa0953a2f0e10982b8e6c37648bbb206fe3f7341e74a16d1b0bf"
+  },
+  "drawdown_policy": {
+    "soft_start_pct": 8.0,
+    "hard_stop_pct": 15.0,
+    "min_multiplier": 0.35,
+    "automatic_resume": false
+  },
+  "validation": {
+    "report_path": "data/validation/candidate_portfolio_20260711.json",
+    "report_sha256": "515e9c31771fbedb35858c03229c8217d06aee98cd888392a9310d6afabe4870",
+    "candidate_pass": false,
+    "shadow_eligible": true,
+    "failed_gate": "profitable_quarter_pct_min",
+    "observed_profitable_quarter_pct": 54.54545454545454,
+    "required_profitable_quarter_pct": 60.0
+  },
+  "code_sha256": {
+    "scripts/macro_regime.py": "12ef2ed5ecf92cd6830c4d78226b91f8d420c93215bba78de94c063ff5d0b145",
+    "scripts/portfolio_risk.py": "4f6aa744e01a678bf202effcabab4688496bfa83bd5f7668b0551b8293ab63e0",
+    "scripts/event_risk.py": "270e4e009b53bc7f7b1848c74ce703d202d1bb9db33914a2d81d01b6e595d6bb",
+    "scripts/paper_trade_frozen_portfolio.py": "6b7fd05ff90b0d179075b4f4e6a460394149193fdece346e7da167416b29f507"
+  },
+  "live_orders_allowed": false,
+  "promotion_requirements": {
+    "minimum_shadow_days": 30,
+    "minimum_shadow_trades": 20,
+    "maximum_shadow_drawdown_pct": 15.0,
+    "minimum_shadow_profit_factor": 1.3,
+    "manual_approval_required": true
+  }
+}

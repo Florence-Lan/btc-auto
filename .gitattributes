@@ -1,0 +1,4 @@
+scripts/macro_regime.py text eol=lf
+scripts/portfolio_risk.py text eol=lf
+scripts/event_risk.py text eol=lf
+scripts/paper_trade_frozen_portfolio.py text eol=lf
