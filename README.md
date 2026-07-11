@@ -203,3 +203,16 @@ python -m http.server 8765
 ```
 
 Then open `http://localhost:8765/dashboard/`. The dashboard reads the latest frozen manifests and validation reports directly from the repository, so rerunning validation updates the interface without copying metrics by hand.
+
+## Automated trading terminal
+
+Run the localhost-only operations terminal:
+
+```powershell
+python scripts\run_trading_terminal.py --port 8766
+```
+
+Open `http://127.0.0.1:8766/terminal/`. The terminal displays the automated strategy heartbeat,
+shadow account, positions, orders, recent trades, macro regime, drawdown controller, and runtime
+logs. It can start, pause, run once, or emergency-stop the shadow supervisor. Live execution and
+manual orders remain locked until testnet validation and explicit live-trading approval.

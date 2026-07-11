@@ -19,6 +19,8 @@ import paper_trade_range_swing as paper_range
 import paper_trade_frozen_portfolio as paper_frozen
 import paper_trade_timeseries_trend as paper_timeseries
 import portfolio_risk
+import run_trading_terminal as trading_terminal
+from binance_terminal_client import sign_query
 import validate_frozen_strategy as frozen_validation
 import validate_strategies as strategy_validation
 
@@ -49,6 +51,18 @@ def config(**changes: object) -> sim.StrategyConfig:
 
 
 class StrategyEngineTests(unittest.TestCase):
+    def test_binance_signature_is_deterministic(self) -> None:
+        self.assertEqual(
+            sign_query("secret", "symbol=BTCUSDT&timestamp=1"),
+            "ef9d3d77a34d9a13a21a4c2d7f3e8cb091888a74ca62b5b62f430e78eded95ba",
+        )
+
+    def test_trading_terminal_is_shadow_only(self) -> None:
+        status = trading_terminal.CONTROLLER.status()
+        self.assertEqual(status["mode"], "SHADOW")
+        self.assertFalse(status["execution"]["places_orders"])
+        self.assertFalse(status["execution"]["live_enabled"])
+
     def test_event_risk_never_uses_unpublished_news(self) -> None:
         event = event_risk.RiskEvent(
             "news-1",

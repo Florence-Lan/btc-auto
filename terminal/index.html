@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="BTCUSDT 自动化交易运维终端" />
+    <title>BTC AUTO · 交易终端</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">₿</span><div><strong>BTC AUTO</strong><small>AUTOMATED TRADING TERMINAL</small></div></div>
+      <div class="market-ticker"><span>BTC / USDT PERP</span><strong id="markPrice">—</strong><small id="marketTime">等待行情</small></div>
+      <div class="top-status"><span class="mode-badge">SHADOW</span><span class="health"><i id="healthDot"></i><span id="healthText">连接中</span></span><time id="clock">—</time></div>
+    </header>
+
+    <main>
+      <section class="command-bar panel">
+        <div class="bot-identity"><span class="pulse-ring"><i></i></span><div><small>运行实例</small><strong id="candidateId">宏观候选</strong><p id="runtimeMeta">读取状态中</p></div></div>
+        <div class="command-actions">
+          <button class="btn primary" id="startButton">▶ 启动自动化</button>
+          <button class="btn" id="onceButton">执行一次</button>
+          <button class="btn" id="pauseButton">Ⅱ 暂停</button>
+          <button class="btn danger" id="emergencyButton">急停</button>
+        </div>
+        <div class="live-lock"><span>实盘执行</span><strong>LOCKED</strong><small id="exchangeStatus">Binance 未连接</small></div>
+      </section>
+
+      <section class="metrics-grid">
+        <article class="metric panel"><span>影子权益</span><strong id="walletBalance">—</strong><small>USDT virtual</small></article>
+        <article class="metric panel"><span>未实现盈亏</span><strong id="unrealizedPnl">—</strong><small>当前持仓</small></article>
+        <article class="metric panel"><span>累计收益</span><strong id="realizedReturn">—</strong><small>影子观察期</small></article>
+        <article class="metric panel"><span>最大回撤</span><strong id="drawdown">—</strong><div class="risk-meter"><i id="drawdownBar"></i></div></article>
+        <article class="metric panel"><span>宏观倍率</span><strong id="macroMultiplier">—</strong><small id="macroCoverage">等待因子</small></article>
+        <article class="metric panel"><span>观测次数</span><strong id="observations">—</strong><small id="heartbeat">等待心跳</small></article>
+      </section>
+
+      <section class="workspace-grid">
+        <div class="main-column">
+          <article class="panel chart-panel">
+            <div class="panel-heading"><div><small>EQUITY / EXPOSURE</small><h2>影子净值与风险状态</h2></div><div class="chart-legend"><span><i></i>权益</span><span><i class="amber"></i>回撤软阈值 8%</span><span><i class="red"></i>硬停机 15%</span></div></div>
+            <svg id="equityChart" viewBox="0 0 900 260" role="img" aria-label="影子权益曲线"></svg>
+            <div class="empty-chart" id="emptyChart">影子观测刚开始，等待产生更多净值点</div>
+          </article>
+
+          <article class="panel table-panel">
+            <div class="tabbar"><button class="tab active" data-tab="positions">当前持仓 <span id="positionCount">0</span></button><button class="tab" data-tab="orders">活动订单 <span id="orderCount">0</span></button><button class="tab" data-tab="trades">最近成交 <span id="tradeCount">0</span></button></div>
+            <div class="table-wrap" id="positionsPane"><table><thead><tr><th>合约</th><th>方向</th><th>数量</th><th>标记价格</th><th>未实现盈亏</th><th>来源</th></tr></thead><tbody id="positionsBody"></tbody></table></div>
+            <div class="table-wrap hidden" id="ordersPane"><table><thead><tr><th>合约</th><th>类型</th><th>方向</th><th>价格</th><th>数量</th><th>状态</th></tr></thead><tbody id="ordersBody"></tbody></table></div>
+            <div class="table-wrap hidden" id="tradesPane"><table><thead><tr><th>退出时间</th><th>策略</th><th>方向</th><th>入场</th><th>退出</th><th>净盈亏</th></tr></thead><tbody id="tradesBody"></tbody></table></div>
+          </article>
+
+          <article class="panel logs-panel">
+            <div class="panel-heading"><div><small>RUNTIME STREAM</small><h2>机器人日志</h2></div><button class="text-button" id="clearViewButton">清空视图</button></div>
+            <pre id="logStream">等待日志...</pre>
+          </article>
+        </div>
+
+        <aside class="side-column">
+          <article class="panel status-card">
+            <div class="panel-heading"><div><small>STRATEGY ENGINE</small><h2>策略状态</h2></div><span class="status-pill" id="strategyStatus">SHADOW</span></div>
+            <div class="strategy-list" id="strategyList"></div>
+            <div class="divider"></div>
+            <div class="detail-row"><span>前瞻资格</span><strong id="shadowEligible">—</strong></div>
+            <div class="detail-row"><span>实盘资格</span><strong class="negative">未通过</strong></div>
+            <div class="detail-row"><span>季度盈利率</span><strong id="quarterlyRate">—</strong></div>
+          </article>
+
+          <article class="panel risk-card">
+            <div class="panel-heading"><div><small>RISK CONTROL</small><h2>风险控制器</h2></div></div>
+            <div class="risk-orbit"><div><strong id="riskMultiplier">1.00×</strong><span>当前仓位倍率</span></div></div>
+            <div class="detail-row"><span>软降仓线</span><strong>8.0%</strong></div>
+            <div class="detail-row"><span>硬停机线</span><strong>15.0%</strong></div>
+            <div class="detail-row"><span>组合杠杆上限</span><strong>2.0×</strong></div>
+            <div class="detail-row"><span>急停锁</span><strong id="emergencyState">未触发</strong></div>
+          </article>
+
+          <article class="panel factors-card">
+            <div class="panel-heading"><div><small>MACRO REGIME</small><h2>外部因子</h2></div><span id="macroFreshness">—</span></div>
+            <div class="factor-list" id="factorList"></div>
+          </article>
+
+          <article class="panel order-card locked">
+            <div class="panel-heading"><div><small>MANUAL EXECUTION</small><h2>手动委托</h2></div><span>LOCKED</span></div>
+            <p>实盘权限尚未启用。测试网验收和明确授权前，终端不会暴露下单接口。</p>
+            <button class="btn" disabled>提交委托</button>
+          </article>
+        </aside>
+      </section>
+    </main>
+
+    <div class="modal-backdrop hidden" id="emergencyModal">
+      <div class="modal"><span class="modal-icon">!</span><h2>触发急停</h2><p>这会停止自动化进程并锁住再次启动。当前为影子模式，不涉及真实平仓。</p><label>输入 <code>EMERGENCY_STOP</code> 确认<input id="emergencyConfirm" autocomplete="off" /></label><div class="modal-actions"><button class="btn" id="cancelEmergency">取消</button><button class="btn danger" id="confirmEmergency">确认急停</button></div></div>
+    </div>
+    <div class="toast hidden" id="toast"></div>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
