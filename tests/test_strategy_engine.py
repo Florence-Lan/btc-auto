@@ -20,6 +20,8 @@ import paper_trade_frozen_portfolio as paper_frozen
 import paper_trade_timeseries_trend as paper_timeseries
 import portfolio_risk
 import run_trading_terminal as trading_terminal
+import run_execution_supervisor as execution_supervisor
+import trading_execution
 from binance_terminal_client import sign_query
 import validate_frozen_strategy as frozen_validation
 import validate_strategies as strategy_validation
@@ -57,11 +59,170 @@ class StrategyEngineTests(unittest.TestCase):
             "ef9d3d77a34d9a13a21a4c2d7f3e8cb091888a74ca62b5b62f430e78eded95ba",
         )
 
-    def test_trading_terminal_is_shadow_only(self) -> None:
-        status = trading_terminal.CONTROLLER.status()
-        self.assertEqual(status["mode"], "SHADOW")
+    def test_trading_terminal_defaults_to_mainnet_simulation(self) -> None:
+        with (
+            mock.patch.object(trading_terminal.CONTROLLER, "mode", return_value="simulation"),
+            mock.patch.object(trading_terminal.BINANCE, "mark_price", return_value=65_000.0),
+        ):
+            status = trading_terminal.CONTROLLER.status()
+        self.assertEqual(status["mode"], "SIMULATION")
         self.assertFalse(status["execution"]["places_orders"])
-        self.assertFalse(status["execution"]["live_enabled"])
+        self.assertEqual(status["market"]["source"], "Binance mainnet realtime")
+        self.assertIn("target_leverage", status["strategy"])
+        self.assertIn("target_notional", status["strategy"])
+        self.assertIn("initial_balance", status["account_details"])
+        self.assertEqual(status["execution"]["check_interval_seconds"], 30)
+        self.assertEqual(status["execution"]["strategy_bar_seconds"], 300)
+
+    def test_execution_scheduler_waits_for_closed_five_minute_bar(self) -> None:
+        interval = execution_supervisor.BAR_INTERVAL_MS
+        boundary = 10 * interval
+        self.assertIsNone(
+            execution_supervisor.due_closed_bar_open_ms(boundary + 2_000, 0)
+        )
+        due = execution_supervisor.due_closed_bar_open_ms(boundary + 3_000, 0)
+        self.assertEqual(due, boundary - interval)
+
+    def test_execution_scheduler_deduplicates_processed_bar(self) -> None:
+        interval = execution_supervisor.BAR_INTERVAL_MS
+        boundary = 10 * interval
+        processed = boundary - interval
+        self.assertIsNone(
+            execution_supervisor.due_closed_bar_open_ms(
+                boundary + 30_000,
+                processed,
+            )
+        )
+
+    def test_execution_scheduler_aligns_to_settlement_delay(self) -> None:
+        interval = execution_supervisor.BAR_INTERVAL_MS
+        boundary = 10 * interval
+        self.assertAlmostEqual(
+            execution_supervisor.seconds_until_next_check(boundary + 2_000, 30),
+            1.0,
+        )
+        self.assertAlmostEqual(
+            execution_supervisor.seconds_until_next_check(boundary + 290_000, 30),
+            13.0,
+        )
+
+    def test_strategy_target_scales_as_leverage_not_virtual_quantity(self) -> None:
+        now_ms = 1_000_000
+        report = {
+            "summary": {
+                "last_equity_point": {
+                    "time_ms": now_ms,
+                    "equity": 100.0,
+                    "price": 50_000.0,
+                    "signed_qty": 0.002,
+                }
+            }
+        }
+        target = trading_execution.target_from_report(report, now_ms=now_ms)
+        self.assertAlmostEqual(target["target_leverage"], 1.0)
+
+    def test_stale_strategy_target_is_blocked(self) -> None:
+        report = {
+            "summary": {
+                "last_equity_point": {
+                    "time_ms": 1,
+                    "equity": 100.0,
+                    "price": 50_000.0,
+                    "signed_qty": 0.001,
+                }
+            }
+        }
+        with self.assertRaisesRegex(RuntimeError, "stale"):
+            trading_execution.target_from_report(
+                report,
+                now_ms=1_000_000,
+                max_age_seconds=10,
+            )
+
+    def test_simulation_reconcile_never_calls_binance_order_api(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            account = trading_execution.SimulationAccount(Path(temporary) / "sim.json")
+            target = {
+                "signal_time_ms": 1,
+                "signal_price": 50_000.0,
+                "target_leverage": 1.0,
+                "age_seconds": 0.0,
+            }
+            result = account.reconcile(target, 50_000.0)
+            self.assertEqual(result["mode"], "simulation")
+            self.assertIsNotNone(result["fill"])
+            snapshot = account.snapshot(50_000.0)
+            self.assertEqual(len(snapshot["positions"]), 1)
+            self.assertEqual(snapshot["positions"][0]["side"], "LONG")
+
+    def test_simulation_initial_balance_can_be_reset(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            account = trading_execution.SimulationAccount(Path(temporary) / "sim.json")
+            state = account.reset(12_345.67)
+            snapshot = account.snapshot(50_000.0)
+        self.assertEqual(state["initial_balance"], 12_345.67)
+        self.assertEqual(snapshot["account"]["wallet_balance"], 12_345.67)
+        self.assertEqual(snapshot["positions"], [])
+        self.assertEqual(snapshot["recent_trades"], [])
+
+    def test_simulation_reset_rejects_invalid_amount(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            account = trading_execution.SimulationAccount(Path(temporary) / "sim.json")
+            with self.assertRaisesRegex(ValueError, "初始金额"):
+                account.reset(0)
+
+    def test_live_mode_requires_exact_confirmation(self) -> None:
+        controller = trading_terminal.TerminalController(mock.Mock())
+        with (
+            mock.patch.object(controller, "runtime", return_value={"running": False}),
+            mock.patch.object(controller, "emergency", return_value=None),
+            mock.patch.object(controller, "mode", return_value="simulation"),
+        ):
+            with self.assertRaisesRegex(ValueError, "确认词"):
+                controller.set_mode("live", "wrong")
+
+    def test_live_executor_caps_order_notional(self) -> None:
+        client = mock.Mock()
+        client.validate_live_ready.return_value = {
+            "max_notional_usdt": 50.0,
+            "leverage": 2,
+        }
+        client.account_snapshot.return_value = {
+            "account": {"wallet_balance": 100.0, "margin_balance": 100.0},
+            "positions": [],
+            "open_orders": [],
+        }
+        client.quantize_quantity.side_effect = lambda quantity, symbol: round(abs(quantity), 3)
+        client.market_order.return_value = {"status": "FILLED"}
+        target = {
+            "signal_time_ms": 1_000,
+            "signal_price": 50_000.0,
+            "target_leverage": 2.0,
+            "age_seconds": 0.0,
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            executor = trading_execution.LiveExecutor(
+                client,
+                Path(temporary) / "live.json",
+            )
+            result = executor.reconcile(target, 50_000.0)
+        self.assertEqual(result["target_qty"], 0.001)
+        client.market_order.assert_called_once()
+        self.assertEqual(client.market_order.call_args.args[1], 0.001)
+        self.assertFalse(client.market_order.call_args.kwargs["reduce_only"])
+
+    def test_live_emergency_cancels_and_flattens(self) -> None:
+        client = mock.Mock()
+        controller = trading_terminal.TerminalController(client)
+        with (
+            mock.patch.object(controller, "mode", return_value="live"),
+            mock.patch.object(controller, "stop", return_value={"running": False}),
+            mock.patch.object(trading_terminal, "write_json"),
+        ):
+            result = controller.emergency_stop("test")
+        client.cancel_all_orders.assert_called_once_with("BTCUSDT")
+        client.flatten_position.assert_called_once()
+        self.assertTrue(result["emergency"]["exchange_actions"]["cancelled_orders"])
 
     def test_event_risk_never_uses_unpublished_news(self) -> None:
         event = event_risk.RiskEvent(

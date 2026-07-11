@@ -206,13 +206,30 @@ Then open `http://localhost:8765/dashboard/`. The dashboard reads the latest fro
 
 ## Automated trading terminal
 
-Run the localhost-only operations terminal:
+Run the localhost-only trading terminal:
 
 ```powershell
 python scripts\run_trading_terminal.py --port 8766
 ```
 
-Open `http://127.0.0.1:8766/terminal/`. The terminal displays the automated strategy heartbeat,
-shadow account, positions, orders, recent trades, macro regime, drawdown controller, and runtime
-logs. It can start, pause, run once, or emergency-stop the shadow supervisor. Live execution and
-manual orders remain locked until testnet validation and explicit live-trading approval.
+Open `http://127.0.0.1:8766/terminal/`. The terminal has two execution modes:
+
+- `SIMULATION` is the default. It reads Binance USD-M mainnet market data and writes fills,
+  positions, fees, and PnL only to a local simulated account. It never submits an exchange order.
+  Set or reset the initial USDT balance directly in the terminal while automation is paused;
+  resetting clears the local simulated positions, trades, and equity history.
+- `LIVE` sends guarded BTCUSDT USD-M orders to Binance mainnet. It requires an exact UI
+  confirmation plus explicit `.env` settings copied from `.env.example`.
+
+The strategy target is scaled by account equity and capped by both `LIVE_MAX_NOTIONAL_USDT` and
+`LIVE_LEVERAGE` (maximum 2). Repeated cycles use deterministic client order IDs. Live emergency
+stop terminates automation, cancels BTCUSDT open orders, and sends a reduce-only market order to
+flatten the BTCUSDT position. A normal pause only stops new strategy cycles and does not flatten.
+
+The execution supervisor checks Binance server time every 30 seconds, but only recomputes and
+reconciles the target once for each newly closed five-minute candle. It waits three seconds after
+the candle boundary for settlement and stores the last processed signal time to prevent duplicate
+execution after restarts.
+
+Use a Binance API key with Futures permission only, withdrawals disabled, and an IP restriction.
+Never commit `.env` or expose the API secret in logs.
