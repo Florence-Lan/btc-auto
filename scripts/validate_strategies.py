@@ -171,7 +171,16 @@ def run_fold(
     warmup_start_ms = start_ms - 45 * sim.MS_PER_DAY
     base_slice = slice_window(base_candles, warmup_start_ms, end_ms)
     trend_slice = slice_window(trend_candles, warmup_start_ms, end_ms)
-    tactical = sim.simulate(base_slice, replace(cfg, strategy_modes=("trend",)), start_ms, None, funding)
+    tactical_modes = tuple(mode for mode in cfg.strategy_modes if mode != "timeseries_trend")
+    if not tactical_modes:
+        raise ValueError("Validation config must include at least one tactical strategy mode")
+    tactical = sim.simulate(
+        base_slice,
+        replace(cfg, strategy_modes=tactical_modes),
+        start_ms,
+        None,
+        funding,
+    )
     core = sim.simulate_timeseries_trend(trend_slice, cfg, start_ms, funding)
     result = sim.combine_sleeve_results(base_slice, [tactical, core], cfg, start_ms)
     result["window"] = {

@@ -6,6 +6,7 @@ import csv
 import json
 import math
 import random
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -68,7 +69,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--manifest",
         type=Path,
-        default=root / "config/frozen_strategy_20260705.json",
+        default=root / "config/frozen_strategy_20260711.json",
     )
     parser.add_argument("--data-snapshot", type=Path)
     parser.add_argument("--fold-days", type=int, default=90)
@@ -78,12 +79,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-json",
         type=Path,
-        default=root / "data/validation/frozen_strategy_20260705.json",
+        default=root / "data/validation/frozen_strategy_20260711.json",
     )
     parser.add_argument(
         "--output-csv",
         type=Path,
-        default=root / "data/validation/frozen_strategy_20260705_folds.csv",
+        default=root / "data/validation/frozen_strategy_20260711_folds.csv",
     )
     return parser.parse_args()
 
@@ -139,12 +140,59 @@ def main() -> int:
         samples=args.bootstrap_samples,
         seed=args.seed,
     )
+    stressed_cfg = replace(
+        cfg,
+        maker_fee=cfg.maker_fee * 2,
+        taker_fee=cfg.taker_fee * 2,
+        entry_slippage_bps=cfg.entry_slippage_bps * 2,
+        exit_slippage_bps=cfg.exit_slippage_bps * 2,
+        depth_impact_bps=cfg.depth_impact_bps * 2,
+    )
+    stressed_folds: list[dict[str, Any]] = []
+    for start_ms in fold_starts:
+        end_ms = start_ms + fold_ms
+        stressed_result = validation.run_fold(
+            base_candles,
+            trend_candles,
+            funding,
+            stressed_cfg,
+            start_ms,
+            end_ms,
+        )
+        stressed_folds.append(validation.compact_fold(stressed_result, start_ms, end_ms))
+    double_cost_stress = validation.aggregate_folds(stressed_folds, cfg.initial_equity)
+
+    targets = manifest.get("validation_targets", {})
+    gates = {
+        "cagr_pct_min": float(targets.get("cagr_pct_min", 0.0)),
+        "max_drawdown_pct_max": float(targets.get("max_drawdown_pct_max", 15.0)),
+        "profit_factor_min": float(targets.get("profit_factor_min", 1.3)),
+        "trades_per_year_min": float(targets.get("trades_per_year_min", 20.0)),
+        "profitable_fold_pct_min": float(targets.get("profitable_fold_pct_min", 60.0)),
+        "bootstrap_annualized_p05_pct_min": float(
+            targets.get("bootstrap_annualized_p05_pct_min", 0.0)
+        ),
+        "double_cost_cagr_pct_min": float(targets.get("double_cost_cagr_pct_min", 0.0)),
+        "double_cost_max_drawdown_pct_max": float(
+            targets.get("double_cost_max_drawdown_pct_max", 15.0)
+        ),
+        "double_cost_profit_factor_min": float(
+            targets.get("double_cost_profit_factor_min", 1.3)
+        ),
+    }
     evidence_pass = bool(
-        aggregate["profit_factor"] is not None
-        and aggregate["profit_factor"] >= 1.3
-        and aggregate["profitable_fold_pct"] >= 60.0
+        aggregate["cagr_pct"] > gates["cagr_pct_min"]
+        and aggregate["max_drawdown_pct"] <= gates["max_drawdown_pct_max"]
+        and aggregate["profit_factor"] is not None
+        and aggregate["profit_factor"] >= gates["profit_factor_min"]
+        and aggregate["trades_per_year"] >= gates["trades_per_year_min"]
+        and aggregate["profitable_fold_pct"] >= gates["profitable_fold_pct_min"]
         and bootstrap["annualized_p05_pct"] is not None
-        and float(bootstrap["annualized_p05_pct"]) > 0
+        and float(bootstrap["annualized_p05_pct"]) > gates["bootstrap_annualized_p05_pct_min"]
+        and double_cost_stress["cagr_pct"] > gates["double_cost_cagr_pct_min"]
+        and double_cost_stress["max_drawdown_pct"] <= gates["double_cost_max_drawdown_pct_max"]
+        and double_cost_stress["profit_factor"] is not None
+        and double_cost_stress["profit_factor"] >= gates["double_cost_profit_factor_min"]
     )
     report = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -162,6 +210,8 @@ def main() -> int:
         "fold_count": len(folds),
         "aggregate": aggregate,
         "bootstrap": bootstrap,
+        "double_cost_stress": double_cost_stress,
+        "gates": gates,
         "evidence_pass": evidence_pass,
         "folds": [
             {
@@ -197,10 +247,21 @@ def main() -> int:
                     **{key: fold[key] for key in fieldnames[2:]},
                 }
             )
-    print(json.dumps({"aggregate": aggregate, "bootstrap": bootstrap, "evidence_pass": evidence_pass}, indent=2))
+    print(
+        json.dumps(
+            {
+                "aggregate": aggregate,
+                "bootstrap": bootstrap,
+                "double_cost_stress": double_cost_stress,
+                "gates": gates,
+                "evidence_pass": evidence_pass,
+            },
+            indent=2,
+        )
+    )
     print(f"JSON: {args.output_json}")
     print(f"CSV: {args.output_csv}")
-    return 0
+    return 0 if evidence_pass else 1
 
 
 if __name__ == "__main__":

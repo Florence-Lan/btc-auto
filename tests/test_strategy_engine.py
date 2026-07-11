@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from dataclasses import replace
 from pathlib import Path
 
@@ -16,6 +17,7 @@ import paper_trade_range_swing as paper_range
 import paper_trade_frozen_portfolio as paper_frozen
 import paper_trade_timeseries_trend as paper_timeseries
 import validate_frozen_strategy as frozen_validation
+import validate_strategies as strategy_validation
 
 
 def candle(index: int, open_: float, high: float, low: float, close: float, interval_ms: int = 300_000) -> sim.Candle:
@@ -68,6 +70,13 @@ class StrategyEngineTests(unittest.TestCase):
         self.assertFalse(sim.price_within_candle(102.5, bar))
         self.assertTrue(sim.stop_hit_for_position(position, bar))
 
+    def test_liquidation_hit_checks_both_sides(self) -> None:
+        bar = candle(1, 100, 106, 94, 100)
+        long = sim.Position("long", 0, bar.open_time_utc, 100, 1, 1, 90, 0, 0, 0, 95)
+        short = sim.Position("short", 0, bar.open_time_utc, 100, 1, 1, 110, 0, 0, 0, 105)
+        self.assertTrue(sim.liquidation_hit_for_position(long, bar))
+        self.assertTrue(sim.liquidation_hit_for_position(short, bar))
+
     def test_drawdown_halt_is_explicit(self) -> None:
         cfg = config(max_drawdown_stop_pct=10.0)
         self.assertFalse(sim.drawdown_halted(0.099, cfg))
@@ -98,9 +107,9 @@ class StrategyEngineTests(unittest.TestCase):
         self.assertEqual(cfg.portfolio_mode, "sleeves")
         self.assertEqual(cfg.timeseries_fast_ema, 24)
         self.assertEqual(cfg.timeseries_slow_ema, 120)
-        self.assertEqual(cfg.timeseries_target_vol, 1.0)
-        self.assertEqual(cfg.timeseries_max_leverage, 5.0)
-        self.assertEqual(cfg.portfolio_leverage_cap, 5.0)
+        self.assertEqual(cfg.timeseries_target_vol, 0.12)
+        self.assertEqual(cfg.timeseries_max_leverage, 2.0)
+        self.assertEqual(cfg.portfolio_leverage_cap, 2.0)
 
     def test_paper_defaults_match_promoted_strategies(self) -> None:
         original = sys.argv
@@ -112,15 +121,20 @@ class StrategyEngineTests(unittest.TestCase):
         finally:
             sys.argv = original
         self.assertEqual(range_args.trend_entry_pullback_atr, 0.05)
-        self.assertEqual(timeseries_args.target_vol, 1.0)
-        self.assertEqual(timeseries_args.max_leverage, 5.0)
+        self.assertEqual(range_args.leverage, 2.0)
+        self.assertEqual(range_args.risk_per_trade, 0.015)
+        self.assertEqual(timeseries_args.target_vol, 0.12)
+        self.assertEqual(timeseries_args.max_leverage, 2.0)
 
     def test_frozen_strategy_manifest_is_valid(self) -> None:
-        manifest_path = ROOT / "config/frozen_strategy_20260705.json"
+        manifest_path = ROOT / "config/frozen_strategy_20260711.json"
         manifest, cfg = frozen_strategy.load_frozen_strategy(manifest_path)
-        self.assertEqual(manifest["freeze_id"], "btc_default_20260705_v1")
+        self.assertEqual(manifest["freeze_id"], "btc_risk_controlled_20260711_v1")
         self.assertEqual(cfg.timeseries_fast_ema, 24)
         self.assertEqual(cfg.timeseries_slow_ema, 120)
+        self.assertEqual(cfg.risk_per_trade, 0.015)
+        self.assertEqual(cfg.max_drawdown_stop_pct, 12.0)
+        self.assertEqual(cfg.portfolio_leverage_cap, 2.0)
         self.assertEqual(
             frozen_strategy.canonical_config_hash(manifest["config"]),
             manifest["config_sha256"],
@@ -128,7 +142,7 @@ class StrategyEngineTests(unittest.TestCase):
 
     def test_frozen_paper_state_never_places_orders(self) -> None:
         manifest, _ = frozen_strategy.load_frozen_strategy(
-            ROOT / "config/frozen_strategy_20260705.json",
+            ROOT / "config/frozen_strategy_20260711.json",
         )
         with tempfile.TemporaryDirectory() as directory:
             state = paper_frozen.load_or_create_state(
@@ -138,6 +152,15 @@ class StrategyEngineTests(unittest.TestCase):
             )
         self.assertFalse(state["places_orders"])
         self.assertEqual(state["freeze_id"], manifest["freeze_id"])
+
+    def test_active_frozen_strategy_manifest_is_valid(self) -> None:
+        manifest, cfg = frozen_strategy.load_frozen_strategy(
+            ROOT / "config/frozen_strategy_active_20260711.json"
+        )
+        self.assertEqual(manifest["freeze_id"], "btc_active_20260711_v1")
+        self.assertEqual(cfg.risk_per_trade, 0.0075)
+        self.assertEqual(cfg.strategy_modes, ("trend", "range", "timeseries_trend"))
+        self.assertEqual(manifest["validation_targets"]["trades_per_year_min"], 45.0)
 
     def test_block_bootstrap_is_deterministic(self) -> None:
         returns = [0.01, -0.005, 0.002, 0.004] * 30
@@ -170,6 +193,30 @@ class StrategyEngineTests(unittest.TestCase):
         stressed_exit = sim.execution_price(100, "long", False, 1, bar, stressed)
         self.assertGreater(stressed_entry, base_entry)
         self.assertLess(stressed_exit, base_exit)
+
+    def test_validation_preserves_all_tactical_modes(self) -> None:
+        cfg = config(strategy_modes=("trend", "range", "timeseries_trend"))
+        captured: dict[str, tuple[str, ...]] = {}
+
+        def fake_tactical(*args: object, **kwargs: object) -> dict[str, object]:
+            captured["modes"] = args[1].strategy_modes
+            return {"summary": {}, "trades": [], "equity_curve": []}
+
+        with (
+            mock.patch.object(strategy_validation.sim, "simulate", side_effect=fake_tactical),
+            mock.patch.object(
+                strategy_validation.sim,
+                "simulate_timeseries_trend",
+                return_value={"summary": {}, "trades": [], "equity_curve": []},
+            ),
+            mock.patch.object(
+                strategy_validation.sim,
+                "combine_sleeve_results",
+                return_value={"summary": {}, "trades": [], "equity_curve": []},
+            ),
+        ):
+            strategy_validation.run_fold([], [], sim.FundingHistory([], []), cfg, 0, 1)
+        self.assertEqual(captured["modes"], ("trend", "range"))
 
     def test_snapshot_round_trip(self) -> None:
         candles = {"5m": [candle(1, 100, 101, 99, 100)]}
@@ -219,6 +266,46 @@ class StrategyEngineTests(unittest.TestCase):
         self.assertAlmostEqual(total_qty, 1.5)
         self.assertAlmostEqual(result["summary"]["final_equity"], 115.0)
 
+    def test_portfolio_caps_opposite_direction_gross_exposure(self) -> None:
+        bars = [
+            candle(1, 100, 101, 99, 100),
+            candle(2, 110, 111, 89, 110),
+        ]
+        entry_time = bars[0].open_time_utc
+        exit_time = bars[1].open_time_utc
+
+        def raw_trade(side: str) -> dict[str, object]:
+            exit_price = 110.0 if side == "long" else 90.0
+            return {
+                "side": side,
+                "entry_time_utc": entry_time,
+                "exit_time_utc": exit_time,
+                "entry_price": 100.0,
+                "avg_exit_price": exit_price,
+                "initial_qty": 1.0,
+                "pnl": 10.0,
+                "fees": 0.0,
+                "net_pnl": 10.0,
+                "return_on_equity_pct": 10.0,
+                "bars_held": 1,
+                "exit_reason": "test",
+                "signal_reason": f"{side}_test",
+                "liquidation_price": 0.0,
+                "funding_pnl": 0.0,
+                "slippage_cost": 0.0,
+                "strategy": side,
+            }
+
+        sleeves = [
+            {"trades": [raw_trade("long")], "summary": {}},
+            {"trades": [raw_trade("short")], "summary": {}},
+        ]
+        cfg = config(portfolio_leverage_cap=1.5, max_drawdown_stop_pct=0.0)
+        result = sim.combine_sleeve_results(bars, sleeves, cfg, bars[0].open_time_ms)
+        total_qty = sum(float(trade["initial_qty"]) for trade in result["trades"])
+        self.assertAlmostEqual(total_qty, 1.5)
+        self.assertAlmostEqual(result["summary"]["final_equity"], 115.0)
+
     def test_portfolio_keeps_entry_bar_stop_trade(self) -> None:
         bar = candle(1, 100, 101, 95, 96)
         trade = {
@@ -249,6 +336,42 @@ class StrategyEngineTests(unittest.TestCase):
         )
         self.assertEqual(result["summary"]["trades"], 1)
         self.assertAlmostEqual(result["summary"]["final_equity"], 96.0)
+
+    def test_portfolio_drawdown_halt_blocks_later_entries(self) -> None:
+        bars = [
+            candle(1, 100, 101, 99, 100),
+            candle(2, 100, 101, 99, 100),
+        ]
+
+        def immediate_trade(index: int, net_pnl: float) -> dict[str, object]:
+            return {
+                "side": "long",
+                "entry_time_utc": bars[index].open_time_utc,
+                "exit_time_utc": bars[index].open_time_utc,
+                "entry_price": 100.0,
+                "avg_exit_price": 100.0,
+                "initial_qty": 1.0,
+                "pnl": net_pnl,
+                "fees": 0.0,
+                "net_pnl": net_pnl,
+                "return_on_equity_pct": net_pnl,
+                "bars_held": 0,
+                "exit_reason": "test",
+                "signal_reason": "drawdown_test",
+                "liquidation_price": 0.0,
+                "funding_pnl": 0.0,
+                "slippage_cost": 0.0,
+                "strategy": "test",
+            }
+
+        sleeve = {
+            "trades": [immediate_trade(0, -15.0), immediate_trade(1, 20.0)],
+            "summary": {},
+        }
+        cfg = config(portfolio_leverage_cap=1.5, max_drawdown_stop_pct=10.0)
+        result = sim.combine_sleeve_results(bars, [sleeve], cfg, bars[0].open_time_ms)
+        self.assertEqual(result["summary"]["trades"], 1)
+        self.assertAlmostEqual(result["summary"]["final_equity"], 85.0)
 
 
 if __name__ == "__main__":

@@ -30,22 +30,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--manifest",
         type=Path,
-        default=root / "config/frozen_strategy_20260705.json",
+        default=root / "config/frozen_strategy_20260711.json",
     )
     parser.add_argument(
         "--state-path",
         type=Path,
-        default=root / "data/paper_trading/frozen_portfolio_state.json",
+        default=root / "data/paper_trading/frozen_portfolio_20260711_state.json",
     )
     parser.add_argument(
         "--report-path",
         type=Path,
-        default=root / "data/paper_trading/frozen_portfolio_report.json",
+        default=root / "data/paper_trading/frozen_portfolio_20260711_report.json",
     )
     parser.add_argument(
         "--trades-path",
         type=Path,
-        default=root / "data/paper_trading/frozen_portfolio_trades.csv",
+        default=root / "data/paper_trading/frozen_portfolio_20260711_trades.csv",
     )
     parser.add_argument("--loop", action="store_true")
     parser.add_argument("--poll-seconds", type=int, default=300)

@@ -47,7 +47,7 @@ python scripts\simulate_range_swing.py --days 365 `
 ```
 
 Research runs disable the permanent drawdown halt and evaluate drawdown as an acceptance
-metric. Paper trading keeps the 10% halt and requires `--resume-after-drawdown`.
+metric. Paper trading keeps the 12% halt and requires `--resume-after-drawdown`.
 
 ## Validation
 
@@ -64,11 +64,13 @@ python scripts\validate_strategies.py `
 Exit code `0` means every historical acceptance gate passed. A nonzero exit keeps the current
 default and records the nearest diagnostic candidate without promoting it.
 
-The strategy frozen on 2026-07-05 has a complete config hash and is validated without refitting:
+The risk-controlled strategy frozen on 2026-07-11 has a complete config hash and is validated
+without refitting. It uses 1.5% tactical risk, a 12% volatility target, a 2x gross leverage cap,
+and a 12% drawdown halt:
 
 ```powershell
 python scripts\validate_frozen_strategy.py `
-  --manifest config\frozen_strategy_20260705.json `
+  --manifest config\frozen_strategy_20260711.json `
   --bootstrap-samples 2000
 ```
 
@@ -93,6 +95,17 @@ Track the exact frozen portfolio prospectively without placing orders:
 
 ```powershell
 python scripts\paper_trade_frozen_portfolio.py --loop --poll-seconds 300
+```
+
+An optional higher-coverage profile adds the range module and reduces tactical risk to 0.75%.
+It is frozen separately because it trades more often but had lower historical CAGR than the
+default risk-controlled profile:
+
+```powershell
+python scripts\validate_frozen_strategy.py `
+  --manifest config\frozen_strategy_active_20260711.json `
+  --output-json data\validation\frozen_strategy_active_20260711.json `
+  --output-csv data\validation\frozen_strategy_active_20260711_folds.csv
 ```
 
 ## Tests

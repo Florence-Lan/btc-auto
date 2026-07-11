@@ -227,10 +227,10 @@ class StrategyConfig:
     timeseries_fast_ema: int = 24
     timeseries_slow_ema: int = 120
     timeseries_vol_lookback_bars: int = 120
-    timeseries_target_vol: float = 1.00
-    timeseries_max_leverage: float = 5.0
+    timeseries_target_vol: float = 0.12
+    timeseries_max_leverage: float = 2.0
     portfolio_mode: str = "sleeves"
-    portfolio_leverage_cap: float = 5.0
+    portfolio_leverage_cap: float = 2.0
 
 
 def repo_root() -> Path:
@@ -2367,6 +2367,12 @@ def stop_hit_for_position(position: Position, candle: Candle) -> bool:
     return candle.high >= position.stop_price
 
 
+def liquidation_hit_for_position(position: Position, candle: Candle) -> bool:
+    if position.side == "long":
+        return candle.low <= position.liquidation_price
+    return candle.high >= position.liquidation_price
+
+
 def drawdown_halted(max_drawdown_fraction: float, cfg: StrategyConfig) -> bool:
     return cfg.max_drawdown_stop_pct > 0 and max_drawdown_fraction * 100 >= cfg.max_drawdown_stop_pct
 
@@ -2506,7 +2512,7 @@ def simulate(
             settle_position_funding(position, candle, funding_history)
             exit_reason = ""
             if position.side == "long":
-                liquidation_hit = candle.low <= position.liquidation_price
+                liquidation_hit = liquidation_hit_for_position(position, candle)
                 stop_hit = candle.low <= position.stop_price
                 tp1_hit = (not position.tp1_hit) and candle.high >= position.tp1
                 tp2_hit = (not position.tp2_hit) and candle.high >= position.tp2
@@ -2542,7 +2548,7 @@ def simulate(
                         exit_position_part(position, candle, fill_price, position.qty, cfg.taker_fee, "max_hold", candle.close)
                         exit_reason = "max_hold"
             else:
-                liquidation_hit = candle.high >= position.liquidation_price
+                liquidation_hit = liquidation_hit_for_position(position, candle)
                 stop_hit = candle.high >= position.stop_price
                 tp1_hit = (not position.tp1_hit) and candle.low <= position.tp1
                 tp2_hit = (not position.tp2_hit) and candle.low <= position.tp2
@@ -2819,6 +2825,31 @@ def simulate_timeseries_trend(
         if position is not None:
             settle_position_funding(position, candle, funding_history)
 
+            if liquidation_hit_for_position(position, candle):
+                raw_exit = position.liquidation_price
+                fill = execution_price(raw_exit, position.side, False, position.qty, candle, cfg)
+                exit_position_part(
+                    position,
+                    candle,
+                    fill,
+                    position.qty,
+                    cfg.taker_fee + cfg.liquidation_fee_pct,
+                    "liquidation",
+                    raw_exit,
+                )
+                trade = close_trade_record(
+                    position,
+                    candle,
+                    position_equity_base,
+                    "liquidation",
+                    f"timeseries_trend_{position.side}",
+                )
+                trade.bars_held = index - position.entry_index
+                trade.strategy = "timeseries_trend_6h"
+                equity += trade.net_pnl
+                trades.append(trade)
+                position = None
+
         if fast[index] is not None and slow[index] is not None and fast[index - 1] is not None and slow[index - 1] is not None:
             current_side = "long" if fast[index] > slow[index] else "short"
             previous_side = "long" if fast[index - 1] > slow[index - 1] else "short"
@@ -2953,26 +2984,25 @@ def combine_sleeve_results(
             scaled_trades.append(scaled_trade)
 
         for raw in entries.get(timestamp, []):
+            if drawdown_halted(max_drawdown, cfg):
+                continue
             desired_signed_notional = (
                 float(raw["entry_price"])
                 * float(raw["initial_qty"])
                 * direction(str(raw["side"]))
             )
-            current_signed_notional = sum(
-                value["signed_qty"] * candle.open
+            current_gross_notional = sum(
+                abs(value["signed_qty"] * candle.open)
                 for value in active.values()
             )
             cap = max(equity, 0.0) * cfg.portfolio_leverage_cap
-            proposed = current_signed_notional + desired_signed_notional
-            if abs(proposed) <= cap:
-                scale = 1.0
-            else:
-                allowed_delta = math.copysign(cap, proposed) - current_signed_notional
-                scale = clamp(
-                    abs(allowed_delta / desired_signed_notional) if desired_signed_notional else 0.0,
-                    0.0,
-                    1.0,
-                )
+            desired_gross_notional = abs(desired_signed_notional)
+            available_gross_notional = max(cap - current_gross_notional, 0.0)
+            scale = clamp(
+                available_gross_notional / desired_gross_notional if desired_gross_notional else 0.0,
+                0.0,
+                1.0,
+            )
             if scale <= 0:
                 continue
             if raw.get("_immediate"):
@@ -3243,8 +3273,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--snapshot", type=Path, help="Use a saved snapshot JSON instead of fetching Binance klines.")
     parser.add_argument("--data-snapshot", type=Path, help="Use an immutable version-2 multi-timeframe snapshot (.json or .json.gz).")
     parser.add_argument("--initial-equity", type=float, default=100.0)
-    parser.add_argument("--leverage", type=float, default=5.0)
-    parser.add_argument("--risk-per-trade", type=float, default=0.03)
+    parser.add_argument("--leverage", type=float, default=2.0)
+    parser.add_argument("--risk-per-trade", type=float, default=0.015)
     parser.add_argument("--maker-fee", type=float, default=0.0002)
     parser.add_argument("--taker-fee", type=float, default=0.00045)
     parser.add_argument("--bb-period", type=int, default=36)
@@ -3277,7 +3307,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--trail-atr", type=float, default=2.0)
     parser.add_argument("--max-hold-bars", type=int, default=36)
     parser.add_argument("--cooldown-bars", type=int, default=4)
-    parser.add_argument("--max-drawdown-stop-pct", type=float, default=10.0)
+    parser.add_argument("--max-drawdown-stop-pct", type=float, default=12.0)
     parser.add_argument("--high-adx-drift-threshold", type=float, default=26.0)
     parser.add_argument("--min-high-adx-drift-pct", type=float, default=0.0012)
     parser.add_argument("--min-signal-score", type=float, default=0.50)
@@ -3311,14 +3341,14 @@ def parse_args() -> argparse.Namespace:
         help="Comma-separated strategy modules: trend,timeseries_trend and experimental event modules.",
     )
     parser.add_argument("--portfolio-mode", choices=["single", "sleeves"], default="sleeves")
-    parser.add_argument("--portfolio-leverage-cap", type=float, default=5.0)
+    parser.add_argument("--portfolio-leverage-cap", type=float, default=2.0)
     parser.add_argument("--intrabar-policy", choices=["pessimistic", "legacy"], default="pessimistic")
     parser.add_argument("--timeseries-timeframe", default="6h")
     parser.add_argument("--timeseries-fast-ema", type=int, default=24)
     parser.add_argument("--timeseries-slow-ema", type=int, default=120)
     parser.add_argument("--timeseries-vol-lookback-bars", type=int, default=120)
-    parser.add_argument("--timeseries-target-vol", type=float, default=1.00)
-    parser.add_argument("--timeseries-max-leverage", type=float, default=5.0)
+    parser.add_argument("--timeseries-target-vol", type=float, default=0.12)
+    parser.add_argument("--timeseries-max-leverage", type=float, default=2.0)
     parser.add_argument("--trend-confirm-timeframes", default="15m,1h,4h")
     parser.add_argument("--trend-min-signal-score", type=float, default=0.82)
     parser.add_argument("--trend-min-adx", type=float, default=34.0)
