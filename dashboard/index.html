@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="BTC Auto 冻结策略构成与历史验证收益看板" />
+    <title>BTC Auto · 策略透视</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <header class="topbar">
+      <a class="brand" href="#overview" aria-label="返回看板顶部">
+        <span class="brand-mark" aria-hidden="true">₿</span>
+        <span><strong>BTC AUTO</strong><small>STRATEGY INTELLIGENCE</small></span>
+      </a>
+      <div class="topbar-actions">
+        <div class="data-range"><span class="live-dot"></span><span id="dataRange">正在读取数据</span></div>
+        <button class="icon-button" id="refreshButton" type="button" aria-label="刷新数据" title="刷新数据">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="overview">
+        <div class="hero-copy">
+          <p class="eyebrow">FROZEN STRATEGY / HISTORICAL EVIDENCE</p>
+          <h1>每一分收益，<br /><span>都能追溯到策略。</span></h1>
+          <p class="hero-description">从市场输入、信号门槛到仓位与退出机制，查看当前冻结策略如何形成，以及它在固定历史样本上的表现。</p>
+        </div>
+        <div class="profile-picker" role="group" aria-label="策略版本">
+          <button class="profile-option active" data-profile="controlled" type="button">
+            <span class="option-check"></span>
+            <span><strong>风控优先</strong><small>趋势 + 6h 时序趋势</small></span>
+          </button>
+          <button class="profile-option" data-profile="active" type="button">
+            <span class="option-check"></span>
+            <span><strong>高覆盖</strong><small>加入震荡策略 · 半风险</small></span>
+          </button>
+        </div>
+      </section>
+
+      <section class="disclaimer" aria-label="数据口径说明">
+        <span class="disclaimer-icon">i</span>
+        <p><strong>这是历史验证，不是收益承诺。</strong> 数据来自固定 BTCUSDT 历史快照并包含手续费、滑点和资金费率；影子盘从 2026-07-11 起单独观察，当前不会下单。</p>
+        <span class="evidence-badge" id="evidenceBadge">验证中</span>
+      </section>
+
+      <section class="kpi-grid" aria-label="核心绩效指标">
+        <article class="kpi-card kpi-primary">
+          <div class="kpi-heading"><span>累计收益</span><span class="trend-chip">历史复合</span></div>
+          <strong class="kpi-value" id="totalReturn">—</strong>
+          <p id="equityMultiple">初始净值 100</p>
+        </article>
+        <article class="kpi-card">
+          <div class="kpi-heading"><span>年化收益</span><span class="mini-icon">↗</span></div>
+          <strong class="kpi-value" id="cagr">—</strong>
+          <p>跨季度复合口径</p>
+        </article>
+        <article class="kpi-card">
+          <div class="kpi-heading"><span>最大回撤</span><span class="mini-icon risk">↘</span></div>
+          <strong class="kpi-value risk-value" id="maxDrawdown">—</strong>
+          <div class="limit-meter"><span id="drawdownBar"></span></div>
+          <p id="drawdownLimit">风控红线 15%</p>
+        </article>
+        <article class="kpi-card">
+          <div class="kpi-heading"><span>盈亏比</span><span class="mini-icon">◎</span></div>
+          <strong class="kpi-value" id="profitFactor">—</strong>
+          <p id="profitFactorNote">每亏损 1 USDT 的对应盈利</p>
+        </article>
+        <article class="kpi-card">
+          <div class="kpi-heading"><span>交易频次</span><span class="mini-icon">≋</span></div>
+          <strong class="kpi-value" id="tradeFrequency">—</strong>
+          <p id="tradeCount">—</p>
+        </article>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="panel performance-panel">
+          <div class="panel-heading">
+            <div><p class="section-kicker">PERFORMANCE</p><h2>复合净值路径</h2></div>
+            <div class="legend"><span><i class="legend-line"></i>季度复合净值</span><span><i class="legend-area"></i>正收益区间</span></div>
+          </div>
+          <div class="chart-wrap">
+            <svg id="equityChart" viewBox="0 0 900 330" role="img" aria-label="历史季度复合净值曲线"></svg>
+            <div class="chart-tooltip" id="chartTooltip" hidden></div>
+          </div>
+          <div class="performance-footer">
+            <div><span>盈利季度占比</span><strong id="profitableFolds">—</strong></div>
+            <div><span>Bootstrap 正收益概率</span><strong id="positiveProbability">—</strong></div>
+            <div><span>悲观年化 P05</span><strong id="p05Return">—</strong></div>
+          </div>
+        </article>
+
+        <article class="panel composition-panel">
+          <div class="panel-heading">
+            <div><p class="section-kicker">STRATEGY DNA</p><h2>策略构成</h2></div>
+            <span class="profile-tag" id="profileTag">风控优先</span>
+          </div>
+          <div class="strategy-stack" id="strategyStack"></div>
+          <div class="risk-box">
+            <div class="risk-box-title"><span>组合级保护</span><strong id="portfolioCap">—</strong></div>
+            <div class="risk-row"><span>单笔战术风险</span><strong id="riskPerTrade">—</strong></div>
+            <div class="risk-row"><span>目标波动率</span><strong id="targetVol">—</strong></div>
+            <div class="risk-row"><span>回撤停止线</span><strong id="drawdownStop">—</strong></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel pipeline-panel">
+        <div class="panel-heading">
+          <div><p class="section-kicker">DECISION PIPELINE</p><h2>一次交易是怎么被构建出来的</h2></div>
+          <p class="panel-note">任何一层不通过，信号都会被拦截</p>
+        </div>
+        <div class="pipeline">
+          <article class="pipeline-step">
+            <span class="step-number">01</span><div class="step-icon">⌁</div>
+            <h3>市场输入</h3><p>价格、成交量、资金费率<br />5m / 15m / 1h / 4h / 6h</p>
+          </article>
+          <span class="pipeline-arrow">→</span>
+          <article class="pipeline-step">
+            <span class="step-number">02</span><div class="step-icon">⌇</div>
+            <h3>状态识别</h3><p>EMA 方向 · ADX 强度<br />波动带宽 · 漂移速度</p>
+          </article>
+          <span class="pipeline-arrow">→</span>
+          <article class="pipeline-step">
+            <span class="step-number">03</span><div class="step-icon">◇</div>
+            <h3>信号确认</h3><p id="signalThresholds">多周期共振<br />趋势分数与回调位置</p>
+          </article>
+          <span class="pipeline-arrow">→</span>
+          <article class="pipeline-step">
+            <span class="step-number">04</span><div class="step-icon">◒</div>
+            <h3>风险定仓</h3><p id="sizingRules">风险预算 × 止损距离<br />总敞口硬上限</p>
+          </article>
+          <span class="pipeline-arrow">→</span>
+          <article class="pipeline-step">
+            <span class="step-number">05</span><div class="step-icon">⌁</div>
+            <h3>退出与保护</h3><p id="exitRules">三级止盈 · ATR 跟踪<br />止损 / 强平 / 回撤停机</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="lower-grid">
+        <article class="panel folds-panel">
+          <div class="panel-heading">
+            <div><p class="section-kicker">ROBUSTNESS</p><h2>季度收益分布</h2></div>
+            <span class="panel-note" id="foldCount">—</span>
+          </div>
+          <div class="fold-chart" id="foldChart" aria-label="每季度历史收益柱状图"></div>
+          <div class="fold-legend"><span><i class="positive"></i>正收益季度</span><span><i class="negative"></i>负收益季度</span></div>
+        </article>
+
+        <article class="panel status-panel">
+          <div class="panel-heading">
+            <div><p class="section-kicker">EVIDENCE STATUS</p><h2>证据与运行状态</h2></div>
+          </div>
+          <div class="status-list">
+            <div class="status-item"><span class="status-icon pass">✓</span><div><strong>历史验收门槛</strong><p id="gateStatus">收益、回撤、盈亏比、频次均通过</p></div></div>
+            <div class="status-item"><span class="status-icon pass">✓</span><div><strong>双倍成本压力测试</strong><p id="stressStatus">手续费与滑点翻倍后仍保持正收益</p></div></div>
+            <div class="status-item"><span class="status-icon watch">◷</span><div><strong>前瞻影子盘</strong><p id="paperStatus">观察期刚开始 · 当前 0 笔 · 不下单</p></div></div>
+          </div>
+          <div class="data-stamp"><span>冻结版本</span><code id="freezeId">—</code><span>配置指纹</span><code id="configHash">—</code></div>
+        </article>
+      </section>
+    </main>
+
+    <footer>
+      <p>BTC AUTO / RESEARCH DASHBOARD</p>
+      <p>所有时间为 UTC · 数据刷新于 <span id="generatedAt">—</span></p>
+    </footer>
+
+    <div class="error-toast" id="errorToast" hidden></div>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

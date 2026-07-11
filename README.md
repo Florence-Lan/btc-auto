@@ -113,3 +113,13 @@ python scripts\validate_frozen_strategy.py `
 ```powershell
 python -m unittest discover -s tests -v
 ```
+
+## Strategy dashboard
+
+Explore the frozen strategy inputs, risk controls, historical returns, and prospective paper-trading status in a local dashboard:
+
+```powershell
+python -m http.server 8765
+```
+
+Then open `http://localhost:8765/dashboard/`. The dashboard reads the latest frozen manifests and validation reports directly from the repository, so rerunning validation updates the interface without copying metrics by hand.
