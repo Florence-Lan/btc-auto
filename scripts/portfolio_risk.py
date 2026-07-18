@@ -37,6 +37,8 @@ def combine_sleeves_with_drawdown_policy(
     cfg: sim.StrategyConfig,
     policy: DrawdownRiskPolicy,
     evaluation_start_ms: Optional[int] = None,
+    *,
+    include_execution_target: bool = False,
 ) -> dict[str, Any]:
     entries: dict[int, list[dict[str, Any]]] = {}
     exits: dict[int, list[dict[str, Any]]] = {}
@@ -73,6 +75,7 @@ def combine_sleeves_with_drawdown_policy(
     blocked_entries = 0
     hard_halt_time_ms: int | None = None
     multipliers: list[float] = []
+    end_position_targets: list[float] = []
 
     for candle in candles[start_index:]:
         timestamp = candle.open_time_ms
@@ -124,6 +127,22 @@ def combine_sleeves_with_drawdown_policy(
             if risk_multiplier < 1:
                 throttled_entries += 1
             multipliers.append(risk_multiplier)
+            if include_execution_target and str(raw.get("exit_reason")) == "end":
+                if "_open_qty_fraction" not in raw:
+                    raise RuntimeError(
+                        "Synthetic end-of-window trade is missing open quantity metadata"
+                    )
+                open_fraction = sim.clamp(
+                    float(raw["_open_qty_fraction"]),
+                    0.0,
+                    1.0,
+                )
+                end_position_targets.append(
+                    float(raw["initial_qty"])
+                    * open_fraction
+                    * sim.direction(str(raw["side"]))
+                    * scale
+                )
             if raw.get("_immediate"):
                 scaled_trade = sim.scaled_trade_from_raw(raw, scale, equity)
                 equity += scaled_trade.net_pnl
@@ -181,7 +200,7 @@ def combine_sleeves_with_drawdown_policy(
         ),
         "minimum_drawdown_multiplier_at_entry": min(multipliers) if multipliers else None,
     }
-    return {
+    result = {
         "summary": summary,
         "trades": [asdict(trade) for trade in scaled_trades],
         "equity_curve": equity_curve,
@@ -189,3 +208,21 @@ def combine_sleeves_with_drawdown_policy(
         "risk_diagnostics": diagnostics,
         "sleeves": [result.get("summary", {}) for result in sleeve_results],
     }
+    if include_execution_target:
+        point = summary.get("last_equity_point") or {}
+        target_price = float(point.get("price") or 0.0)
+        target_equity = float(point.get("equity") or 0.0)
+        gross_qty = sum(abs(qty) for qty in end_position_targets)
+        max_gross_qty = (
+            max(target_equity, 0.0) * cfg.portfolio_leverage_cap / target_price
+            if target_price > 0
+            else 0.0
+        )
+        final_scale = min(1.0, max_gross_qty / gross_qty) if gross_qty > 0 else 0.0
+        result["execution_target"] = {
+            "time_ms": int(point.get("time_ms") or 0),
+            "equity": target_equity,
+            "price": target_price,
+            "signed_qty": sum(end_position_targets) * final_scale,
+        }
+    return result

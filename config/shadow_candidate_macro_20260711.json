@@ -45,9 +45,12 @@
   },
   "code_sha256": {
     "scripts/macro_regime.py": "12ef2ed5ecf92cd6830c4d78226b91f8d420c93215bba78de94c063ff5d0b145",
-    "scripts/portfolio_risk.py": "4f6aa744e01a678bf202effcabab4688496bfa83bd5f7668b0551b8293ab63e0",
+    "scripts/portfolio_risk.py": "a2d811c0680120c13d1ec9b0d4a324972ea64039b4ed4b635df7b0648abae8b5",
     "scripts/event_risk.py": "270e4e009b53bc7f7b1848c74ce703d202d1bb9db33914a2d81d01b6e595d6bb",
-    "scripts/paper_trade_frozen_portfolio.py": "6b7fd05ff90b0d179075b4f4e6a460394149193fdece346e7da167416b29f507"
+    "scripts/paper_trade_frozen_portfolio.py": "23622e9386506cbb98bd566f0db1d109420c89c8105f930632dba70858f25b7f",
+    "scripts/trading_execution.py": "4e8ffc6cd45a2f89e3ca622a363eb3f346cf169434fcff02b09dbfa0fdb4f3ea",
+    "scripts/run_execution_supervisor.py": "044de0796d9851a94aa6793633efabe509dd2335b036de158d92c30bab49a393",
+    "scripts/run_trading_terminal.py": "0ebe5f7c5d5b760c83ceef2a6b9444461a9e83cd1b060b76f8a23881744550ee"
   },
   "live_orders_allowed": false,
   "promotion_requirements": {

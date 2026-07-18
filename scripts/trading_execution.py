@@ -43,7 +43,7 @@ def target_from_report(
     leverage_cap: float = 2.0,
 ) -> dict[str, float | int]:
     summary = report.get("summary") or {}
-    point = summary.get("last_equity_point") or {}
+    point = report.get("execution_target") or summary.get("last_equity_point") or {}
     signal_time_ms = int(point.get("time_ms") or 0)
     strategy_equity = float(point.get("equity") or 0)
     signal_price = float(point.get("price") or 0)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import unittest
@@ -120,6 +121,93 @@ class StrategyEngineTests(unittest.TestCase):
         }
         target = trading_execution.target_from_report(report, now_ms=now_ms)
         self.assertAlmostEqual(target["target_leverage"], 1.0)
+
+    def test_execution_target_overrides_flat_backtest_endpoint(self) -> None:
+        now_ms = 1_000_000
+        report = {
+            "execution_target": {
+                "time_ms": now_ms,
+                "equity": 100.0,
+                "price": 50_000.0,
+                "signed_qty": 0.002,
+            },
+            "summary": {
+                "last_equity_point": {
+                    "time_ms": now_ms,
+                    "equity": 100.0,
+                    "price": 50_000.0,
+                    "signed_qty": 0.0,
+                }
+            },
+        }
+        target = trading_execution.target_from_report(report, now_ms=now_ms)
+        self.assertAlmostEqual(target["target_leverage"], 1.0)
+
+    def test_shadow_end_trade_survives_as_execution_target(self) -> None:
+        bars = [
+            candle(1, 100, 101, 99, 100),
+            candle(2, 110, 111, 109, 110),
+            candle(3, 120, 121, 119, 120),
+        ]
+        trade = {
+            "side": "long",
+            "entry_time_utc": bars[0].open_time_utc,
+            "exit_time_utc": bars[1].open_time_utc,
+            "entry_price": 100.0,
+            "avg_exit_price": 110.0,
+            "initial_qty": 1.0,
+            "pnl": 10.0,
+            "fees": 0.0,
+            "net_pnl": 10.0,
+            "return_on_equity_pct": 10.0,
+            "bars_held": 1,
+            "exit_reason": "end",
+            "signal_reason": "timeseries_trend_long",
+            "liquidation_price": 0.0,
+            "funding_pnl": 0.0,
+            "slippage_cost": 0.0,
+            "strategy": "timeseries_trend_6h",
+            "_open_qty_fraction": 0.4,
+        }
+        cfg = config(portfolio_leverage_cap=2.0, max_drawdown_stop_pct=0.0)
+        result = portfolio_risk.combine_sleeves_with_drawdown_policy(
+            bars,
+            [{"trades": [trade], "summary": {}}],
+            cfg,
+            portfolio_risk.DrawdownRiskPolicy(),
+            bars[0].open_time_ms,
+            include_execution_target=True,
+        )
+        self.assertEqual(result["summary"]["last_equity_point"]["signed_qty"], 0.0)
+        self.assertAlmostEqual(result["execution_target"]["signed_qty"], 0.4)
+        target = trading_execution.target_from_report(
+            result,
+            now_ms=bars[-1].open_time_ms,
+        )
+        self.assertGreater(target["target_leverage"], 0.0)
+
+    def test_open_position_annotation_preserves_partial_quantity(self) -> None:
+        sleeve = {
+            "equity_curve": [{"signed_qty": 0.25}],
+            "trades": [
+                {
+                    "side": "long",
+                    "exit_reason": "end",
+                    "initial_qty": 1.0,
+                }
+            ],
+        }
+        paper_frozen.annotate_open_position_fractions([sleeve])
+        self.assertAlmostEqual(sleeve["trades"][0]["_open_qty_fraction"], 0.25)
+
+    def test_execution_candidate_excludes_negative_expectancy_range(self) -> None:
+        candidate = json.loads(
+            (ROOT / "config/shadow_candidate_macro_20260711.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertNotIn("range", candidate["strategy_modes"])
+        self.assertFalse(candidate["live_orders_allowed"])
 
     def test_stale_strategy_target_is_blocked(self) -> None:
         report = {

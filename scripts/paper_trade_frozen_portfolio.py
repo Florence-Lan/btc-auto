@@ -107,6 +107,36 @@ def save_state(path: Path, state: dict[str, Any]) -> None:
     path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def annotate_open_position_fractions(sleeve_results: list[dict[str, Any]]) -> None:
+    """Attach the still-open fraction to each synthetic end-of-window trade."""
+    for sleeve in sleeve_results:
+        curve = sleeve.get("equity_curve") or []
+        point = curve[-1] if curve else {}
+        signed_qty = float(point.get("signed_qty") or 0.0)
+        if abs(signed_qty) <= 1e-12:
+            continue
+        side = "long" if signed_qty > 0 else "short"
+        candidates = [
+            trade
+            for trade in sleeve.get("trades", [])
+            if str(trade.get("exit_reason")) == "end"
+            and str(trade.get("side")) == side
+        ]
+        if not candidates:
+            raise RuntimeError(
+                "Open sleeve position is missing its synthetic end-of-window trade"
+            )
+        trade = candidates[-1]
+        initial_qty = float(trade.get("initial_qty") or 0.0)
+        if initial_qty <= 0:
+            raise RuntimeError("Synthetic end-of-window trade has invalid quantity")
+        trade["_open_qty_fraction"] = sim.clamp(
+            abs(signed_qty) / initial_qty,
+            0.0,
+            1.0,
+        )
+
+
 def run_once(args: argparse.Namespace) -> dict[str, Any]:
     manifest, cfg = frozen_strategy.load_frozen_strategy(args.manifest)
     symbol = sim.normalize_symbol(args.symbol)
@@ -187,6 +217,7 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
         funding,
     )
     sleeves = [tactical, core]
+    annotate_open_position_fractions(sleeves)
     macro_diagnostics = None
     if args.macro_snapshot:
         snapshot = macro_regime.load_macro_snapshot(args.macro_snapshot)
@@ -208,7 +239,12 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             args.drawdown_min_multiplier,
         )
         result = portfolio_risk.combine_sleeves_with_drawdown_policy(
-            base_candles, sleeves, cfg, policy, evaluation_start_ms
+            base_candles,
+            sleeves,
+            cfg,
+            policy,
+            evaluation_start_ms,
+            include_execution_target=True,
         )
     else:
         result = sim.combine_sleeve_results(
