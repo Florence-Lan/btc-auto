@@ -50,6 +50,14 @@ def tail_lines(path: Path, limit: int = 80) -> list[str]:
         return []
 
 
+def execution_point_for_report(
+    report: dict[str, Any],
+    summary: dict[str, Any],
+) -> dict[str, Any]:
+    point = report.get("execution_target") or summary.get("last_equity_point") or {}
+    return point if isinstance(point, dict) else {}
+
+
 def process_alive(pid: int | None) -> bool:
     if not pid or pid <= 0:
         return False
@@ -318,7 +326,8 @@ class TerminalController:
         report = read_json(REPORT_PATH, {}) or {}
         candidate = read_json(CANDIDATE_PATH, {}) or {}
         summary = report.get("summary") or state.get("summary") or {}
-        last_point = summary.get("last_equity_point") or {}
+        summary_point = summary.get("last_equity_point") or {}
+        execution_point = execution_point_for_report(report, summary)
         updated = state.get("updated_at_utc")
         heartbeat_age = None
         if updated:
@@ -337,11 +346,14 @@ class TerminalController:
             mark_price = self.client.mark_price(SYMBOL)
             market_error = None
         except Exception as exc:
-            mark_price = float(last_point.get("price") or 0) or None
+            mark_price = float(execution_point.get("price") or 0) or None
             market_error = str(exc)
         market_time_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         macro, macro_current = self._macro_status(
-            report, state, candidate, int(last_point.get("time_ms") or market_time_ms)
+            report,
+            state,
+            candidate,
+            int(execution_point.get("time_ms") or market_time_ms),
         )
         exchange = self.client.snapshot(SYMBOL) if mode == "live" else {
             "configured": self.client.configured,
@@ -400,9 +412,9 @@ class TerminalController:
             if mode == "live" else float(os.getenv("SIM_MAX_NOTIONAL_USDT", "0") or 0)
         )
         account_equity = float(account.get("margin_balance") or account.get("wallet_balance") or 0)
-        signal_equity = float(last_point.get("equity") or 0)
-        signal_price = float(last_point.get("price") or 0)
-        target_signed_qty = float(last_point.get("signed_qty") or 0)
+        signal_equity = float(execution_point.get("equity") or 0)
+        signal_price = float(execution_point.get("price") or 0)
+        target_signed_qty = float(execution_point.get("signed_qty") or 0)
         target_leverage = (
             target_signed_qty * signal_price / signal_equity
             if signal_equity > 0 and signal_price > 0 else 0.0
@@ -416,7 +428,7 @@ class TerminalController:
         natural_cap = account_equity * leverage_limit
         effective_cap = min(natural_cap, max_notional) if max_notional > 0 else natural_cap
         target_notional = max(-effective_cap, min(effective_cap, target_leverage * account_equity))
-        signal_time_ms = int(last_point.get("time_ms") or 0)
+        signal_time_ms = int(execution_point.get("time_ms") or 0)
         signal_age_seconds = (
             max(0.0, (market_time_ms - signal_time_ms) / 1000)
             if signal_time_ms > 0 else None
@@ -449,7 +461,14 @@ class TerminalController:
         entry_price = float(execution_state.get("entry_price") or 0) if mode == "simulation" else (
             float(positions[0].get("entry_price") or 0) if positions else 0.0
         )
-        execution_trades = execution_state.get("trades") or []
+        execution_fills = execution_state.get("fills") or execution_state.get("trades") or []
+        report_trades = list(report.get("trades") or [])
+        closed_strategy_trades = [
+            trade for trade in report_trades if str(trade.get("exit_reason")) != "end"
+        ]
+        open_strategy_positions = [
+            trade for trade in report_trades if str(trade.get("exit_reason")) == "end"
+        ]
         account_details = {
             "initial_balance": execution_state.get("initial_balance") or execution_state.get("initial_equity"),
             "wallet_balance": account.get("wallet_balance"),
@@ -461,7 +480,15 @@ class TerminalController:
             "position_qty": position_qty,
             "entry_price": entry_price or None,
             "position_notional": abs(position_qty * float(mark_price or 0)),
-            "trade_count": len(execution_trades) if mode == "simulation" else len(recent_trades),
+            "fill_count_total": (
+                int(execution_state.get("fill_count_total") or len(execution_fills))
+                if mode == "simulation"
+                else len(recent_trades)
+            ),
+            "closed_strategy_trade_count": len(closed_strategy_trades),
+            "open_strategy_position_count": len(open_strategy_positions),
+            "execution_inception_utc": execution_state.get("created_at_utc"),
+            "shadow_inception_utc": report.get("paper_inception_utc"),
         }
         return {
             "server_time_utc": utc_now(),
@@ -479,7 +506,8 @@ class TerminalController:
                     if mode == "simulation" else None
                 ),
                 "last_cycle_at_utc": execution_state.get("updated_at_utc"),
-                "last_fill": execution_trades[-1] if execution_trades else None,
+                "last_fill": execution_fills[-1] if execution_fills else None,
+                "entry_guard": execution_state.get("entry_guard"),
                 "check_interval_seconds": EXECUTION_CHECK_SECONDS,
                 "strategy_bar_seconds": STRATEGY_BAR_SECONDS,
             },
@@ -497,7 +525,7 @@ class TerminalController:
             "account_details": account_details,
             "risk": {
                 "drawdown_pct": drawdown,
-                "drawdown_multiplier": last_point.get("drawdown_risk_multiplier", 1.0),
+                "drawdown_multiplier": summary_point.get("drawdown_risk_multiplier", 1.0),
                 "soft_limit_pct": 8.0,
                 "hard_limit_pct": 15.0,
                 "portfolio_leverage_cap": 2.0,
@@ -515,7 +543,10 @@ class TerminalController:
                 "macro_factors": candidate.get("macro", {}).get("factors", []),
                 "observations": state.get("observations", 0),
                 "updated_at_utc": updated,
-                "signal_time_ms": last_point.get("time_ms"),
+                "signal_time_ms": execution_point.get("time_ms"),
+                "position_id": execution_point.get("position_id"),
+                "origin_signal_time_ms": execution_point.get("origin_signal_time_ms"),
+                "origin_entry_price": execution_point.get("origin_entry_price"),
                 "target_signed_qty": target_signed_qty,
                 "target_leverage": target_leverage,
                 "target_notional": target_notional,

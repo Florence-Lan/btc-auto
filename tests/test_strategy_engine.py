@@ -180,6 +180,12 @@ class StrategyEngineTests(unittest.TestCase):
         )
         self.assertEqual(result["summary"]["last_equity_point"]["signed_qty"], 0.0)
         self.assertAlmostEqual(result["execution_target"]["signed_qty"], 0.4)
+        self.assertTrue(result["execution_target"]["position_id"])
+        self.assertEqual(
+            result["execution_target"]["origin_signal_time_ms"],
+            bars[0].open_time_ms,
+        )
+        self.assertAlmostEqual(result["execution_target"]["origin_entry_price"], 100.0)
         target = trading_execution.target_from_report(
             result,
             now_ms=bars[-1].open_time_ms,
@@ -242,6 +248,62 @@ class StrategyEngineTests(unittest.TestCase):
             snapshot = account.snapshot(50_000.0)
             self.assertEqual(len(snapshot["positions"]), 1)
             self.assertEqual(snapshot["positions"][0]["side"], "LONG")
+
+    def test_simulation_quantizes_and_ignores_micro_rebalances(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            account = trading_execution.SimulationAccount(Path(temporary) / "sim.json")
+            account.reset(1_000.0)
+            first = {
+                "signal_time_ms": 1,
+                "signal_price": 50_000.0,
+                "target_leverage": 0.115,
+                "age_seconds": 0.0,
+            }
+            second = {**first, "signal_time_ms": 2, "target_leverage": 0.119}
+            first_result = account.reconcile(first, 50_000.0)
+            second_result = account.reconcile(second, 50_000.0)
+            snapshot = account.snapshot(50_000.0)
+        self.assertEqual(first_result["target_qty"], 0.002)
+        self.assertIsNotNone(first_result["fill"])
+        self.assertEqual(second_result["target_qty"], 0.002)
+        self.assertIsNone(second_result["fill"])
+        self.assertEqual(snapshot["state"]["fill_count_total"], 1)
+        self.assertEqual(snapshot["positions"][0]["signed_quantity"], 0.002)
+
+    def test_new_simulation_waits_for_next_position_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            account = trading_execution.SimulationAccount(Path(temporary) / "sim.json")
+            account.reset(1_000.0)
+            existing = {
+                "signal_time_ms": 1,
+                "signal_price": 50_000.0,
+                "target_leverage": 1.0,
+                "age_seconds": 0.0,
+                "position_id": "existing-position",
+                "origin_signal_time_ms": 1,
+            }
+            first = account.reconcile(existing, 50_000.0)
+            repeated = account.reconcile(existing, 50_000.0)
+            next_signal = account.reconcile(
+                {**existing, "signal_time_ms": 2, "position_id": "next-position"},
+                50_000.0,
+            )
+            snapshot = account.snapshot(50_000.0)
+        self.assertEqual(first["entry_guard"]["status"], "waiting_for_next_signal")
+        self.assertIsNone(first["fill"])
+        self.assertEqual(repeated["entry_guard"]["status"], "waiting_for_next_signal")
+        self.assertIsNone(repeated["fill"])
+        self.assertEqual(next_signal["entry_guard"]["status"], "new_signal_allowed")
+        self.assertIsNotNone(next_signal["fill"])
+        self.assertEqual(snapshot["state"]["fill_count_total"], 1)
+
+    def test_terminal_prefers_execution_target_over_closed_backtest_point(self) -> None:
+        execution_target = {"signed_qty": 0.25, "position_id": "open-position"}
+        point = trading_terminal.execution_point_for_report(
+            {"execution_target": execution_target},
+            {"last_equity_point": {"signed_qty": 0.0}},
+        )
+        self.assertIs(point, execution_target)
 
     def test_simulation_initial_balance_can_be_reset(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

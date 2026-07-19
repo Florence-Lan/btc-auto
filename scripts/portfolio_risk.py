@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import asdict, dataclass
 from typing import Any, Mapping, Optional, Sequence
 
@@ -75,7 +76,7 @@ def combine_sleeves_with_drawdown_policy(
     blocked_entries = 0
     hard_halt_time_ms: int | None = None
     multipliers: list[float] = []
-    end_position_targets: list[float] = []
+    end_position_targets: list[dict[str, Any]] = []
 
     for candle in candles[start_index:]:
         timestamp = candle.open_time_ms
@@ -137,12 +138,19 @@ def combine_sleeves_with_drawdown_policy(
                     0.0,
                     1.0,
                 )
-                end_position_targets.append(
-                    float(raw["initial_qty"])
-                    * open_fraction
-                    * sim.direction(str(raw["side"]))
-                    * scale
-                )
+                end_position_targets.append({
+                    "signed_qty": (
+                        float(raw["initial_qty"])
+                        * open_fraction
+                        * sim.direction(str(raw["side"]))
+                        * scale
+                    ),
+                    "strategy": str(raw.get("strategy") or "unknown"),
+                    "side": str(raw["side"]),
+                    "entry_time_utc": str(raw["entry_time_utc"]),
+                    "entry_price": float(raw["entry_price"]),
+                    "signal_reason": str(raw.get("signal_reason") or ""),
+                })
             if raw.get("_immediate"):
                 scaled_trade = sim.scaled_trade_from_raw(raw, scale, equity)
                 equity += scaled_trade.net_pnl
@@ -212,17 +220,47 @@ def combine_sleeves_with_drawdown_policy(
         point = summary.get("last_equity_point") or {}
         target_price = float(point.get("price") or 0.0)
         target_equity = float(point.get("equity") or 0.0)
-        gross_qty = sum(abs(qty) for qty in end_position_targets)
+        gross_qty = sum(abs(float(item["signed_qty"])) for item in end_position_targets)
         max_gross_qty = (
             max(target_equity, 0.0) * cfg.portfolio_leverage_cap / target_price
             if target_price > 0
             else 0.0
         )
         final_scale = min(1.0, max_gross_qty / gross_qty) if gross_qty > 0 else 0.0
+        components = [
+            {**item, "signed_qty": float(item["signed_qty"]) * final_scale}
+            for item in end_position_targets
+        ]
+        identity = "|".join(sorted(
+            f"{item['strategy']}:{item['side']}:{item['entry_time_utc']}"
+            for item in components
+        ))
+        net_qty = sum(float(item["signed_qty"]) for item in components)
+        gross_component_qty = sum(abs(float(item["signed_qty"])) for item in components)
+        origin_entry_price = (
+            sum(
+                abs(float(item["signed_qty"])) * float(item["entry_price"])
+                for item in components
+            ) / gross_component_qty
+            if gross_component_qty > 0
+            else None
+        )
         result["execution_target"] = {
             "time_ms": int(point.get("time_ms") or 0),
             "equity": target_equity,
             "price": target_price,
-            "signed_qty": sum(end_position_targets) * final_scale,
+            "signed_qty": net_qty,
+            "position_id": (
+                hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
+                if identity
+                else "flat"
+            ),
+            "origin_signal_time_ms": (
+                min(sim._utc_ms(str(item["entry_time_utc"])) for item in components)
+                if components
+                else None
+            ),
+            "origin_entry_price": origin_entry_price,
+            "components": components,
         }
     return result

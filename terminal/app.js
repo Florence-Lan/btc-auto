@@ -122,9 +122,14 @@ function render(data) {
   $("#positionNotionalDetail").textContent = fmt(details.position_notional);
   $("#positionQtyDetail").textContent = fmt(details.position_qty, 6);
   $("#entryPriceDetail").textContent = fmt(details.entry_price, 1);
+  $("#executionFillCountDetail").textContent = details.fill_count_total ?? "—";
+  $("#strategyTradeCountDetail").textContent = details.closed_strategy_trade_count ?? "—";
+  $("#executionInceptionDetail").textContent = details.execution_inception_utc ? new Date(details.execution_inception_utc).toLocaleString("zh-CN") : "—";
+  $("#shadowInceptionDetail").textContent = details.shadow_inception_utc ? new Date(details.shadow_inception_utc).toLocaleString("zh-CN") : "—";
   $("#lastExecution").textContent = data.execution.last_cycle_at_utc ? `执行 ${new Date(data.execution.last_cycle_at_utc).toLocaleString("zh-CN")}` : "尚未执行";
   const targetQty = Number(data.strategy.target_signed_qty || 0);
-  $("#targetPosition").textContent = targetQty > 0 ? "LONG" : targetQty < 0 ? "SHORT" : "FLAT";
+  const waitingForNextSignal = data.execution.entry_guard?.status === "waiting_for_next_signal";
+  $("#targetPosition").textContent = waitingForNextSignal ? `WAIT · ${targetQty > 0 ? "LONG" : targetQty < 0 ? "SHORT" : "FLAT"}` : targetQty > 0 ? "LONG" : targetQty < 0 ? "SHORT" : "FLAT";
   $("#targetPosition").className = targetQty > 0 ? "positive" : targetQty < 0 ? "negative" : "";
   $("#executionPermission").textContent = live ? "BINANCE 实盘下单" : "仅本地模拟";
   $("#executionPermission").className = live ? "negative" : "positive";

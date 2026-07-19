@@ -5,8 +5,9 @@ import json
 import math
 import os
 from datetime import datetime, timezone
+from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from binance_terminal_client import BinanceTerminalClient
 
@@ -15,6 +16,12 @@ ROOT = Path(__file__).resolve().parents[1]
 SIMULATION_STATE_PATH = ROOT / "data/runtime/simulation_account.json"
 LIVE_STATE_PATH = ROOT / "data/runtime/live_execution.json"
 SYMBOL = "BTCUSDT"
+DEFAULT_SIMULATION_RULES = {
+    "step_size": Decimal("0.001"),
+    "min_qty": Decimal("0.001"),
+    "max_qty": Decimal("120"),
+    "min_notional": Decimal("50"),
+}
 
 
 def utc_now() -> str:
@@ -41,7 +48,7 @@ def target_from_report(
     now_ms: int | None = None,
     max_age_seconds: float = 900.0,
     leverage_cap: float = 2.0,
-) -> dict[str, float | int]:
+) -> dict[str, Any]:
     summary = report.get("summary") or {}
     point = report.get("execution_target") or summary.get("last_equity_point") or {}
     signal_time_ms = int(point.get("time_ms") or 0)
@@ -63,7 +70,63 @@ def target_from_report(
         "signal_price": signal_price,
         "target_leverage": target_leverage,
         "age_seconds": age_seconds,
+        "position_id": point.get("position_id"),
+        "origin_signal_time_ms": point.get("origin_signal_time_ms"),
+        "origin_entry_price": point.get("origin_entry_price"),
     }
+
+
+def quantize_signed_quantity(
+    quantity: float,
+    rules: Mapping[str, Decimal] | None = None,
+) -> float:
+    active_rules = rules or DEFAULT_SIMULATION_RULES
+    value = Decimal(str(abs(quantity)))
+    step = Decimal(str(active_rules["step_size"]))
+    quantized = (value / step).to_integral_value(rounding=ROUND_DOWN) * step
+    if quantized < Decimal(str(active_rules["min_qty"])):
+        return 0.0
+    signed = float(quantized)
+    return -signed if quantity < 0 else signed
+
+
+def apply_startup_entry_guard(
+    state: dict[str, Any],
+    target: dict[str, Any],
+    current_qty: float,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    guarded = dict(target)
+    position_id = str(target.get("position_id") or "")
+    if not position_id:
+        return guarded, None
+    desired_leverage = float(target.get("target_leverage") or 0.0)
+    if abs(desired_leverage) <= 1e-12:
+        state["observed_flat_target"] = True
+        state["blocked_target_id"] = None
+        return guarded, {"status": "flat", "position_id": position_id}
+    if abs(current_qty) > 1e-12:
+        state["observed_flat_target"] = True
+        state["blocked_target_id"] = None
+        return guarded, {"status": "tracking", "position_id": position_id}
+    blocked_id = str(state.get("blocked_target_id") or "")
+    if blocked_id and blocked_id != position_id:
+        state["blocked_target_id"] = None
+        state["observed_flat_target"] = True
+        return guarded, {"status": "new_signal_allowed", "position_id": position_id}
+    first_observation = (
+        state.get("last_signal_time_ms") is None
+        and state.get("signal_time_ms") is None
+        and not bool(state.get("observed_flat_target"))
+    )
+    if blocked_id == position_id or first_observation:
+        state["blocked_target_id"] = position_id
+        guarded["target_leverage"] = 0.0
+        return guarded, {
+            "status": "waiting_for_next_signal",
+            "position_id": position_id,
+            "origin_signal_time_ms": target.get("origin_signal_time_ms"),
+        }
+    return guarded, {"status": "allowed", "position_id": position_id}
 
 
 class SimulationAccount:
@@ -76,7 +139,7 @@ class SimulationAccount:
             raise ValueError("SIM_INITIAL_BALANCE_USDT must be greater than zero")
         now = utc_now()
         return {
-            "version": 1,
+            "version": 2,
             "mode": "simulation",
             "symbol": SYMBOL,
             "created_at_utc": now,
@@ -89,15 +152,32 @@ class SimulationAccount:
             "fees_paid": 0.0,
             "peak_equity": initial,
             "max_drawdown_pct": 0.0,
-            "trades": [],
+            "fills": [],
+            "fill_count_total": 0,
             "equity_curve": [],
             "last_signal_time_ms": None,
             "last_mark_price": None,
+            "observed_flat_target": False,
+            "blocked_target_id": None,
+            "entry_guard": None,
         }
 
     def load(self) -> dict[str, Any]:
         state = read_json(self.path)
-        return state if isinstance(state, dict) else self._new_state()
+        if not isinstance(state, dict):
+            return self._new_state()
+        if "fills" not in state:
+            legacy = list(state.get("trades") or [])
+            state["fills"] = legacy
+            state["fill_count_total"] = max(
+                int(state.get("fill_count_total") or 0),
+                len(legacy),
+            )
+        state.setdefault("observed_flat_target", False)
+        state.setdefault("blocked_target_id", None)
+        state.setdefault("entry_guard", None)
+        state["version"] = 2
+        return state
 
     def reset(self, initial_balance: float) -> dict[str, Any]:
         amount = float(initial_balance)
@@ -155,12 +235,17 @@ class SimulationAccount:
             },
             "positions": positions,
             "open_orders": [],
-            "recent_trades": list(reversed(state.get("trades", [])[-20:])),
+            "recent_trades": list(reversed(state.get("fills", [])[-20:])),
             "equity_curve": state.get("equity_curve", []),
             "max_drawdown_pct": float(state.get("max_drawdown_pct", 0)),
         }
 
-    def reconcile(self, target: dict[str, float | int], mark_price: float) -> dict[str, Any]:
+    def reconcile(
+        self,
+        target: dict[str, Any],
+        mark_price: float,
+        rules: Mapping[str, Decimal] | None = None,
+    ) -> dict[str, Any]:
         state = self.load()
         marked = self._mark(state, mark_price)
         leverage_cap = min(float(os.getenv("SIM_MAX_LEVERAGE", "2") or 2), 2.0)
@@ -168,14 +253,27 @@ class SimulationAccount:
         equity = max(marked["equity"], 0.0)
         natural_cap = equity * leverage_cap
         max_notional = min(natural_cap, configured_cap) if configured_cap > 0 else natural_cap
-        target_notional = float(target["target_leverage"]) * equity
+        current_qty = float(state.get("position_qty", 0))
+        effective_target, entry_guard = apply_startup_entry_guard(
+            state,
+            target,
+            current_qty,
+        )
+        state["entry_guard"] = entry_guard
+        target_notional = float(effective_target["target_leverage"]) * equity
         target_notional = max(-max_notional, min(max_notional, target_notional))
         target_qty = target_notional / mark_price if mark_price > 0 else 0.0
-        target_qty = round(target_qty, 8)
-        current_qty = float(state.get("position_qty", 0))
+        target_qty = quantize_signed_quantity(target_qty, rules)
         delta = target_qty - current_qty
         fill = None
-        if abs(delta * mark_price) >= 0.01:
+        active_rules = rules or DEFAULT_SIMULATION_RULES
+        min_qty = float(active_rules["min_qty"])
+        min_notional = float(active_rules["min_notional"])
+        delta_notional = abs(delta * mark_price)
+        full_close = target_qty == 0 and abs(current_qty) > 1e-12
+        if full_close or (
+            abs(delta) >= min_qty and delta_notional >= min_notional
+        ):
             slippage_bps = float(os.getenv("SIM_SLIPPAGE_BPS", "1.0") or 1.0)
             fee_rate = float(os.getenv("SIM_TAKER_FEE", "0.00045") or 0.00045)
             fill_price = mark_price * (1 + math.copysign(slippage_bps / 10_000, delta))
@@ -217,8 +315,9 @@ class SimulationAccount:
                 "fee": fee,
                 "mode": "simulation",
             }
-            state.setdefault("trades", []).append(fill)
-            state["trades"] = state["trades"][-200:]
+            state.setdefault("fills", []).append(fill)
+            state["fills"] = state["fills"][-200:]
+            state["fill_count_total"] = int(state.get("fill_count_total") or 0) + 1
         state["last_signal_time_ms"] = int(target["signal_time_ms"])
         state["last_mark_price"] = mark_price
         after = self._mark(state, mark_price)
@@ -240,9 +339,11 @@ class SimulationAccount:
         write_json(self.path, state)
         return {
             "mode": "simulation",
-            "target_leverage": target["target_leverage"],
+            "target_leverage": effective_target["target_leverage"],
+            "desired_target_leverage": target["target_leverage"],
             "target_qty": target_qty,
             "fill": fill,
+            "entry_guard": entry_guard,
             "account": self.snapshot(mark_price)["account"],
         }
 
@@ -261,20 +362,26 @@ class LiveExecutor:
     def snapshot(self) -> dict[str, Any]:
         return self.client.account_snapshot(SYMBOL)
 
-    def reconcile(self, target: dict[str, float | int], mark_price: float) -> dict[str, Any]:
+    def reconcile(self, target: dict[str, Any], mark_price: float) -> dict[str, Any]:
         ready = self.client.validate_live_ready(SYMBOL)
         leverage = int(ready["leverage"])
         self.client.set_leverage(leverage, SYMBOL)
         snapshot = self.client.account_snapshot(SYMBOL)
         wallet = float(snapshot["account"]["wallet_balance"])
         max_notional = min(float(ready["max_notional_usdt"]), wallet * leverage)
-        desired_notional = float(target["target_leverage"]) * wallet
+        position = next(iter(snapshot["positions"]), None)
+        current_qty = float(position["signed_quantity"]) if position else 0.0
+        history = read_json(self.path, {}) or {}
+        effective_target, entry_guard = apply_startup_entry_guard(
+            history,
+            target,
+            current_qty,
+        )
+        desired_notional = float(effective_target["target_leverage"]) * wallet
         desired_notional = max(-max_notional, min(max_notional, desired_notional))
         target_qty = self.client.quantize_quantity(desired_notional / mark_price, SYMBOL)
         if desired_notional < 0:
             target_qty = -target_qty
-        position = next(iter(snapshot["positions"]), None)
-        current_qty = float(position["signed_quantity"]) if position else 0.0
         orders: list[Any] = []
         signal_time = int(target["signal_time_ms"])
 
@@ -311,7 +418,6 @@ class LiveExecutor:
 
         post_snapshot = self.client.account_snapshot(SYMBOL)
         margin_balance = float(post_snapshot["account"]["margin_balance"])
-        history = read_json(self.path, {}) or {}
         initial_equity = float(history.get("initial_equity") or margin_balance)
         peak_equity = max(float(history.get("peak_equity") or margin_balance), margin_balance)
         drawdown = (
@@ -329,7 +435,8 @@ class LiveExecutor:
             "mode": "live",
             "updated_at_utc": utc_now(),
             "signal_time_ms": signal_time,
-            "target_leverage": target["target_leverage"],
+            "target_leverage": effective_target["target_leverage"],
+            "desired_target_leverage": target["target_leverage"],
             "target_qty": target_qty,
             "previous_qty": current_qty,
             "max_notional_usdt": max_notional,
@@ -338,6 +445,9 @@ class LiveExecutor:
             "peak_equity": peak_equity,
             "max_drawdown_pct": max(float(history.get("max_drawdown_pct") or 0), drawdown),
             "equity_curve": equity_curve[-1000:],
+            "observed_flat_target": history.get("observed_flat_target", False),
+            "blocked_target_id": history.get("blocked_target_id"),
+            "entry_guard": entry_guard,
         }
         write_json(self.path, result)
         return result
@@ -354,5 +464,9 @@ def execute_report(
     target = target_from_report(report, max_age_seconds=max_age)
     mark_price = client.mark_price(SYMBOL)
     if mode == "simulation":
-        return SimulationAccount().reconcile(target, mark_price)
+        return SimulationAccount().reconcile(
+            target,
+            mark_price,
+            client.symbol_rules(SYMBOL),
+        )
     return LiveExecutor(client).reconcile(target, mark_price)
