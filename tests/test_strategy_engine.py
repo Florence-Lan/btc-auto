@@ -192,6 +192,24 @@ class StrategyEngineTests(unittest.TestCase):
         )
         self.assertGreater(target["target_leverage"], 0.0)
 
+    def test_new_shadow_window_emits_a_valid_flat_execution_target(self) -> None:
+        bars = [candle(1, 100, 101, 99, 100)]
+        cfg = config(portfolio_leverage_cap=2.0, max_drawdown_stop_pct=0.0)
+        result = portfolio_risk.combine_sleeves_with_drawdown_policy(
+            bars,
+            [{"trades": [], "summary": {}}],
+            cfg,
+            portfolio_risk.DrawdownRiskPolicy(),
+            bars[-1].open_time_ms + 1,
+            include_execution_target=True,
+        )
+        target = result["execution_target"]
+        self.assertEqual(target["time_ms"], bars[-1].open_time_ms)
+        self.assertEqual(target["equity"], cfg.initial_equity)
+        self.assertEqual(target["price"], bars[-1].close)
+        self.assertEqual(target["signed_qty"], 0.0)
+        self.assertEqual(target["position_id"], "flat")
+
     def test_open_position_annotation_preserves_partial_quantity(self) -> None:
         sleeve = {
             "equity_curve": [{"signed_qty": 0.25}],
@@ -208,7 +226,7 @@ class StrategyEngineTests(unittest.TestCase):
 
     def test_execution_candidate_excludes_negative_expectancy_range(self) -> None:
         candidate = json.loads(
-            (ROOT / "config/shadow_candidate_macro_20260711.json").read_text(
+            (ROOT / "config/shadow_candidate_macro_20260720.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -482,9 +500,29 @@ class StrategyEngineTests(unittest.TestCase):
         self.assertEqual(cfg.portfolio_mode, "sleeves")
         self.assertEqual(cfg.timeseries_fast_ema, 24)
         self.assertEqual(cfg.timeseries_slow_ema, 120)
+        self.assertEqual(cfg.timeseries_min_ema_spread_pct, 0.0)
         self.assertEqual(cfg.timeseries_target_vol, 0.12)
         self.assertEqual(cfg.timeseries_max_leverage, 2.0)
         self.assertEqual(cfg.portfolio_leverage_cap, 2.0)
+
+    def test_timeseries_ema_hysteresis_filters_small_crosses(self) -> None:
+        bars = [candle(index, 100, 101, 99, 100) for index in range(8)]
+        fast = [100.0, 100.0, 100.0, 100.1, 99.9, 100.1, 99.9, 100.1]
+        slow = [100.0] * len(bars)
+        base_cfg = config(
+            timeseries_fast_ema=1,
+            timeseries_slow_ema=2,
+            timeseries_vol_lookback_bars=2,
+        )
+        with mock.patch.object(sim, "ema", side_effect=[fast, slow]):
+            baseline = sim.simulate_timeseries_trend(bars, base_cfg)
+        with mock.patch.object(sim, "ema", side_effect=[fast, slow]):
+            filtered = sim.simulate_timeseries_trend(
+                bars,
+                replace(base_cfg, timeseries_min_ema_spread_pct=0.003),
+            )
+        self.assertGreater(len(baseline["trades"]), 0)
+        self.assertEqual(filtered["trades"], [])
 
     def test_paper_defaults_match_promoted_strategies(self) -> None:
         original = sys.argv
@@ -503,7 +541,10 @@ class StrategyEngineTests(unittest.TestCase):
 
     def test_frozen_strategy_manifest_is_valid(self) -> None:
         manifest_path = ROOT / "config/frozen_strategy_20260711.json"
-        manifest, cfg = frozen_strategy.load_frozen_strategy(manifest_path)
+        manifest, cfg = frozen_strategy.load_frozen_strategy(
+            manifest_path,
+            verify_engine=False,
+        )
         self.assertEqual(manifest["freeze_id"], "btc_risk_controlled_20260711_v1")
         self.assertEqual(cfg.timeseries_fast_ema, 24)
         self.assertEqual(cfg.timeseries_slow_ema, 120)
@@ -518,6 +559,7 @@ class StrategyEngineTests(unittest.TestCase):
     def test_frozen_paper_state_never_places_orders(self) -> None:
         manifest, _ = frozen_strategy.load_frozen_strategy(
             ROOT / "config/frozen_strategy_20260711.json",
+            verify_engine=False,
         )
         with tempfile.TemporaryDirectory() as directory:
             state = paper_frozen.load_or_create_state(
@@ -529,12 +571,19 @@ class StrategyEngineTests(unittest.TestCase):
         self.assertEqual(state["freeze_id"], manifest["freeze_id"])
 
     def test_active_frozen_strategy_manifest_is_valid(self) -> None:
-        manifest, cfg = frozen_strategy.load_frozen_strategy(
-            ROOT / "config/frozen_strategy_active_20260711.json"
+        historical, _ = frozen_strategy.load_frozen_strategy(
+            ROOT / "config/frozen_strategy_active_20260711.json",
+            verify_engine=False,
         )
-        self.assertEqual(manifest["freeze_id"], "btc_active_20260711_v1")
+        self.assertEqual(historical["freeze_id"], "btc_active_20260711_v1")
+        manifest, cfg = frozen_strategy.load_frozen_strategy(
+            ROOT / "config/frozen_strategy_active_20260720.json"
+        )
+        self.assertEqual(manifest["freeze_id"], "btc_active_20260720_v2")
         self.assertEqual(cfg.risk_per_trade, 0.0075)
         self.assertEqual(cfg.strategy_modes, ("trend", "range", "timeseries_trend"))
+        self.assertEqual(cfg.timeseries_target_vol, 0.11)
+        self.assertEqual(cfg.timeseries_min_ema_spread_pct, 0.003)
         self.assertEqual(manifest["validation_targets"]["trades_per_year_min"], 45.0)
 
     def test_block_bootstrap_is_deterministic(self) -> None:

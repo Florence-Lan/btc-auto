@@ -147,7 +147,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--manifest",
         type=Path,
-        default=root / "config/frozen_strategy_active_20260711.json",
+        default=root / "config/frozen_strategy_active_20260720.json",
     )
     parser.add_argument(
         "--macro-snapshot",
@@ -160,7 +160,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-json",
         type=Path,
-        default=root / "data/validation/candidate_portfolio_20260711.json",
+        default=root / "data/validation/candidate_portfolio_20260720.json",
     )
     return parser.parse_args()
 
@@ -259,6 +259,8 @@ def main() -> int:
             "strategy_modes": ["trend", "timeseries_trend"],
             "risk_per_trade": cfg.risk_per_trade,
             "portfolio_leverage_cap": cfg.portfolio_leverage_cap,
+            "timeseries_target_vol": cfg.timeseries_target_vol,
+            "timeseries_min_ema_spread_pct": cfg.timeseries_min_ema_spread_pct,
             "macro_factors": list(MACRO_FACTORS),
             "macro_min_multiplier": 0.35,
             "macro_block_score": -0.80,

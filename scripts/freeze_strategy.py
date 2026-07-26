@@ -25,6 +25,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--profile", choices=["risk_controlled", "active"], default="risk_controlled")
     parser.add_argument("--freeze-id")
+    parser.add_argument("--timeseries-target-vol", type=float)
+    parser.add_argument("--timeseries-min-ema-spread-pct", type=float)
     parser.add_argument("--force", action="store_true")
     return parser.parse_args()
 
@@ -64,6 +66,14 @@ def main() -> int:
                 "strategy_modes": ["trend", "range", "timeseries_trend"],
             }
         )
+    if args.timeseries_target_vol is not None:
+        if args.timeseries_target_vol <= 0:
+            raise ValueError("--timeseries-target-vol must be > 0")
+        config["timeseries_target_vol"] = args.timeseries_target_vol
+    if args.timeseries_min_ema_spread_pct is not None:
+        if args.timeseries_min_ema_spread_pct < 0:
+            raise ValueError("--timeseries-min-ema-spread-pct must be >= 0")
+        config["timeseries_min_ema_spread_pct"] = args.timeseries_min_ema_spread_pct
 
     engine_path = root / base["engine_path"]
     snapshot_path = root / base["snapshot_path"]

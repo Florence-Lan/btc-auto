@@ -217,7 +217,16 @@ def combine_sleeves_with_drawdown_policy(
         "sleeves": [result.get("summary", {}) for result in sleeve_results],
     }
     if include_execution_target:
-        point = summary.get("last_equity_point") or {}
+        point = summary.get("last_equity_point") or (
+            {
+                "time_ms": candles[-1].open_time_ms,
+                "equity": float(summary.get("final_equity") or cfg.initial_equity),
+                "price": candles[-1].close,
+                "signed_qty": 0.0,
+            }
+            if candles
+            else {}
+        )
         target_price = float(point.get("price") or 0.0)
         target_equity = float(point.get("equity") or 0.0)
         gross_qty = sum(abs(float(item["signed_qty"])) for item in end_position_targets)

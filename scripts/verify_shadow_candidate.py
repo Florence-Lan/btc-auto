@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--candidate",
         type=Path,
-        default=sim.repo_root() / "config/shadow_candidate_macro_20260711.json",
+        default=sim.repo_root() / "config/shadow_candidate_macro_20260720.json",
     )
     return parser.parse_args()
 

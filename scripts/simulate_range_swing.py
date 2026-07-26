@@ -226,6 +226,7 @@ class StrategyConfig:
     timeseries_timeframe: str = "6h"
     timeseries_fast_ema: int = 24
     timeseries_slow_ema: int = 120
+    timeseries_min_ema_spread_pct: float = 0.0
     timeseries_vol_lookback_bars: int = 120
     timeseries_target_vol: float = 0.12
     timeseries_max_leverage: float = 2.0
@@ -2850,11 +2851,36 @@ def simulate_timeseries_trend(
                 trades.append(trade)
                 position = None
 
-        if fast[index] is not None and slow[index] is not None and fast[index - 1] is not None and slow[index - 1] is not None:
-            current_side = "long" if fast[index] > slow[index] else "short"
-            previous_side = "long" if fast[index - 1] > slow[index - 1] else "short"
-            if current_side != previous_side and (position is None or position.side != current_side):
-                pending_side = current_side
+        previous_candle = candles[index - 1]
+        if (
+            fast[index] is not None
+            and slow[index] is not None
+            and fast[index - 1] is not None
+            and slow[index - 1] is not None
+            and candle.close > 0
+            and previous_candle.close > 0
+        ):
+            spread = (fast[index] - slow[index]) / candle.close
+            previous_spread = (
+                fast[index - 1] - slow[index - 1]
+            ) / previous_candle.close
+            threshold = cfg.timeseries_min_ema_spread_pct
+            confirmed_side = (
+                "long" if spread >= threshold
+                else "short" if spread <= -threshold
+                else None
+            )
+            previous_confirmed_side = (
+                "long" if previous_spread >= threshold
+                else "short" if previous_spread <= -threshold
+                else None
+            )
+            if (
+                confirmed_side is not None
+                and confirmed_side != previous_confirmed_side
+                and (position is None or position.side != confirmed_side)
+            ):
+                pending_side = confirmed_side
 
         marked_equity = equity
         signed_qty = 0.0
@@ -3346,6 +3372,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeseries-timeframe", default="6h")
     parser.add_argument("--timeseries-fast-ema", type=int, default=24)
     parser.add_argument("--timeseries-slow-ema", type=int, default=120)
+    parser.add_argument("--timeseries-min-ema-spread-pct", type=float, default=0.0)
     parser.add_argument("--timeseries-vol-lookback-bars", type=int, default=120)
     parser.add_argument("--timeseries-target-vol", type=float, default=0.12)
     parser.add_argument("--timeseries-max-leverage", type=float, default=2.0)
@@ -3421,6 +3448,8 @@ def config_from_args(args: argparse.Namespace) -> StrategyConfig:
     interval_to_ms(args.timeseries_timeframe)
     if args.timeseries_fast_ema < 1 or args.timeseries_slow_ema <= args.timeseries_fast_ema:
         raise ValueError("--timeseries EMA periods must satisfy 1 <= fast < slow")
+    if args.timeseries_min_ema_spread_pct < 0:
+        raise ValueError("--timeseries-min-ema-spread-pct must be >= 0")
     if args.timeseries_vol_lookback_bars < 2:
         raise ValueError("--timeseries-vol-lookback-bars must be >= 2")
     if args.timeseries_target_vol <= 0 or args.timeseries_max_leverage <= 0:
@@ -3567,6 +3596,7 @@ def config_from_args(args: argparse.Namespace) -> StrategyConfig:
         timeseries_timeframe=args.timeseries_timeframe,
         timeseries_fast_ema=args.timeseries_fast_ema,
         timeseries_slow_ema=args.timeseries_slow_ema,
+        timeseries_min_ema_spread_pct=args.timeseries_min_ema_spread_pct,
         timeseries_vol_lookback_bars=args.timeseries_vol_lookback_bars,
         timeseries_target_vol=args.timeseries_target_vol,
         timeseries_max_leverage=args.timeseries_max_leverage,

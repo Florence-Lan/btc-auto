@@ -74,7 +74,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--manifest",
         type=Path,
-        default=root / "config/frozen_strategy_active_20260711.json",
+        default=root / "config/frozen_strategy_active_20260720.json",
     )
     parser.add_argument("--data-snapshot", type=Path)
     parser.add_argument(

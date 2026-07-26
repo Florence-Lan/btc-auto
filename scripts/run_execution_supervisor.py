@@ -46,17 +46,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--state-path",
         type=Path,
-        default=root / "data/paper_trading/macro_candidate_state.json",
+        default=root / "data/paper_trading/macro_candidate_v2_state.json",
     )
     parser.add_argument(
         "--report-path",
         type=Path,
-        default=root / "data/paper_trading/macro_candidate_report.json",
+        default=root / "data/paper_trading/macro_candidate_v2_report.json",
     )
     parser.add_argument(
         "--trades-path",
         type=Path,
-        default=root / "data/paper_trading/macro_candidate_trades.csv",
+        default=root / "data/paper_trading/macro_candidate_v2_trades.csv",
     )
     return parser.parse_args()
 

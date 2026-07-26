@@ -4,6 +4,10 @@ BTCUSDT futures strategy research and paper-trading tools. The default portfolio
 the tactical `trend` strategy with a six-hour `timeseries_trend` sleeve. Experimental event
 modules are not promoted automatically.
 
+The active v2 shadow profile requires a 0.30% fast/slow EMA spread before the six-hour
+trend sleeve changes direction and targets 11% annualized volatility. This hysteresis reduces
+small crossover reversals and remains shadow-only until prospective promotion gates pass.
+
 ## Reproducible Data
 
 Freeze public Binance futures candles and funding rates:
@@ -94,9 +98,9 @@ Run a continuous, non-resetting ablation against the active frozen portfolio:
 
 ```powershell
 python scripts\validate_macro_overlay.py `
-  --manifest config\frozen_strategy_active_20260711.json `
+  --manifest config\frozen_strategy_active_20260720.json `
   --macro-snapshot data\snapshots\macro_20191001_20260628.json.gz `
-  --output-json data\validation\macro_overlay_20260711.json
+  --output-json data\validation\macro_overlay_20260720.json
 ```
 
 The macro overlay is research-only and never increases the original position size. The snapshot
@@ -108,9 +112,9 @@ and doubled execution costs:
 
 ```powershell
 python scripts\validate_candidate_portfolio.py `
-  --manifest config\frozen_strategy_active_20260711.json `
+  --manifest config\frozen_strategy_active_20260720.json `
   --macro-snapshot data\snapshots\macro_20191001_20260628.json.gz `
-  --output-json data\validation\candidate_portfolio_20260711.json
+  --output-json data\validation\candidate_portfolio_20260720.json
 
 python scripts\verify_shadow_candidate.py
 ```
@@ -147,10 +151,10 @@ python scripts\download_macro_snapshot.py `
   --force
 
 python scripts\paper_trade_frozen_portfolio.py `
-  --manifest config\frozen_strategy_active_20260711.json `
-  --state-path data\paper_trading\macro_candidate_state.json `
-  --report-path data\paper_trading\macro_candidate_report.json `
-  --trades-path data\paper_trading\macro_candidate_trades.csv `
+  --manifest config\frozen_strategy_active_20260720.json `
+  --state-path data\paper_trading\macro_candidate_v2_state.json `
+  --report-path data\paper_trading\macro_candidate_v2_report.json `
+  --trades-path data\paper_trading\macro_candidate_v2_trades.csv `
   --strategy-modes-override trend,timeseries_trend `
   --macro-snapshot data\snapshots\macro_shadow_latest.json.gz `
   --macro-factors vix,dollar,metals,sentiment `
@@ -183,9 +187,9 @@ default risk-controlled profile:
 
 ```powershell
 python scripts\validate_frozen_strategy.py `
-  --manifest config\frozen_strategy_active_20260711.json `
-  --output-json data\validation\frozen_strategy_active_20260711.json `
-  --output-csv data\validation\frozen_strategy_active_20260711_folds.csv
+  --manifest config\frozen_strategy_active_20260720.json `
+  --output-json data\validation\frozen_strategy_active_20260720.json `
+  --output-csv data\validation\frozen_strategy_active_20260720_folds.csv
 ```
 
 ## Tests

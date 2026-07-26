@@ -1,0 +1,71 @@
+{
+  "candidate_id": "btc_macro_shadow_20260720_v2",
+  "created_at_utc": "2026-07-20T16:15:00Z",
+  "status": "shadow_eligible_not_live",
+  "base_freeze_id": "btc_active_20260720_v2",
+  "base_manifest": "config/frozen_strategy_active_20260720.json",
+  "strategy_modes": [
+    "trend",
+    "timeseries_trend"
+  ],
+  "strategy_adjustment": {
+    "timeseries_min_ema_spread_pct": 0.003,
+    "timeseries_target_vol": 0.11,
+    "reason": "Reduce small six-hour EMA crossover reversals while contracting risk"
+  },
+  "excluded_modules": {
+    "range": "Negative continuous expectancy and profit factor below 1.0"
+  },
+  "macro": {
+    "factors": [
+      "vix",
+      "dollar",
+      "metals",
+      "sentiment"
+    ],
+    "collected_but_excluded": {
+      "equities": "Increased drawdown in the fixed historical ablation"
+    },
+    "min_multiplier": 0.35,
+    "block_score": -0.8,
+    "daily_availability_lag_hours": 24,
+    "max_staleness_days": 5,
+    "snapshot_path": "data/snapshots/macro_20191001_20260628.json.gz",
+    "snapshot_sha256": "e7062bdb55b1aa0953a2f0e10982b8e6c37648bbb206fe3f7341e74a16d1b0bf"
+  },
+  "drawdown_policy": {
+    "soft_start_pct": 8.0,
+    "hard_stop_pct": 15.0,
+    "min_multiplier": 0.35,
+    "automatic_resume": false
+  },
+  "validation": {
+    "report_path": "data/validation/candidate_portfolio_20260720.json",
+    "report_sha256": "3a924b685bee9a5aa083d5a8287a06c85bef0c9a67fff7885a5ebb357fcfbc99",
+    "candidate_pass": false,
+    "shadow_eligible": true,
+    "failed_gate": "profitable_quarter_pct_min",
+    "observed_profitable_quarter_pct": 54.54545454545454,
+    "required_profitable_quarter_pct": 60.0
+  },
+  "code_sha256": {
+    "scripts/simulate_range_swing.py": "f113b660a7630f47cb33c2fff47ef835acaee44f062bcdae6551857238dfb8c2",
+    "scripts/macro_regime.py": "12ef2ed5ecf92cd6830c4d78226b91f8d420c93215bba78de94c063ff5d0b145",
+    "scripts/portfolio_risk.py": "bcfc8959d81ab87badf57d55fb14e4c987b7a485055660a292a567f4884b8bad",
+    "scripts/event_risk.py": "270e4e009b53bc7f7b1848c74ce703d202d1bb9db33914a2d81d01b6e595d6bb",
+    "scripts/paper_trade_frozen_portfolio.py": "23622e9386506cbb98bd566f0db1d109420c89c8105f930632dba70858f25b7f",
+    "scripts/trading_execution.py": "ef27baf4a54675798aea9d68ee38a6e87ead7be80cbe575bdf0a630265cdf3fa",
+    "scripts/run_macro_candidate_shadow.py": "29f9afd03a2afaad45735d766b203bb27cad9ad2742c52c7afb8d410e2d1bc13",
+    "scripts/run_execution_supervisor.py": "100b7e6d1866458b74961573d4e6b93a7ccd32333fd517ddbf3919759398f10d",
+    "scripts/run_trading_terminal.py": "36ea39e796e41d8f6336684e7c760a2fa766e3e0c37c0a8e0957148c33541c8d",
+    "scripts/validate_candidate_portfolio.py": "af10690c8d0d518f9974f580bae3286aa4b11df3768c583e808e1547b4d8a3ec"
+  },
+  "live_orders_allowed": false,
+  "promotion_requirements": {
+    "minimum_shadow_days": 30,
+    "minimum_shadow_trades": 20,
+    "maximum_shadow_drawdown_pct": 15.0,
+    "minimum_shadow_profit_factor": 1.3,
+    "manual_approval_required": true
+  }
+}
