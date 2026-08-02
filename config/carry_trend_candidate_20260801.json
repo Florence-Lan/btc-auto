@@ -1,0 +1,85 @@
+{
+  "candidate_id": "btc_carry_trend_20260801_v1",
+  "created_at_utc": "2026-07-31T22:18:45.6744416Z",
+  "status": "research_validated_not_executable",
+  "places_orders": false,
+  "live_orders_allowed": false,
+  "allocation": {
+    "funding_carry_core": 0.85,
+    "frozen_trend_satellite": 0.15,
+    "segregated_subaccounts_required": true
+  },
+  "carry": {
+    "structure": "long BTC spot / short equal-quantity BTCUSDT USD-M perpetual",
+    "notional_fraction_within_carry_subaccount": 0.5,
+    "rebalance_margin_buffer_pct": 40.0,
+    "maintenance_margin_pct": 0.004,
+    "basis_interval": "1h",
+    "basis_stress_bps": 20.0
+  },
+  "trend": {
+    "base_manifest": "config/frozen_strategy_active_20260720.json",
+    "strategy_modes": [
+      "trend",
+      "timeseries_trend"
+    ],
+    "macro_factors": [
+      "vix",
+      "dollar",
+      "metals",
+      "sentiment"
+    ]
+  },
+  "validation_targets": {
+    "double_cost_cagr_pct_min": 5.0,
+    "max_drawdown_pct_max": 10.0,
+    "profitable_year_pct_min": 80.0,
+    "profitable_quarter_pct_min": 60.0,
+    "carry_min_margin_buffer_pct_min": 10.0,
+    "carry_liquidated": false
+  },
+  "validation": {
+    "normal": {
+      "report": "data/validation/carry_trend_portfolio_85_15_20260801.json",
+      "total_return_pct": 34.70,
+      "cagr_pct": 5.57,
+      "max_drawdown_pct": 1.22,
+      "profitable_year_pct": 85.71,
+      "profitable_quarter_pct": 90.91,
+      "candidate_pass": true
+    },
+    "double_cost": {
+      "report": "data/validation/carry_trend_portfolio_85_15_double_cost_20260801.json",
+      "report_sha256": "a307478821a8ee7c2046d9c2a0aa5d83dd8e0391d037e8198d7143b62a9074ba",
+      "total_return_pct": 32.58,
+      "cagr_pct": 5.27,
+      "max_drawdown_pct": 1.19,
+      "profitable_year_pct": 85.71,
+      "profitable_quarter_pct": 90.91,
+      "candidate_pass": true
+    },
+    "recent_carry_only": {
+      "days": 365,
+      "double_cost_cagr_pct": 1.39,
+      "warning": "Recent funding yield is below the long-run average; the carry core alone is not a high-return strategy."
+    }
+  },
+  "data": {
+    "futures_snapshot": "data/snapshots/btcusdt_20200101_20260628.json.gz",
+    "spot_snapshot": "data/snapshots/btcusdt_spot_1h_20200101_20260628.json.gz",
+    "spot_snapshot_sha256": "53047f977a6af57e899b6198af3c477915422b1a90b8d2ba5a97e0b953bef00c",
+    "spot_coverage_pct": 99.9438,
+    "spot_missing_candles": 32
+  },
+  "code_sha256": {
+    "scripts/backtest_funding_carry.py": "b487b9f7a7af3918a181dca66ea55ca9d0110d1ca96dfdc0306ae1dd56ee3375",
+    "scripts/download_spot_snapshot.py": "f8768637d6c4353cebf9f292492d856594dc47f7cd02dd980c48bb8bf0814388",
+    "scripts/validate_carry_trend_portfolio.py": "4cb91165b05e05244aaac0ca958a49c58f0f89b72a4c2fd561a76da230651b0e"
+  },
+  "execution_blockers": [
+    "No paired spot/perpetual paper execution engine exists.",
+    "No atomic unwind or partial-fill recovery exists for the two legs.",
+    "No live isolated-margin buffer monitor triggers the validated rebalance rule.",
+    "Order-book impact and exchange operational failures remain untested."
+  ]
+}

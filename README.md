@@ -50,6 +50,39 @@ python scripts\simulate_range_swing.py --days 365 `
   --max-drawdown-stop-pct 0
 ```
 
+Research-only delta-neutral funding carry with synchronized spot/perpetual basis:
+
+```powershell
+python scripts\download_spot_snapshot.py `
+  --start-utc 2020-01-01T00:00:00Z `
+  --end-utc 2026-06-28T15:00:00Z `
+  --output data\snapshots\btcusdt_spot_1h_20200101_20260628.json.gz
+
+python scripts\backtest_funding_carry.py `
+  --days 2000 `
+  --notional-fraction 0.50 `
+  --rebalance-margin-buffer-pct 40 `
+  --spot-snapshot data\snapshots\btcusdt_spot_1h_20200101_20260628.json.gz `
+  --double-cost `
+  --output-json data\validation\funding_carry_basis_2000d_double_cost.json
+
+python scripts\validate_carry_trend_portfolio.py `
+  --carry-report data\validation\funding_carry_basis_2000d_double_cost.json `
+  --carry-weight 0.85 `
+  --double-cost `
+  --output-json data\validation\carry_trend_portfolio_double_cost.json
+```
+
+The carry screen models equal-quantity long BTC spot and short BTC USD-M perpetual
+positions, following the perpetual-futures arbitrage studied by He, Manela, Ross, and
+von Wachter in *Fundamentals of Perpetual Futures* (SSRN 4301150). It marks the observed
+spot/perpetual basis at every funding event, charges both-leg fees and slippage, applies
+an adverse terminal-basis stress, and reports isolated futures-margin breaches. The
+validated research allocation keeps 85% in a carry subaccount and 15% in the frozen
+trend satellite; those balances must remain segregated for the margin model to hold.
+Custody, transfers, tax, and order-book impact beyond the configured stress remain
+unverified. Neither module is connected to paper or live order execution.
+
 Research runs disable the permanent drawdown halt and evaluate drawdown as an acceptance
 metric. Paper trading keeps the 12% halt and requires `--resume-after-drawdown`.
 

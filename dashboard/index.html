@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="BTC Auto 冻结策略构成与历史验证收益看板" />
-    <title>BTC Auto · 策略透视</title>
+    <meta name="description" content="BTC Auto 资金费核心与趋势卫星组合研究看板" />
+    <title>BTC Auto · Carry Strategy</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -27,29 +27,25 @@
     <main>
       <section class="hero" id="overview">
         <div class="hero-copy">
-          <p class="eyebrow">FROZEN STRATEGY / HISTORICAL EVIDENCE</p>
-          <h1>每一分收益，<br /><span>都能追溯到策略。</span></h1>
-          <p class="hero-description">从市场输入、信号门槛到仓位与退出机制，查看当前冻结策略如何形成，以及它在固定历史样本上的表现。</p>
+          <p class="eyebrow">CARRY CORE / TREND SATELLITE</p>
+          <h1>收益不再只押方向，<br /><span>先把现金流做稳。</span></h1>
+          <p class="hero-description">85% 资金费核心负责稳定现金流，15% 冻结趋势卫星补充收益弹性。现货与永续分账管理，按保证金缓冲触发再平衡。</p>
         </div>
         <div class="profile-picker" role="group" aria-label="策略版本">
-          <button class="profile-option active" data-profile="controlled" type="button">
+          <button class="profile-option active" data-profile="portfolio" type="button">
             <span class="option-check"></span>
-            <span><strong>风控优先</strong><small>趋势 + 6h 时序趋势</small></span>
+            <span><strong>资金费组合</strong><small>85% Carry · 15% Trend</small></span>
           </button>
-          <button class="profile-option" data-profile="active" type="button">
+          <button class="profile-option" data-profile="trend" type="button">
             <span class="option-check"></span>
-            <span><strong>高覆盖</strong><small>加入震荡策略 · 半风险</small></span>
-          </button>
-          <button class="profile-option" data-profile="candidate" type="button">
-            <span class="option-check"></span>
-            <span><strong>宏观影子候选</strong><small>无震荡策略 · 禁止实盘</small></span>
+            <span><strong>趋势卫星明细</strong><small>趋势 + 6h 时序趋势</small></span>
           </button>
         </div>
       </section>
 
       <section class="disclaimer" aria-label="数据口径说明">
         <span class="disclaimer-icon">i</span>
-        <p><strong>这是历史验证，不是收益承诺。</strong> 数据来自固定 BTCUSDT 历史快照并包含手续费、滑点和资金费率；影子盘从 2026-07-11 起单独观察，当前不会下单。</p>
+        <p><strong>研究已通过，执行尚未接通。</strong> 数据包含同步现货/永续基差、双腿手续费、滑点、资金费率与保证金压力；当前候选不会下单，也不能直接切换实盘。</p>
         <span class="evidence-badge" id="evidenceBadge">验证中</span>
       </section>
 
@@ -71,12 +67,12 @@
           <p id="drawdownLimit">风控红线 15%</p>
         </article>
         <article class="kpi-card">
-          <div class="kpi-heading"><span>盈亏比</span><span class="mini-icon">◎</span></div>
+          <div class="kpi-heading"><span id="qualityLabel">保证金缓冲</span><span class="mini-icon">◎</span></div>
           <strong class="kpi-value" id="profitFactor">—</strong>
-          <p id="profitFactorNote">每亏损 1 USDT 的对应盈利</p>
+          <p id="profitFactorNote">永续腿最低安全余量</p>
         </article>
         <article class="kpi-card">
-          <div class="kpi-heading"><span>交易频次</span><span class="mini-icon">≋</span></div>
+          <div class="kpi-heading"><span id="activityLabel">资金费结算</span><span class="mini-icon">≋</span></div>
           <strong class="kpi-value" id="tradeFrequency">—</strong>
           <p id="tradeCount">—</p>
         </article>
@@ -85,17 +81,17 @@
       <section class="dashboard-grid">
         <article class="panel performance-panel">
           <div class="panel-heading">
-            <div><p class="section-kicker">PERFORMANCE</p><h2>复合净值路径</h2></div>
-            <div class="legend"><span><i class="legend-line"></i>季度复合净值</span><span><i class="legend-area"></i>正收益区间</span></div>
+            <div><p class="section-kicker">PERFORMANCE</p><h2 id="performanceTitle">年度复合净值路径</h2></div>
+            <div class="legend"><span><i class="legend-line"></i><span id="chartLegend">年度复合净值</span></span><span><i class="legend-area"></i>正收益区间</span></div>
           </div>
           <div class="chart-wrap">
             <svg id="equityChart" viewBox="0 0 900 330" role="img" aria-label="历史季度复合净值曲线"></svg>
             <div class="chart-tooltip" id="chartTooltip" hidden></div>
           </div>
           <div class="performance-footer">
-            <div><span>盈利季度占比</span><strong id="profitableFolds">—</strong></div>
-            <div><span>Bootstrap 正收益概率</span><strong id="positiveProbability">—</strong></div>
-            <div><span>悲观年化 P05</span><strong id="p05Return">—</strong></div>
+            <div><span id="metricOneLabel">盈利年份占比</span><strong id="profitableFolds">—</strong></div>
+            <div><span id="metricTwoLabel">盈利季度占比</span><strong id="positiveProbability">—</strong></div>
+            <div><span id="metricThreeLabel">最差季度</span><strong id="p05Return">—</strong></div>
           </div>
         </article>
 
@@ -107,42 +103,42 @@
           <div class="strategy-stack" id="strategyStack"></div>
           <div class="risk-box">
             <div class="risk-box-title"><span>组合级保护</span><strong id="portfolioCap">—</strong></div>
-            <div class="risk-row"><span>单笔战术风险</span><strong id="riskPerTrade">—</strong></div>
-            <div class="risk-row"><span>目标波动率</span><strong id="targetVol">—</strong></div>
-            <div class="risk-row"><span>回撤停止线</span><strong id="drawdownStop">—</strong></div>
+            <div class="risk-row"><span id="riskLabel">Carry 内部名义仓位</span><strong id="riskPerTrade">—</strong></div>
+            <div class="risk-row"><span id="volLabel">趋势卫星权重</span><strong id="targetVol">—</strong></div>
+            <div class="risk-row"><span id="stopLabel">保证金再平衡线</span><strong id="drawdownStop">—</strong></div>
           </div>
         </article>
       </section>
 
       <section class="panel pipeline-panel">
         <div class="panel-heading">
-          <div><p class="section-kicker">DECISION PIPELINE</p><h2>一次交易是怎么被构建出来的</h2></div>
-          <p class="panel-note">任何一层不通过，信号都会被拦截</p>
+          <div><p class="section-kicker">DECISION PIPELINE</p><h2>双腿组合如何保持中性</h2></div>
+          <p class="panel-note">收益、基差与单腿保证金分别核算</p>
         </div>
         <div class="pipeline">
           <article class="pipeline-step">
             <span class="step-number">01</span><div class="step-icon">⌁</div>
-            <h3>市场输入</h3><p>价格、成交量、资金费率<br />VIX / 美元 / 金银 / 恐慌指数</p>
+            <h3>同步市场</h3><p>BTC 现货与 USD-M 永续<br />1h 基差 · 8h 资金费</p>
           </article>
           <span class="pipeline-arrow">→</span>
           <article class="pipeline-step">
             <span class="step-number">02</span><div class="step-icon">⌇</div>
-            <h3>状态识别</h3><p>EMA 方向 · ADX 强度<br />波动带宽 · 漂移速度</p>
+            <h3>现金流筛选</h3><p>正资金费由空头收取<br />基差路径单独盯市</p>
           </article>
           <span class="pipeline-arrow">→</span>
           <article class="pipeline-step">
             <span class="step-number">03</span><div class="step-icon">◇</div>
-            <h3>信号确认</h3><p id="signalThresholds">多周期共振<br />趋势分数与回调位置</p>
+            <h3>资金分仓</h3><p id="signalThresholds">85% Carry 核心<br />15% 趋势卫星</p>
           </article>
           <span class="pipeline-arrow">→</span>
           <article class="pipeline-step">
             <span class="step-number">04</span><div class="step-icon">◒</div>
-            <h3>风险定仓</h3><p id="sizingRules">风险预算 × 止损距离<br />总敞口硬上限</p>
+            <h3>双腿配平</h3><p id="sizingRules">等数量多现货 / 空永续<br />分离子账户保证金</p>
           </article>
           <span class="pipeline-arrow">→</span>
           <article class="pipeline-step">
             <span class="step-number">05</span><div class="step-icon">⌁</div>
-            <h3>退出与保护</h3><p id="exitRules">三级止盈 · ATR 跟踪<br />止损 / 强平 / 回撤停机</p>
+            <h3>保证金保护</h3><p id="exitRules">缓冲 ≤ 40% 平双腿<br />重新按净值配平</p>
           </article>
         </div>
       </section>
@@ -150,11 +146,11 @@
       <section class="lower-grid">
         <article class="panel folds-panel">
           <div class="panel-heading">
-            <div><p class="section-kicker">ROBUSTNESS</p><h2>季度收益分布</h2></div>
+            <div><p class="section-kicker">ROBUSTNESS</p><h2 id="distributionTitle">年度收益分布</h2></div>
             <span class="panel-note" id="foldCount">—</span>
           </div>
           <div class="fold-chart" id="foldChart" aria-label="每季度历史收益柱状图"></div>
-          <div class="fold-legend"><span><i class="positive"></i>正收益季度</span><span><i class="negative"></i>负收益季度</span></div>
+          <div class="fold-legend"><span><i class="positive"></i>正收益窗口</span><span><i class="negative"></i>负收益窗口</span></div>
         </article>
 
         <article class="panel status-panel">
@@ -162,11 +158,12 @@
             <div><p class="section-kicker">EVIDENCE STATUS</p><h2>证据与运行状态</h2></div>
           </div>
           <div class="status-list">
-            <div class="status-item"><span class="status-icon pass">✓</span><div><strong>历史验收门槛</strong><p id="gateStatus">收益、回撤、盈亏比、频次均通过</p></div></div>
+            <div class="status-item"><span class="status-icon pass">✓</span><div><strong>历史验收门槛</strong><p id="gateStatus">收益、回撤、盈利年份与季度均通过</p></div></div>
             <div class="status-item"><span class="status-icon pass">✓</span><div><strong>双倍成本压力测试</strong><p id="stressStatus">手续费与滑点翻倍后仍保持正收益</p></div></div>
-            <div class="status-item"><span class="status-icon watch">◷</span><div><strong>前瞻影子盘</strong><p id="paperStatus">观察期刚开始 · 当前 0 笔 · 不下单</p></div></div>
+            <div class="status-item"><span class="status-icon watch">!</span><div><strong>近期收益提醒</strong><p id="recentYieldStatus">近一年 Carry 收益低于长期均值</p></div></div>
+            <div class="status-item"><span class="status-icon watch">◷</span><div><strong>执行就绪度</strong><p id="paperStatus">研究通过 · 双腿执行器尚未实现 · 不下单</p></div></div>
           </div>
-          <div class="data-stamp"><span>冻结版本</span><code id="freezeId">—</code><span>配置指纹</span><code id="configHash">—</code></div>
+          <div class="data-stamp"><span>候选版本</span><code id="freezeId">—</code><span>数据指纹</span><code id="configHash">—</code></div>
         </article>
       </section>
     </main>

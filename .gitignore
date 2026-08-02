@@ -2,3 +2,7 @@
 .venv/
 __pycache__/
 data/*
+!data/validation/
+data/validation/*
+!data/validation/carry_trend_portfolio_85_15_20260801.json
+!data/validation/carry_trend_portfolio_85_15_double_cost_20260801.json

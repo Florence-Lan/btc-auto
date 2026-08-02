@@ -91,6 +91,7 @@ h1 span { color: var(--accent-soft); }
 .disclaimer p { color: #857657; font-size: 11px; line-height: 1.55; margin: 0; flex: 1; }
 .disclaimer strong { color: #66542f; }
 .evidence-badge { color: var(--positive); background: var(--positive-wash); border: 1px solid rgba(21,149,108,.2); padding: 7px 10px; border-radius: 999px; font: 700 9px/1 ui-monospace, Consolas, monospace; letter-spacing: .08em; white-space: nowrap; }
+.evidence-badge.watch { color: var(--amber); background: rgba(214,156,53,.1); border-color: rgba(214,156,53,.28); }
 .profile-tag { color: var(--accent-soft); background: var(--accent-wash); border: 1px solid rgba(32,167,122,.2); padding: 7px 10px; border-radius: 999px; font: 700 9px/1 ui-monospace, Consolas, monospace; letter-spacing: .08em; white-space: nowrap; }
 
 .kpi-grid { display: grid; grid-template-columns: 1.2fr repeat(4, 1fr); gap: 10px; }

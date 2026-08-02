@@ -23,6 +23,7 @@ import portfolio_risk
 import run_trading_terminal as trading_terminal
 import run_execution_supervisor as execution_supervisor
 import trading_execution
+import backtest_funding_carry as funding_carry
 from binance_terminal_client import sign_query
 import validate_frozen_strategy as frozen_validation
 import validate_strategies as strategy_validation
@@ -54,6 +55,33 @@ def config(**changes: object) -> sim.StrategyConfig:
 
 
 class StrategyEngineTests(unittest.TestCase):
+    def test_funding_carry_short_receives_positive_funding(self) -> None:
+        self.assertEqual(funding_carry.funding_credit(50.0, 0.0001), 0.005)
+        self.assertEqual(funding_carry.funding_credit(50.0, -0.0001), -0.005)
+
+    def test_funding_carry_cost_includes_both_legs_and_basis_stress(self) -> None:
+        cost = funding_carry.round_trip_cost(
+            50.0,
+            spot_fee=0.001,
+            futures_fee=0.0005,
+            slippage_bps_per_leg=1.0,
+            basis_stress_bps=20.0,
+        )
+        self.assertAlmostEqual(cost, 0.27)
+
+    def test_funding_carry_negative_event_creates_drawdown(self) -> None:
+        result = funding_carry.backtest(
+            [0, 28_800_000],
+            [0.0001, -0.001],
+            evaluation_start_ms=0,
+            spot_fee=0.0,
+            futures_fee=0.0,
+            slippage_bps_per_leg=0.0,
+            basis_stress_bps=0.0,
+        )
+        self.assertGreater(result["summary"]["max_drawdown_pct"], 0.0)
+        self.assertIn("Basis path", " ".join(result["limitations"]))
+
     def test_binance_signature_is_deterministic(self) -> None:
         self.assertEqual(
             sign_query("secret", "symbol=BTCUSDT&timestamp=1"),

@@ -1,0 +1,183 @@
+{
+  "generated_at_utc": "2026-07-31T22:15:05.082200+00:00",
+  "status": "research_only",
+  "places_orders": false,
+  "cost_scenario": "double",
+  "allocation": {
+    "funding_carry_core": 0.85,
+    "frozen_trend_satellite": 0.15000000000000002,
+    "segregated_subaccounts_required": true
+  },
+  "summary": {
+    "start_utc": "2020-12-31T00:00:00+00:00",
+    "end_utc": "2026-06-28T14:55:00+00:00",
+    "initial_equity": 100.0,
+    "final_equity": 132.58490060759254,
+    "total_return_pct": 32.58490060759254,
+    "cagr_pct": 5.270764565674924,
+    "max_drawdown_pct": 1.1886350010429096,
+    "annual_returns_pct": {
+      "2020": 0.0,
+      "2021": 14.582771398878647,
+      "2022": 0.24907065929034022,
+      "2023": 3.950198493001267,
+      "2024": 7.256348092925635,
+      "2025": 2.188152253308129,
+      "2026": 1.308413581751977
+    },
+    "profitable_year_pct": 85.71428571428571,
+    "quarter_count": 22,
+    "profitable_quarter_pct": 90.9090909090909,
+    "worst_quarter_pct": -0.7623193620842295
+  },
+  "carry_summary": {
+    "initial_equity": 100.0,
+    "final_equity": 131.48049614452464,
+    "total_return_pct": 31.48049614452464,
+    "cagr_pct": 5.126128196303137,
+    "max_drawdown_pct": 0.44393224467151543,
+    "sharpe_funding_events": 15.935698001618324,
+    "funding_events": 5998,
+    "positive_funding_pct": 85.44514838279427,
+    "gross_funding_pnl": 33.373687138080626,
+    "observed_basis_pnl": -0.006746138232899858,
+    "total_costs": 1.8864448553230435,
+    "entry_basis_bps": 9.370725268589286,
+    "exit_basis_bps": -4.583194951842673,
+    "average_entry_basis_bps": 9.612852809288974,
+    "min_basis_bps": -22.66021100330695,
+    "max_basis_bps": 28.711634569364985,
+    "min_futures_margin_buffer_pct": 38.95043692355132,
+    "liquidated": false,
+    "liquidation_time_utc": null,
+    "annual_funding_pnl": {
+      "2021": 17.454742300942783,
+      "2022": 1.398329400190293,
+      "2023": 2.6856551589334163,
+      "2024": 8.219992476690813,
+      "2025": 3.376406665930188,
+      "2026": 0.23856113539304188
+    },
+    "annual_returns_pct": {
+      "2021": 16.835628947188887,
+      "2022": 1.199993068555183,
+      "2023": 2.2378665144543675,
+      "2024": 6.379171861414212,
+      "2025": 2.201930527901186,
+      "2026": 0.04101009044401582
+    },
+    "profitable_year_pct": 100.0,
+    "rebalances": 3
+  },
+  "trend_summary": {
+    "symbol_window": {
+      "start_utc": "2020-12-31T00:00:00+00:00",
+      "end_utc": "2026-06-28T14:55:00+00:00",
+      "candles": 577620
+    },
+    "initial_equity": 100.0,
+    "final_equity": 138.8431925649774,
+    "equity_multiple": 1.388431925649774,
+    "total_return_pct": 38.84319256497739,
+    "cagr_pct": 6.154348159071765,
+    "max_drawdown_pct": 10.823780980786148,
+    "sharpe": 0.7365315185857785,
+    "sortino": 1.1155725045702776,
+    "calmar": 0.5685950380922032,
+    "trades": 142,
+    "win_rate_pct": 48.59154929577465,
+    "profit_factor": 1.669183583118482,
+    "gross_profit": 96.88883735495152,
+    "gross_loss": 58.04564478997404,
+    "average_win": 1.4041860486224857,
+    "average_loss": -0.7951458190407403,
+    "best_trade": 12.146007994028395,
+    "worst_trade": -2.7736933069620187,
+    "max_consecutive_losses": 6,
+    "liquidations": 0,
+    "average_bars_held": 60.640845070422536,
+    "total_fees": 9.213529757245349,
+    "total_slippage": 2.6843235935569005,
+    "total_funding_pnl": -5.457951611229335,
+    "total_costs": 11.897853350802249,
+    "cost_to_gross_profit_pct": 12.279901044962026,
+    "turnover_notional": 13314.532156743213,
+    "exposure_pct": 98.57276410096604,
+    "trades_per_year": 25.842318479426165,
+    "largest_profit_share_pct": 12.536024092777156,
+    "annual_returns_pct": {
+      "2020": 0.0,
+      "2021": 1.816578625120746,
+      "2022": -5.9343607868578285,
+      "2023": 15.929235520818397,
+      "2024": 12.668121463948644,
+      "2025": 2.107891518106464,
+      "2026": 8.69804859100578
+    },
+    "by_side": {
+      "short": {
+        "trades": 91,
+        "net_pnl": 14.394636278450575,
+        "win_rate_pct": 49.45054945054945,
+        "profit_factor": 1.4632299109706084
+      },
+      "long": {
+        "trades": 51,
+        "net_pnl": 24.448556286526905,
+        "win_rate_pct": 47.05882352941176,
+        "profit_factor": 1.9064707251215818
+      }
+    },
+    "by_strategy": {
+      "timeseries_trend_6h": {
+        "trades": 65,
+        "net_pnl": 31.797657212983744,
+        "win_rate_pct": 30.76923076923077,
+        "profit_factor": 1.7317995046356802
+      },
+      "trend_pullback_5m": {
+        "trades": 77,
+        "net_pnl": 7.045535351993736,
+        "win_rate_pct": 63.63636363636363,
+        "profit_factor": 1.482758693870737
+      }
+    },
+    "target_10x_gap_multiple": 7.2023696770874,
+    "last_equity_point": {
+      "time_ms": 1782658500000,
+      "equity": 138.8431925649774,
+      "drawdown_pct": 0.5008805394115937,
+      "exposure": 0.0,
+      "signed_qty": 0,
+      "price": 60021.1,
+      "drawdown_risk_multiplier": 1.0
+    }
+  },
+  "macro_diagnostics": {
+    "decisions": 142,
+    "blocked": 0,
+    "average_risk_multiplier": 0.5769978721120383,
+    "min_risk_multiplier": 0.4157567688501388,
+    "max_risk_multiplier": 0.7785583649831186,
+    "factor_coverage_pct": {
+      "vix": 100.0,
+      "dollar": 100.0,
+      "metals": 100.0,
+      "sentiment": 100.0
+    }
+  },
+  "gates": {
+    "cagr_pct_min": 5.0,
+    "max_drawdown_pct_max": 10.0,
+    "profitable_year_pct_min": 80.0,
+    "profitable_quarter_pct_min": 60.0,
+    "carry_min_margin_buffer_pct_min": 10.0,
+    "carry_liquidated": false
+  },
+  "candidate_pass": true,
+  "inputs": {
+    "manifest": "D:\\VScodeProjects\\btc-auto\\config\\frozen_strategy_active_20260720.json",
+    "carry_report": "data\\validation\\funding_carry_basis_2000d_f50_m40_double_cost_20260801.json",
+    "macro_snapshot": "D:\\VScodeProjects\\btc-auto\\data\\snapshots\\macro_20191001_20260628.json.gz"
+  }
+}
