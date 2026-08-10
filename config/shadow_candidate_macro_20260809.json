@@ -1,0 +1,93 @@
+{
+  "candidate_id": "btc_macro_shadow_20260809_v3",
+  "created_at_utc": "2026-08-09T14:40:00Z",
+  "status": "shadow_eligible_not_live",
+  "base_freeze_id": "btc_active_20260809_v3",
+  "base_manifest": "config/frozen_strategy_active_20260809.json",
+  "strategy_modes": [
+    "trend",
+    "timeseries_trend"
+  ],
+  "strategy_adjustment": {
+    "parameter_group": "market_adaptation",
+    "timeseries_timeframe": "1h",
+    "timeseries_fast_ema": 48,
+    "timeseries_slow_ema": 240,
+    "timeseries_vol_lookback_bars": 240,
+    "timeseries_min_ema_spread_pct": 0.003,
+    "timeseries_target_vol": 0.11,
+    "reason": "Increase signal coverage while reducing six-hour reversal lag without changing the leverage or risk budget"
+  },
+  "excluded_modules": {
+    "range": "Negative continuous expectancy and profit factor below 1.0"
+  },
+  "risk_limits": {
+    "starting_equity_usdt": 1000.0,
+    "soft_drawdown_start_pct": 8.0,
+    "hard_drawdown_stop_pct": 15.0,
+    "maximum_loss_budget_usdt": 150.0,
+    "portfolio_leverage_cap": 2.0
+  },
+  "validation": {
+    "frozen_report": {
+      "path": "data/validation/frozen_strategy_active_20260809.json",
+      "sha256": "390c351f8e74f6a558e66266508177b2f6d9d7c9e9c8590d67c286a032cf8cd6",
+      "evidence_pass": true,
+      "cagr_pct": 12.746,
+      "max_drawdown_pct": 8.653,
+      "profit_factor": 1.537,
+      "trades_per_year": 49.773,
+      "profitable_fold_pct": 63.636,
+      "double_cost_cagr_pct": 10.615,
+      "double_cost_max_drawdown_pct": 9.114,
+      "double_cost_profit_factor": 1.442
+    },
+    "recent_20d": {
+      "total_return_pct": -0.115,
+      "max_drawdown_pct": 1.140,
+      "trades": 2
+    },
+    "recent_90d": {
+      "total_return_pct": 5.026,
+      "max_drawdown_pct": 2.823,
+      "trades": 14,
+      "profit_factor": 3.365
+    },
+    "historical_365d": {
+      "total_return_pct": 12.736,
+      "max_drawdown_pct": 5.842,
+      "trades": 50,
+      "profit_factor": 2.066,
+      "double_cost_total_return_pct": 10.699,
+      "double_cost_max_drawdown_pct": 6.111,
+      "double_cost_profit_factor": 1.857
+    },
+    "historical_2000d": {
+      "total_return_pct": 43.311,
+      "cagr_pct": 6.788,
+      "max_drawdown_pct": 10.365,
+      "trades": 268,
+      "profit_factor": 1.448,
+      "double_cost_total_return_pct": 33.365,
+      "double_cost_cagr_pct": 5.395,
+      "double_cost_max_drawdown_pct": 11.166,
+      "double_cost_profit_factor": 1.345
+    },
+    "acceptance": {
+      "max_drawdown_pct_max": 15.0,
+      "profit_factor_min": 1.3,
+      "double_cost_positive": true,
+      "historical_pass": true,
+      "ten_day_profit_target_usdt": 3000.0,
+      "ten_day_profit_target_pass": false
+    }
+  },
+  "live_orders_allowed": false,
+  "promotion_requirements": {
+    "minimum_shadow_days": 10,
+    "minimum_shadow_trades": 5,
+    "maximum_shadow_drawdown_pct": 15.0,
+    "minimum_shadow_profit_factor": 1.3,
+    "manual_approval_required": true
+  }
+}

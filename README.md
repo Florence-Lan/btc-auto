@@ -4,9 +4,9 @@ BTCUSDT futures strategy research and paper-trading tools. The default portfolio
 the tactical `trend` strategy with a six-hour `timeseries_trend` sleeve. Experimental event
 modules are not promoted automatically.
 
-The active v2 shadow profile requires a 0.30% fast/slow EMA spread before the six-hour
-trend sleeve changes direction and targets 11% annualized volatility. This hysteresis reduces
-small crossover reversals and remains shadow-only until prospective promotion gates pass.
+The active v3 shadow profile uses `48/240` EMAs on one-hour candles, requires a 0.30%
+fast/slow EMA spread before changing direction, and targets 11% annualized volatility.
+It remains shadow-only until prospective promotion gates pass.
 
 ## Reproducible Data
 
@@ -184,10 +184,10 @@ python scripts\download_macro_snapshot.py `
   --force
 
 python scripts\paper_trade_frozen_portfolio.py `
-  --manifest config\frozen_strategy_active_20260720.json `
-  --state-path data\paper_trading\macro_candidate_v2_state.json `
-  --report-path data\paper_trading\macro_candidate_v2_report.json `
-  --trades-path data\paper_trading\macro_candidate_v2_trades.csv `
+  --manifest config\frozen_strategy_active_20260809.json `
+  --state-path data\paper_trading\macro_candidate_v3_state.json `
+  --report-path data\paper_trading\macro_candidate_v3_report.json `
+  --trades-path data\paper_trading\macro_candidate_v3_trades.csv `
   --strategy-modes-override trend,timeseries_trend `
   --macro-snapshot data\snapshots\macro_shadow_latest.json.gz `
   --macro-factors vix,dollar,metals,sentiment `

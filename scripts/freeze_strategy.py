@@ -27,6 +27,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--freeze-id")
     parser.add_argument("--timeseries-target-vol", type=float)
     parser.add_argument("--timeseries-min-ema-spread-pct", type=float)
+    parser.add_argument("--timeseries-timeframe")
+    parser.add_argument("--timeseries-fast-ema", type=int)
+    parser.add_argument("--timeseries-slow-ema", type=int)
+    parser.add_argument("--timeseries-vol-lookback-bars", type=int)
+    parser.add_argument("--strategy-modes")
     parser.add_argument("--force", action="store_true")
     return parser.parse_args()
 
@@ -74,6 +79,25 @@ def main() -> int:
         if args.timeseries_min_ema_spread_pct < 0:
             raise ValueError("--timeseries-min-ema-spread-pct must be >= 0")
         config["timeseries_min_ema_spread_pct"] = args.timeseries_min_ema_spread_pct
+    if args.timeseries_timeframe is not None:
+        sim.interval_to_ms(args.timeseries_timeframe)
+        config["timeseries_timeframe"] = args.timeseries_timeframe
+    if args.timeseries_fast_ema is not None:
+        config["timeseries_fast_ema"] = args.timeseries_fast_ema
+    if args.timeseries_slow_ema is not None:
+        config["timeseries_slow_ema"] = args.timeseries_slow_ema
+    if args.timeseries_vol_lookback_bars is not None:
+        config["timeseries_vol_lookback_bars"] = args.timeseries_vol_lookback_bars
+    if args.strategy_modes is not None:
+        strategy_modes = [item.strip() for item in args.strategy_modes.split(",") if item.strip()]
+        allowed_modes = {"trend", "range", "timeseries_trend"}
+        if not strategy_modes or any(item not in allowed_modes for item in strategy_modes):
+            raise ValueError("--strategy-modes contains an unsupported strategy module")
+        config["strategy_modes"] = strategy_modes
+    if config["timeseries_fast_ema"] < 1 or config["timeseries_slow_ema"] <= config["timeseries_fast_ema"]:
+        raise ValueError("timeseries EMA periods must satisfy 1 <= fast < slow")
+    if config["timeseries_vol_lookback_bars"] < 2:
+        raise ValueError("timeseries volatility lookback must be >= 2")
 
     engine_path = root / base["engine_path"]
     snapshot_path = root / base["snapshot_path"]
