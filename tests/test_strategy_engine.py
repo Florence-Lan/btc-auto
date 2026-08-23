@@ -99,6 +99,7 @@ class StrategyEngineTests(unittest.TestCase):
         self.assertEqual(status["market"]["source"], "Binance mainnet realtime")
         self.assertIn("target_leverage", status["strategy"])
         self.assertIn("target_notional", status["strategy"])
+        self.assertEqual(status["execution"]["llm_trade_gate"]["status"], "disabled")
         self.assertIn("initial_balance", status["account_details"])
         self.assertEqual(status["execution"]["check_interval_seconds"], 30)
         self.assertEqual(status["execution"]["strategy_bar_seconds"], 300)

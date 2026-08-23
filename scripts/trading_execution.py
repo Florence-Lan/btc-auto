@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from binance_terminal_client import BinanceTerminalClient
+from llm_trade_gate import apply_llm_trade_gate
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -245,6 +246,7 @@ class SimulationAccount:
         target: dict[str, Any],
         mark_price: float,
         rules: Mapping[str, Decimal] | None = None,
+        report: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         state = self.load()
         marked = self._mark(state, mark_price)
@@ -260,6 +262,16 @@ class SimulationAccount:
             current_qty,
         )
         state["entry_guard"] = entry_guard
+        effective_target, llm_trade_gate = apply_llm_trade_gate(
+            report or {},
+            effective_target,
+            current_qty=current_qty,
+            equity=equity,
+            mark_price=mark_price,
+            mode="simulation",
+            previous_decision=state.get("llm_trade_gate"),
+        )
+        state["llm_trade_gate"] = llm_trade_gate
         target_notional = float(effective_target["target_leverage"]) * equity
         target_notional = max(-max_notional, min(max_notional, target_notional))
         target_qty = target_notional / mark_price if mark_price > 0 else 0.0
@@ -344,6 +356,7 @@ class SimulationAccount:
             "target_qty": target_qty,
             "fill": fill,
             "entry_guard": entry_guard,
+            "llm_trade_gate": llm_trade_gate,
             "account": self.snapshot(mark_price)["account"],
         }
 
@@ -362,7 +375,12 @@ class LiveExecutor:
     def snapshot(self) -> dict[str, Any]:
         return self.client.account_snapshot(SYMBOL)
 
-    def reconcile(self, target: dict[str, Any], mark_price: float) -> dict[str, Any]:
+    def reconcile(
+        self,
+        target: dict[str, Any],
+        mark_price: float,
+        report: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
         ready = self.client.validate_live_ready(SYMBOL)
         leverage = int(ready["leverage"])
         self.client.set_leverage(leverage, SYMBOL)
@@ -376,6 +394,15 @@ class LiveExecutor:
             history,
             target,
             current_qty,
+        )
+        effective_target, llm_trade_gate = apply_llm_trade_gate(
+            report or {},
+            effective_target,
+            current_qty=current_qty,
+            equity=wallet,
+            mark_price=mark_price,
+            mode="live",
+            previous_decision=history.get("llm_trade_gate"),
         )
         desired_notional = float(effective_target["target_leverage"]) * wallet
         desired_notional = max(-max_notional, min(max_notional, desired_notional))
@@ -448,6 +475,7 @@ class LiveExecutor:
             "observed_flat_target": history.get("observed_flat_target", False),
             "blocked_target_id": history.get("blocked_target_id"),
             "entry_guard": entry_guard,
+            "llm_trade_gate": llm_trade_gate,
         }
         write_json(self.path, result)
         return result
@@ -468,5 +496,6 @@ def execute_report(
             target,
             mark_price,
             client.symbol_rules(SYMBOL),
+            report,
         )
-    return LiveExecutor(client).reconcile(target, mark_price)
+    return LiveExecutor(client).reconcile(target, mark_price, report)

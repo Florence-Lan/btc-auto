@@ -133,6 +133,20 @@ function render(data) {
   $("#targetPosition").className = targetQty > 0 ? "positive" : targetQty < 0 ? "negative" : "";
   $("#executionPermission").textContent = live ? "BINANCE 实盘下单" : "仅本地模拟";
   $("#executionPermission").className = live ? "negative" : "positive";
+  const llmGate = data.execution.llm_trade_gate || { status: "disabled" };
+  const llmLabels = {
+    disabled: "未启用",
+    approved: "已批准",
+    cached_approved: "已批准（缓存）",
+    rejected: "已拒绝",
+    cached_rejected: "已拒绝（缓存）",
+    error_blocked: "异常阻止开仓",
+    bypassed_non_increasing: "减仓/平仓放行",
+  };
+  $("#llmGateStatus").textContent = llmLabels[llmGate.status] || llmGate.status || "等待决策";
+  $("#llmGateStatus").className = ["approved", "cached_approved", "bypassed_non_increasing"].includes(llmGate.status) ? "positive" :
+    ["rejected", "cached_rejected", "error_blocked"].includes(llmGate.status) ? "negative" : "";
+  $("#llmGateStatus").title = llmGate.reason || "";
   $("#riskMultiplier").textContent = `${fmt(data.risk.drawdown_multiplier, 2)}×`;
   $("#emergencyState").textContent = emergency ? "已锁定" : "未触发";
   $("#emergencyState").className = emergency ? "negative" : "positive";

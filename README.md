@@ -271,5 +271,23 @@ the candle boundary for settlement and stores the last processed signal time to 
 execution after restarts. A newly initialized execution account does not enter a position whose
 originating strategy signal predates that account; it waits for the next distinct position signal.
 
+### Optional LLM entry gate
+
+Copy the `LLM_*` settings from `.env.example` to `.env` to let an LLM review each distinct strategy
+entry in real time. The default `LLM_PROVIDER=codex` runs the local Codex CLI in a temporary,
+read-only working directory and reuses the existing `codex login` ChatGPT membership session; it
+does not require an API key, expose the cached login to the bot, or persist the decision thread in
+Codex history. `LLM_PROVIDER=openai` remains
+available for API accounts. Keep `LLM_TRADE_GATE_ENABLED=false` until it has been exercised in
+`SIMULATION` mode. The gate receives only point-in-time strategy, recent-price, drawdown, macro, and
+event-risk features. Structured JSON output is required and the decision is cached by strategy
+position ID.
+
+The LLM is deliberately subordinate to deterministic execution controls: it cannot select a side,
+increase the strategy's requested leverage, override notional caps, or block reductions and exits.
+A rejection, timeout, invalid response, or API error blocks only the new/increased exposure. A
+rejected reversal may still flatten the existing position. This makes the feature fail closed
+without turning an unavailable model into an exit blocker.
+
 Use a Binance API key with Futures permission only, withdrawals disabled, and an IP restriction.
 Never commit `.env` or expose the API secret in logs.

@@ -508,6 +508,10 @@ class TerminalController:
                 "last_cycle_at_utc": execution_state.get("updated_at_utc"),
                 "last_fill": execution_fills[-1] if execution_fills else None,
                 "entry_guard": execution_state.get("entry_guard"),
+                "llm_trade_gate": execution_state.get("llm_trade_gate") or {
+                    "enabled": False,
+                    "status": "disabled",
+                },
                 "check_interval_seconds": EXECUTION_CHECK_SECONDS,
                 "strategy_bar_seconds": STRATEGY_BAR_SECONDS,
             },

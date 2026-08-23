@@ -83,7 +83,8 @@ def run_cycle(args: argparse.Namespace, client: BinanceTerminalClient) -> dict[s
     result["signal_time_ms"] = int(point.get("time_ms") or 0)
     print(
         f"execution_cycle_complete={datetime.now(timezone.utc).isoformat()} "
-        f"mode={args.mode} target_leverage={float(result['target_leverage']):.6f}",
+        f"mode={args.mode} target_leverage={float(result['target_leverage']):.6f} "
+        f"llm_gate={(result.get('llm_trade_gate') or {}).get('status', 'unknown')}",
         flush=True,
     )
     return result
