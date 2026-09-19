@@ -46,17 +46,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--state-path",
         type=Path,
-        default=root / "data/paper_trading/macro_candidate_v3_state.json",
+        default=root / "data/paper_trading/macro_candidate_20260917_state.json",
     )
     parser.add_argument(
         "--report-path",
         type=Path,
-        default=root / "data/paper_trading/macro_candidate_v3_report.json",
+        default=root / "data/paper_trading/macro_candidate_20260917_report.json",
     )
     parser.add_argument(
         "--trades-path",
         type=Path,
-        default=root / "data/paper_trading/macro_candidate_v3_trades.csv",
+        default=root / "data/paper_trading/macro_candidate_20260917_trades.csv",
     )
     return parser.parse_args()
 
@@ -74,12 +74,14 @@ def strategy_args(args: argparse.Namespace) -> argparse.Namespace:
 
 
 def run_cycle(args: argparse.Namespace, client: BinanceTerminalClient) -> dict[str, object]:
+    if args.mode != "simulation":
+        raise ValueError("The September 17 research candidate is simulation-only")
     shadow_args = strategy_args(args)
     strategy_supervisor.refresh_macro_if_needed(shadow_args)
     strategy_supervisor.run_shadow_once(shadow_args)
     report = json.loads(args.report_path.read_text(encoding="utf-8"))
     result = execute_report(args.mode, report, client)
-    point = (report.get("summary") or {}).get("last_equity_point") or {}
+    point = report.get("execution_target") or (report.get("summary") or {}).get("last_equity_point") or {}
     result["signal_time_ms"] = int(point.get("time_ms") or 0)
     print(
         f"execution_cycle_complete={datetime.now(timezone.utc).isoformat()} "

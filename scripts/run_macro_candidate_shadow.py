@@ -26,17 +26,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--state-path",
         type=Path,
-        default=root / "data/paper_trading/macro_candidate_v3_state.json",
+        default=root / "data/paper_trading/macro_candidate_20260917_state.json",
     )
     parser.add_argument(
         "--report-path",
         type=Path,
-        default=root / "data/paper_trading/macro_candidate_v3_report.json",
+        default=root / "data/paper_trading/macro_candidate_20260917_report.json",
     )
     parser.add_argument(
         "--trades-path",
         type=Path,
-        default=root / "data/paper_trading/macro_candidate_v3_trades.csv",
+        default=root / "data/paper_trading/macro_candidate_20260917_trades.csv",
     )
     return parser.parse_args()
 
@@ -67,7 +67,7 @@ def run_shadow_once(args: argparse.Namespace) -> None:
         sys.executable,
         str(sim.repo_root() / "scripts/paper_trade_frozen_portfolio.py"),
         "--manifest",
-        str(sim.repo_root() / "config/frozen_strategy_active_20260809.json"),
+        str(sim.repo_root() / "config/frozen_strategy_candidate_20260917.json"),
         "--state-path",
         str(args.state_path),
         "--report-path",

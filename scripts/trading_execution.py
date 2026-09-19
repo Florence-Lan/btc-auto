@@ -14,7 +14,7 @@ from llm_trade_gate import apply_llm_trade_gate
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SIMULATION_STATE_PATH = ROOT / "data/runtime/simulation_account.json"
+SIMULATION_STATE_PATH = ROOT / "data/runtime/simulation_account_20260917.json"
 LIVE_STATE_PATH = ROOT / "data/runtime/live_execution.json"
 SYMBOL = "BTCUSDT"
 DEFAULT_SIMULATION_RULES = {
@@ -488,6 +488,8 @@ def execute_report(
 ) -> dict[str, Any]:
     if mode not in {"simulation", "live"}:
         raise ValueError("Execution mode must be simulation or live")
+    if mode == "live" and report.get("freeze_id") == "btc_trend_filter_research_20260917":
+        raise ValueError("The September 17 research candidate is simulation-only")
     max_age = float(os.getenv("MAX_SIGNAL_AGE_SECONDS", "900") or 900)
     target = target_from_report(report, max_age_seconds=max_age)
     mark_price = client.mark_price(SYMBOL)

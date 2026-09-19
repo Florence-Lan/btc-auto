@@ -247,6 +247,23 @@ $("#emergencyButton").addEventListener("click", async () => {
 });
 $("#cancelEmergency").addEventListener("click", () => $("#emergencyModal").classList.add("hidden"));
 $("#confirmEmergency").addEventListener("click", async () => { try { await control("emergency_stop", { confirm: $("#emergencyConfirm").value, reason: "manual terminal emergency stop" }); $("#emergencyModal").classList.add("hidden"); $("#emergencyConfirm").value = ""; showToast("急停已生效", true); } catch (e) { showToast(e.message, true); await refresh(); } });
+$("#copyLogsButton").addEventListener("click", async () => {
+  const text = $("#logStream").textContent;
+  if (logViewCleared || !text.trim() || ["等待日志...", "暂无运行日志"].includes(text)) {
+    showToast("暂无可复制的日志");
+    return;
+  }
+  const button = $("#copyLogsButton");
+  button.disabled = true;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("日志已复制到剪贴板");
+  } catch {
+    showToast("复制失败，请允许剪贴板权限或手动选择日志复制", true);
+  } finally {
+    button.disabled = false;
+  }
+});
 $("#clearViewButton").addEventListener("click", () => { logViewCleared = true; $("#logStream").textContent = "视图已清空；刷新页面恢复日志。"; });
 $$('.tab').forEach(tab => tab.addEventListener("click", () => { $$('.tab').forEach(item => item.classList.toggle("active", item === tab)); ["positions","orders","trades"].forEach(name => $(`#${name}Pane`).classList.toggle("hidden", name !== tab.dataset.tab)); }));
 setInterval(() => $("#clock").textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false }), 1000);

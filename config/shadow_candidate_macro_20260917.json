@@ -1,0 +1,51 @@
+{
+  "candidate_id": "btc_macro_shadow_20260917",
+  "created_at_utc": "2026-09-18T14:13:00Z",
+  "status": "user_selected_simulation_candidate",
+  "base_freeze_id": "btc_trend_filter_research_20260917",
+  "base_manifest": "config/frozen_strategy_candidate_20260917.json",
+  "strategy_modes": [
+    "trend",
+    "timeseries_trend"
+  ],
+  "strategy_adjustment": {
+    "parameter_group": "market_adaptation",
+    "timeseries_timeframe": "1h",
+    "timeseries_fast_ema": 48,
+    "timeseries_slow_ema": 240,
+    "timeseries_vol_lookback_bars": 240,
+    "timeseries_min_ema_spread_pct": 0.004,
+    "timeseries_target_vol": 0.11,
+    "reason": "Use the September 17 frozen candidate for a fresh prospective simulation."
+  },
+  "excluded_modules": {
+    "range": "Negative continuous expectancy and profit factor below 1.0"
+  },
+  "risk_limits": {
+    "starting_equity_usdt": 1000.0,
+    "soft_drawdown_start_pct": 8.0,
+    "hard_drawdown_stop_pct": 15.0,
+    "maximum_loss_budget_usdt": 150.0,
+    "portfolio_leverage_cap": 2.0
+  },
+  "validation": {
+    "manifest_acceptance_pass": true,
+    "source": "config/frozen_strategy_candidate_20260917.json"
+  },
+  "live_orders_allowed": false,
+  "promotion_requirements": {
+    "minimum_shadow_days": 10,
+    "minimum_shadow_trades": 5,
+    "maximum_shadow_drawdown_pct": 15.0,
+    "minimum_shadow_profit_factor": 1.3,
+    "manual_approval_required": true
+  },
+  "macro": {
+    "factors": [
+      "vix",
+      "dollar",
+      "metals",
+      "sentiment"
+    ]
+  }
+}
