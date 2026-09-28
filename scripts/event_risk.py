@@ -17,6 +17,8 @@ class RiskEvent:
     block_entries: bool
     category: str
     headline: str
+    available_at_ms: int = 0
+    superseded_at_ms: int | None = None
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,8 @@ def load_event_snapshot(path: Path) -> tuple[RiskEvent, ...]:
                 block_entries=bool(raw.get("block_entries", False)),
                 category=str(raw.get("category", "unknown")),
                 headline=str(raw.get("headline", "")),
+                available_at_ms=max(published, _utc_ms(str(raw.get("available_at_utc", raw["published_at_utc"])))),
+                superseded_at_ms=_utc_ms(raw["superseded_at_utc"]) if raw.get("superseded_at_utc") else None,
             )
         )
     return tuple(sorted(events, key=lambda event: event.starts_at_ms))
@@ -73,6 +77,8 @@ def event_decision_at(events: Sequence[RiskEvent], timestamp_ms: int) -> EventDe
         for event in events
         if event.published_at_ms <= timestamp_ms <= event.ends_at_ms
         and event.starts_at_ms <= timestamp_ms
+        and event.available_at_ms <= timestamp_ms
+        and (event.superseded_at_ms is None or timestamp_ms < event.superseded_at_ms)
     )
     if not active:
         return EventDecision(1.0, True, ())
@@ -95,6 +101,8 @@ def apply_event_overlay(
     blocked = 0
     throttled = 0
     for sleeve in sleeve_results:
+        from execution_ledger import attach_ledger
+        sleeve = attach_ledger(sleeve)
         trades: list[dict[str, Any]] = []
         for raw in sleeve.get("trades", []):
             timestamp_ms = _utc_ms(str(raw["entry_time_utc"]))

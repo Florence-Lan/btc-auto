@@ -13,7 +13,9 @@ from typing import Any
 import frozen_strategy
 import event_risk
 import macro_regime
+import multifactor
 import portfolio_risk
+import public_context
 import simulate_range_swing as sim
 
 
@@ -65,6 +67,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hard-drawdown-stop-pct", type=float, default=15.0)
     parser.add_argument("--drawdown-min-multiplier", type=float, default=0.35)
     parser.add_argument("--event-snapshot", type=Path)
+    parser.add_argument("--factor-profile", type=Path)
+    parser.add_argument("--factor-snapshot", type=Path)
+    parser.add_argument("--research-profile", type=Path, help="Frozen reentry candidate; isolated paper state only")
     return parser.parse_args()
 
 
@@ -139,6 +144,29 @@ def annotate_open_position_fractions(sleeve_results: list[dict[str, Any]]) -> No
 
 def run_once(args: argparse.Namespace) -> dict[str, Any]:
     manifest, cfg = frozen_strategy.load_frozen_strategy(args.manifest)
+    research_profile_path = getattr(args, "research_profile", None)
+    research_profile = None
+    if research_profile_path:
+        import reentry_candidate
+        research_profile = reentry_candidate.load_candidate(research_profile_path, args.manifest)
+        if not args.tiered_drawdown:
+            raise ValueError("Research profile requires the corrected tiered portfolio ledger")
+    factor_profile_path = getattr(args, "factor_profile", None)
+    factor_snapshot_path = getattr(args, "factor_snapshot", None)
+    if bool(factor_profile_path) != bool(factor_snapshot_path):
+        raise ValueError("--factor-profile and --factor-snapshot must be supplied together")
+    factor_profile = multifactor.load_profile(factor_profile_path) if factor_profile_path else None
+    if factor_profile and factor_profile["availability_mode"] != "first_seen":
+        raise ValueError("Forward shadow requires first_seen factor availability")
+    if factor_profile and args.macro_snapshot:
+        raise ValueError("Use either legacy macro or multifactor overlay, not both")
+    public = None
+    if factor_profile and factor_profile.get("public_context_enabled"):
+        if not args.event_snapshot:
+            raise ValueError("Public context requires --event-snapshot")
+        public = json.loads(args.event_snapshot.read_text(encoding="utf-8"))
+        if "coverage_checks" not in public:
+            raise ValueError("Public context snapshot is missing source coverage history")
     symbol = sim.normalize_symbol(args.symbol)
     strategy_modes = (
         tuple(part.strip() for part in args.strategy_modes_override.split(",") if part.strip())
@@ -170,7 +198,20 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
         or args.macro_snapshot
         or args.tiered_drawdown
         or args.event_snapshot
+        or factor_profile
+        or research_profile
     )
+    if factor_profile:
+        profile["factor_profile_sha256"] = multifactor.profile_hash(factor_profile)
+        profile["factor_snapshot"] = str(factor_snapshot_path.resolve())
+        profile["factor_engine_sha256"] = frozen_strategy.sha256_file(Path(multifactor.__file__))
+        profile["portfolio_risk_sha256"] = frozen_strategy.sha256_file(Path(portfolio_risk.__file__))
+        if public is not None:
+            profile["public_context_sha256"] = frozen_strategy.sha256_file(Path(public_context.__file__))
+            profile["event_risk_sha256"] = frozen_strategy.sha256_file(Path(event_risk.__file__))
+    if research_profile:
+        profile["research_profile_sha256"] = frozen_strategy.sha256_file(research_profile_path)
+        profile["research_candidate_id"] = research_profile["candidate_id"]
     state = load_or_create_state(
         args.state_path,
         manifest,
@@ -203,22 +244,37 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
     tactical_modes = tuple(mode for mode in strategy_modes if mode != "timeseries_trend")
     if not tactical_modes:
         raise ValueError("Frozen portfolio must include at least one tactical strategy")
-    tactical = sim.simulate(
-        base_candles,
-        replace(sleeve_cfg, strategy_modes=tactical_modes),
-        evaluation_start_ms,
-        None,
-        funding,
-    )
-    core = sim.simulate_timeseries_trend(
-        trend_candles,
-        replace(sleeve_cfg, strategy_modes=("timeseries_trend",)),
-        evaluation_start_ms,
-        funding,
-    )
-    sleeves = [tactical, core]
+    if research_profile:
+        sleeves = reentry_candidate.build_sleeves(
+            {"5m": base_candles, "1h": trend_candles}, funding, sleeve_cfg,
+            evaluation_start_ms, research_profile,
+        )
+    else:
+        tactical = sim.simulate(
+            base_candles,
+            replace(sleeve_cfg, strategy_modes=tactical_modes),
+            evaluation_start_ms,
+            None,
+            funding,
+        )
+        core = sim.simulate_timeseries_trend(
+            trend_candles,
+            replace(sleeve_cfg, strategy_modes=("timeseries_trend",)),
+            evaluation_start_ms,
+            funding,
+        )
+        sleeves = [tactical, core]
     annotate_open_position_fractions(sleeves)
     macro_diagnostics = None
+    factor_diagnostics = None
+    if factor_profile:
+        factor_snapshot = multifactor.load_snapshot(factor_snapshot_path)
+        sleeves, factor_diagnostics = multifactor.apply_overlay(sleeves, factor_snapshot, factor_profile, public)
+        factor_diagnostics["current"] = {
+            side: multifactor.asdict(multifactor.decision_at(factor_snapshot, now_ms, side, factor_profile, public))
+            for side in ("long", "short")
+        }
+        factor_diagnostics["data_metadata"] = factor_snapshot.metadata
     if args.macro_snapshot:
         snapshot = macro_regime.load_macro_snapshot(args.macro_snapshot)
         sleeves, macro_diagnostics = macro_regime.apply_macro_overlay(
@@ -232,6 +288,22 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
     if args.event_snapshot:
         events = event_risk.load_event_snapshot(args.event_snapshot)
         sleeves, event_diagnostics = event_risk.apply_event_overlay(sleeves, events)
+        if factor_profile:
+            event_diagnostics["coverage_status"] = "loaded" if events else "not_configured"
+        if public is not None:
+            sleeves, blocked = public_context.apply_entry_coverage(sleeves, public)
+            healthy, missing = public_context.health_at(public, now_ms)
+            event_diagnostics.update({
+                "coverage_status": "healthy" if healthy else "degraded",
+                "coverage_blocked_entries": blocked, "missing_sources": missing,
+                "current": multifactor.asdict(event_risk.event_decision_at(events, now_ms)),
+                "source_status": public.get("metadata", {}).get("source_status", {}),
+                "news_items_archived": len(public.get("news", [])),
+                "calendar_versions_archived": len(public.get("calendars", [])),
+                "rate_expectation": public_context.expectation_at(public, now_ms),
+                "policy_surprises": public.get("policy_surprises", []),
+                "economic_consensus_surprises": public.get("metadata", {}).get("economic_consensus_surprises"),
+            })
     if args.tiered_drawdown:
         policy = portfolio_risk.DrawdownRiskPolicy(
             args.soft_drawdown_start_pct,
@@ -264,6 +336,9 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             "macro_overlay": macro_diagnostics,
             "shadow_profile": profile,
             "event_overlay": event_diagnostics,
+            "multifactor_overlay": factor_diagnostics,
+            "research_only": bool(factor_profile or research_profile),
+            "research_candidate": research_profile["candidate_id"] if research_profile else None,
         }
     )
     state["observations"] = int(state["observations"]) + 1

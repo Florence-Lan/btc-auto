@@ -488,6 +488,8 @@ def execute_report(
 ) -> dict[str, Any]:
     if mode not in {"simulation", "live"}:
         raise ValueError("Execution mode must be simulation or live")
+    if mode == "live" and report.get("research_only"):
+        raise ValueError("Research factor candidates are simulation-only")
     if mode == "live" and report.get("freeze_id") == "btc_trend_filter_research_20260917":
         raise ValueError("The September 17 research candidate is simulation-only")
     max_age = float(os.getenv("MAX_SIGNAL_AGE_SECONDS", "900") or 900)

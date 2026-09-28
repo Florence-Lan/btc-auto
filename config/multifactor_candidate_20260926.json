@@ -1,0 +1,27 @@
+{
+  "candidate_id": "btc_multifactor_20260926",
+  "status": "research_unvalidated",
+  "live_orders_allowed": false,
+  "base_manifest": "config/frozen_strategy_candidate_20260917.json",
+  "objective": "net_return_and_drawdown",
+  "groups": {
+    "btc_momentum": 0.20,
+    "positioning": 0.20,
+    "fed": 0.15,
+    "treasury": 0.15,
+    "fx": 0.15,
+    "global_risk": 0.15
+  },
+  "minimum_group_coverage": 1.0,
+  "minimum_risk_multiplier": 0.35,
+  "block_alignment_below": -0.35,
+  "block_stress_at": 0.9,
+  "availability_mode": "first_seen",
+  "event_snapshot": "config/event_risk_template.json",
+  "notes": [
+    "Weights and score thresholds are research hypotheses, not fitted or validated causal relationships.",
+    "Only reduces or blocks existing trend entries; never increases leverage or invents a direction.",
+    "Missing or stale required groups block entries. Events require an auditable timestamped feed.",
+    "Historical reconstructed data are not vintage point-in-time data and cannot qualify for promotion."
+  ]
+}

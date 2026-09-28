@@ -1,0 +1,29 @@
+{
+  "candidate_id": "btc_reentry_selected_20260928",
+  "live_orders_allowed": false,
+  "research_only": true,
+  "status": "development_selected_pending_holdout",
+  "selected_variant": "tight_reentry_tactical_1",
+  "policy": {
+    "name": "volatility",
+    "stop_atr": 2.0,
+    "trail_atr": 3.0,
+    "reentry_enabled": true,
+    "cooldown_bars": 6,
+    "breakout_bars": 12,
+    "stop_risk_fraction": 0.005
+  },
+  "tactical_weight": 1.0,
+  "base_manifest": "config/frozen_strategy_candidate_20260917.json",
+  "input_hashes": {
+    "config/reentry_research_plan_20260928.json": "7bc90a49c47e06585fbfea60dbb9b09b32bde8fb6018e395623426fcfa20f737",
+    "data/snapshots/btc_reentry_20231101_20260101.json.gz": "ee15d710c0df14c4e2c7dd095988ad9f4cf2f0290e7ce078cb62c1ccccddb87d",
+    "config/frozen_strategy_candidate_20260917.json": "ed50033dfb77fe88cca80e7eb59afff4b455eba733774467310eb20acd77496c",
+    "scripts/research_reentry.py": "bf4d6053f782b3ef80dc6053c0c935e0a48092508d05547771a852fac24e7ce2",
+    "scripts/execution_ledger.py": "868902db070e93aa21139dc8f92d222a7439332e587e5d011501586108ddbd52",
+    "scripts/portfolio_risk.py": "638c4217621507a5204eadb746997d6252d5be4f5f43ee143fbfccee13e87f25",
+    "scripts/simulate_range_swing.py": "f113b660a7630f47cb33c2fff47ef835acaee44f062bcdae6551857238dfb8c2",
+    "scripts/validate_reentry_research.py": "d74a6ebf50bfe50a0e4a1d8cceecb64f2b48020bda034f92ded66dc198722a98"
+  },
+  "selected_at_utc": "2026-09-28T08:37:32.625293+00:00"
+}

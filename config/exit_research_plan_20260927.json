@@ -1,0 +1,21 @@
+{
+  "research_id": "exit_ledger_research_20260927",
+  "live_orders_allowed": false,
+  "base_manifest": "config/frozen_strategy_candidate_20260917.json",
+  "policies": ["baseline", "neutral", "volatility"],
+  "fixed_parameters": {"atr_period": 14, "stop_atr": 2.0, "trail_atr": 3.0},
+  "execution": "Closed hourly bar decision; next hourly open exit; no additional re-entry rule",
+  "development": ["2026-01-01T00:00:00+00:00", "2026-03-01T00:00:00+00:00"],
+  "validation": ["2026-03-01T00:00:00+00:00", "2026-04-15T00:00:00+00:00"],
+  "known_stress": ["2026-06-29T00:00:00+00:00", "2026-09-27T09:00:00+00:00"],
+  "known_recent": ["2026-08-30T00:00:00+00:00", "2026-09-27T09:00:00+00:00"],
+  "selection": "Hourly-only development net_return_pct minus max_drawdown_pct; deterministic tie favors baseline",
+  "validation_gate": "Positive net return and double-cost net return; return >= baseline; drawdown <= baseline; >= 20 closed validation trades",
+  "factor_control": "Legacy overlay compared with constant size matched to development average gross leverage, then frozen for validation",
+  "limitations": [
+    "Historical time-separated validation is not a prospective live test; underlying frozen strategy was designed later.",
+    "Recent 90-day price paths were already used for diagnosis and cannot be called untouched out-of-sample data.",
+    "New six-factor historical coverage is too short for independent calibration/validation; only descriptive ablation is allowed.",
+    "Rules are fixed before running these comparisons; no repeated search to obtain a winning validation result."
+  ]
+}

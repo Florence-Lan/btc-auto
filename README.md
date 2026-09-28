@@ -1,5 +1,20 @@
 # BTC Auto
 
+September 27 update: the default multifactor shadow runner now uses a new candidate with
+automatic Fed/ECB/UN news, official FOMC/economic calendars, and named-contract Fed funds
+futures expectations. Source health, first-seen times, calendar revisions and premeeting
+expectation archives are enforced. See [data sources, behavior and limitations](docs/multifactor_strategy.md).
+`python scripts/run_multifactor_shadow.py --once` performs one order-disabled forward cycle;
+omit `--once` to keep refreshing and observing. No background service is installed automatically.
+
+September 26 update: a separate, order-disabled [multifactor research candidate](docs/multifactor_strategy.md)
+now includes BTC momentum, derivatives positioning, Fed policy/balance-sheet data, nominal/real
+Treasury yields, major FX rates, and global risk indicators. Its initial comparison failed the
+return/drawdown gates, so it has **not replaced the current terminal strategy**. Run
+`python scripts/run_multifactor_shadow.py --once` for a separate forward observation.
+The terminal supervisor currently selects the September 17 candidate (1h EMA 48/240,
+0.40% spread threshold); the profiles described below include older research generations.
+
 BTCUSDT futures strategy research and paper-trading tools. The default portfolio combines
 the tactical `trend` strategy with a six-hour `timeseries_trend` sleeve. Experimental event
 modules are not promoted automatically.
@@ -291,3 +306,19 @@ without turning an unavailable model into an exit blocker.
 
 Use a Binance API key with Futures permission only, withdrawals disabled, and an IP restriction.
 Never commit `.env` or expose the API secret in logs.
+
+### 2026-09-27 accounting fix and exit research
+
+The tiered candidate portfolio now reconstructs remaining inventory and cash from sleeve
+bar-close observations before applying entry overlays. The frozen engine remains unchanged.
+See [the accounting and time-separated validation report](docs/exit_validation_20260927.md).
+New exit rules did not qualify for replacement; this research does not enable live orders.
+Reproduce with `.venv/bin/python scripts/validate_exit_research.py` using the recorded snapshots.
+
+### 2026-09-28 reentry candidate
+
+An isolated research candidate adds protected exits, confirmed trend reentry, and stop-distance
+risk sizing. It is available through `run_multifactor_shadow.py --research-profile
+config/reentry_selected_20260928.json --once`. The 2025 holdout remains positive at normal
+costs but fails double-cost stress, so the default strategy is unchanged. See the
+[implementation and validation report](docs/reentry_validation_20260928.md).

@@ -1,0 +1,20 @@
+{
+  "candidate_id": "btc_reentry_selected_20260928",
+  "research_only": true,
+  "live_orders_allowed": false,
+  "status": "holdout_failed_research_only",
+  "selection_sha256": "57d9d57d90317c71870c1be3d0f174de2ae696eeeac2233027eb38f29af2e055",
+  "holdout_report_sha256": "bc4270f649ce9377626f03ad3a7f5ab78e41e0a4f6d29f4135fb657d5ad4b24a",
+  "gate": {
+    "checks": {
+      "positive_net_return": true,
+      "positive_double_cost_return": false,
+      "return_at_least_baseline": false,
+      "drawdown_no_worse_than_baseline": true,
+      "at_least_20_closed_trades": true,
+      "at_least_3_positive_quarters": false
+    },
+    "passed": false
+  },
+  "default_strategy_changed": false
+}

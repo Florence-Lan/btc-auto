@@ -1,0 +1,23 @@
+{
+  "research_id": "btc_reentry_risk_budget_20260928",
+  "live_orders_allowed": false,
+  "base_manifest": "config/frozen_strategy_candidate_20260917.json",
+  "development": ["2024-01-01T00:00:00Z", "2025-01-01T00:00:00Z"],
+  "holdout": ["2025-01-01T00:00:00Z", "2026-01-01T00:00:00Z"],
+  "known_recent": ["2026-08-30T00:00:00Z", "2026-09-27T09:00:00Z"],
+  "policies": {
+    "baseline": {"name": "baseline"},
+    "tight_reentry": {"name": "volatility", "stop_atr": 2.0, "trail_atr": 3.0, "reentry_enabled": true, "cooldown_bars": 6, "breakout_bars": 12, "stop_risk_fraction": 0.005},
+    "wide_reentry": {"name": "volatility", "stop_atr": 3.0, "trail_atr": 6.0, "reentry_enabled": true, "cooldown_bars": 6, "breakout_bars": 12, "stop_risk_fraction": 0.005}
+  },
+  "tactical_weights": [1.0, 0.25, 0.0],
+  "selection": "Development portfolio net return minus maximum drawdown; tie favors baseline/full tactical. Select once, freeze before running holdout.",
+  "holdout_gate": "Selected variant positive with normal/double costs, net return >= baseline/full tactical, drawdown <= baseline/full tactical, >=20 closed trades, at least 3 of 4 mark-to-market quarters positive.",
+  "execution": "Completed hourly close decision; next hourly open fill. Same-side protective-exit cooldown cannot be bypassed by EMA recross; reentry requires 12-bar close breakout, EMA slope and confirmed direction. ATR fixed at entry; 0.5% stop-distance risk is sizing, not guaranteed realized maximum loss.",
+  "limitations": [
+    "2024 and 2025 are additional historical evaluation periods, not a prospective validation of a strategy designed in 2026.",
+    "Known 2026 recent window is diagnostic only and must never select policy or tactical weight.",
+    "Full six-factor/news history is unavailable for 2024/2025. Price/risk mechanics are tested without pretending to have those factors.",
+    "No retuning after holdout or enabling live trading. Multiple development candidates create selection bias."
+  ]
+}

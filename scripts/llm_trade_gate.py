@@ -123,6 +123,10 @@ def build_decision_context(
         "risk_diagnostics": report.get("risk_diagnostics") or {},
         "macro_overlay": report.get("macro_overlay") or {},
         "event_overlay": report.get("event_overlay") or {},
+        "multifactor_overlay": {
+            key: value for key, value in (report.get("multifactor_overlay") or {}).items()
+            if key in {"candidate_id", "profile_sha256", "availability_mode", "current", "group_coverage_pct"}
+        },
     }
 
 

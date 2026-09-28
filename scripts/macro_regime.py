@@ -258,6 +258,8 @@ def apply_macro_overlay(
     multipliers: list[float] = []
     factor_coverage: dict[str, int] = {name: 0 for name in enabled_factors}
     for sleeve in sleeve_results:
+        from execution_ledger import attach_ledger
+        sleeve = attach_ledger(sleeve)
         trades: list[dict[str, Any]] = []
         for raw in sleeve.get("trades", []):
             entry_ms = int(
