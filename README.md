@@ -322,3 +322,12 @@ risk sizing. It is available through `run_multifactor_shadow.py --research-profi
 config/reentry_selected_20260928.json --once`. The 2025 holdout remains positive at normal
 costs but fails double-cost stress, so the default strategy is unchanged. See the
 [implementation and validation report](docs/reentry_validation_20260928.md).
+
+### Reentry cost control
+
+Fixed longer cooldown/breakout windows now have a separate cost-aware comparison:
+`.venv/bin/python scripts/validate_cost_control.py --phase develop`.
+No variant passed all preregistered development gates. The explicit exploratory command
+`--phase diagnose --variant wait12_break24` evaluates the moderate slowdown without promoting it.
+It reduced 2025 execution costs by 15%, but did not reduce costs in the recent window.
+See the [results and limitations](docs/cost_control_20260928.md); defaults remain unchanged.

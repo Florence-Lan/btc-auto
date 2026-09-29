@@ -1,0 +1,18 @@
+{
+  "research_id": "btc_reentry_cost_control_20260928",
+  "base_manifest": "config/frozen_strategy_candidate_20260917.json",
+  "reference_profile": "config/reentry_selected_20260928.json",
+  "development": ["2024-01-01T00:00:00Z", "2025-01-01T00:00:00Z"],
+  "review_2025": ["2025-01-01T00:00:00Z", "2026-01-01T00:00:00Z"],
+  "review_2026": ["2026-01-01T00:00:00Z", "2026-04-15T00:00:00Z"],
+  "recent": ["2026-08-30T00:00:00Z", "2026-09-27T09:00:00Z"],
+  "policies": {
+    "wait12_break24": {"name": "volatility", "stop_atr": 2.0, "trail_atr": 3.0, "reentry_enabled": true, "cooldown_bars": 12, "breakout_bars": 24, "stop_risk_fraction": 0.005},
+    "wait24_break48": {"name": "volatility", "stop_atr": 2.0, "trail_atr": 3.0, "reentry_enabled": true, "cooldown_bars": 24, "breakout_bars": 48, "stop_risk_fraction": 0.005},
+    "wait48_break72": {"name": "volatility", "stop_atr": 2.0, "trail_atr": 3.0, "reentry_enabled": true, "cooldown_bars": 48, "breakout_bars": 72, "stop_risk_fraction": 0.005}
+  },
+  "tactical_weights": [1.0],
+  "selection": "2024 only: execution costs <=75% of reference, net return >= reference, maximum drawdown <= reference +1 percentage point. Among eligible variants maximize net return minus drawdown, tie favors first listed. If none pass, retain reference and do not create candidate.",
+  "review_gate": "Each review window must reduce execution costs >=25%, preserve reference net return, keep drawdown within reference +1 percentage point, and remain profitable at double execution costs. Never automatically promote or retune after review.",
+  "limitations": ["All windows are retrospective and previously available; none is claimed as untouched or prospective OOS.", "No macro/news filters in this mechanism comparison.", "Longer waiting can miss trends. Preserve protective exits and actual configured fees; do not assume maker fills."]
+}
