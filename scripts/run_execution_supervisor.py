@@ -10,11 +10,12 @@ from pathlib import Path
 
 import run_macro_candidate_shadow as strategy_supervisor
 import simulate_range_swing as sim
-from binance_terminal_client import BinanceTerminalClient
+from binance_terminal_client import BinanceApiError, BinanceTerminalClient, datetime_from_ms
 from trading_execution import (
     LIVE_STATE_PATH,
     SIMULATION_STATE_PATH,
     execute_report,
+    monitor_simulation_account,
     read_json,
 )
 
@@ -150,11 +151,15 @@ def main() -> int:
         f"bar_seconds={BAR_INTERVAL_MS // 1000} settle_delay_seconds={args.bar_settle_delay_seconds}",
         flush=True,
     )
+    announced_retry_ms = None
     while True:
         loop_started = time.time()
         server_time_ms = int(loop_started * 1000)
         try:
             server_time_ms = client.server_time_ms()
+            if args.mode == "simulation":
+                # Account hard stops run even while strategy refresh is unavailable.
+                monitor_simulation_account(client, server_time_ms)
             last_processed = last_processed_signal_ms(args.mode)
             due_bar = due_closed_bar_open_ms(
                 server_time_ms,
@@ -168,6 +173,15 @@ def main() -> int:
                     raise RuntimeError(
                         f"Strategy report signal {actual_signal} is older than due bar {due_bar}"
                     )
+        except BinanceApiError as exc:
+            if args.mode != "simulation":
+                raise
+            if not exc.retry_at_ms:
+                traceback.print_exc()
+            elif exc.retry_at_ms != announced_retry_ms:
+                print(f"market_data_paused retry_at_utc={datetime_from_ms(exc.retry_at_ms)} "
+                      "mode=simulation reason=binance_rate_limit", flush=True)
+                announced_retry_ms = exc.retry_at_ms
         except Exception:
             traceback.print_exc()
             if args.mode == "live":

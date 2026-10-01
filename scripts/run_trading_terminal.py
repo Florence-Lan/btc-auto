@@ -18,7 +18,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import macro_regime
-from binance_terminal_client import BinanceTerminalClient
+from binance_terminal_client import BinanceTerminalClient, datetime_from_ms
 from trading_execution import LIVE_STATE_PATH, SimulationAccount, read_json, write_json
 
 
@@ -190,10 +190,17 @@ class TerminalController:
                         )
                 else:
                     os.kill(pid, signal.SIGTERM)
-                for _ in range(50):
-                    if not process_alive(pid):
-                        break
-                    time.sleep(0.1)
+                if self.process is not None and self.process.pid == pid:
+                    try:
+                        self.process.wait(timeout=5)
+                    except subprocess.TimeoutExpired as exc:
+                        raise RuntimeError(f"进程 {pid} 在停止后仍存活") from exc
+                    self.process = None
+                else:
+                    for _ in range(50):
+                        if not process_alive(pid):
+                            break
+                        time.sleep(0.1)
                 if process_alive(pid):
                     raise RuntimeError(f"进程 {pid} 在停止后仍存活")
             runtime.update({"pid": None, "running": False, "stopped_at_utc": utc_now()})
@@ -364,6 +371,7 @@ class TerminalController:
             "error": market_error,
         }
         execution_state: dict[str, Any] = {}
+        retry_at_ms = self.client.cooldown_until_ms()
         if mode == "simulation":
             execution_snapshot = SimulationAccount().snapshot(mark_price)
             execution_state = execution_snapshot["state"]
@@ -477,6 +485,8 @@ class TerminalController:
             "realized_pnl": execution_state.get("realized_pnl") if mode == "simulation" else None,
             "unrealized_pnl": account.get("unrealized_pnl"),
             "fees_paid": execution_state.get("fees_paid") if mode == "simulation" else None,
+            "funding_pnl": execution_state.get("funding_pnl", 0.0) if mode == "simulation" else None,
+            "funding_tracking_start_ms": execution_state.get("funding_tracking_start_ms"),
             "position_qty": position_qty,
             "entry_price": entry_price or None,
             "position_notional": abs(position_qty * float(mark_price or 0)),
@@ -499,6 +509,7 @@ class TerminalController:
                 "runtime": runtime,
                 "emergency": emergency,
                 "heartbeat_age_seconds": heartbeat_age,
+                "market_data_retry_at_utc": datetime_from_ms(retry_at_ms) if retry_at_ms else None,
                 "max_notional_usdt": max_notional,
                 "leverage": leverage_limit,
                 "simulation_initial_balance": (
@@ -508,6 +519,8 @@ class TerminalController:
                 "last_cycle_at_utc": execution_state.get("updated_at_utc"),
                 "last_fill": execution_fills[-1] if execution_fills else None,
                 "entry_guard": execution_state.get("entry_guard"),
+                "funding_status": execution_state.get("funding_status", "not_observed"),
+                "account_risk": execution_state.get("account_risk") or {},
                 "llm_trade_gate": execution_state.get("llm_trade_gate") or {
                     "enabled": False,
                     "status": "disabled",
@@ -519,7 +532,7 @@ class TerminalController:
             "market": {
                 "symbol": SYMBOL,
                 "mark_price": mark_price,
-                "data_time_ms": market_time_ms,
+                "data_time_ms": market_time_ms if market_error is None else execution_point.get("time_ms"),
                 "source": "Binance mainnet realtime",
                 "macro_snapshot_age_seconds": macro_age,
                 "signal_price": signal_price or None,
@@ -529,7 +542,8 @@ class TerminalController:
             "account_details": account_details,
             "risk": {
                 "drawdown_pct": drawdown,
-                "drawdown_multiplier": summary_point.get("drawdown_risk_multiplier", 1.0),
+                "drawdown_multiplier": (execution_state.get("account_risk") or {}).get(
+                    "risk_multiplier", summary_point.get("drawdown_risk_multiplier", 1.0)),
                 "soft_limit_pct": 8.0,
                 "hard_limit_pct": 15.0,
                 "portfolio_leverage_cap": 2.0,

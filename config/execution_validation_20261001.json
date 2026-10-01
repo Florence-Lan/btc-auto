@@ -1,0 +1,24 @@
+{
+  "manifest": "config/frozen_strategy_candidate_20260917.json",
+  "macro_snapshot": "data/snapshots/macro_strategy_review_20241001_20261001_1200.json.gz",
+  "funding_snapshot": "data/snapshots/funding_execution_20250101_20261001_1200.json",
+  "initial_equity": 10000,
+  "fixed_risk_multiplier": 0.60,
+  "protected_policy": {
+    "name": "volatility", "stop_atr": 2.0, "trail_atr": 3.0,
+    "reentry_enabled": true, "cooldown_bars": 12, "breakout_bars": 24,
+    "stop_risk_fraction": 0.005
+  },
+  "windows": {
+    "30d": {"market_snapshot": "data/snapshots/btc_strategy_review_20260415_20261001_1200.json.gz", "utc": ["2026-09-01T12:00:00Z", "2026-10-01T12:00:00Z"]},
+    "90d": {"market_snapshot": "data/snapshots/btc_strategy_review_20260415_20261001_1200.json.gz", "utc": ["2026-07-03T12:00:00Z", "2026-10-01T12:00:00Z"]},
+    "2025": {"market_snapshot": "data/snapshots/btc_reentry_20231101_20260101.json.gz", "utc": ["2025-01-01T00:00:00Z", "2026-01-01T00:00:00Z"]}
+  },
+  "forward_requirements": {"minimum_days": 90, "minimum_closed_trades": 30, "maximum_drawdown_pct": 15, "minimum_profit_factor": 1.3},
+  "limitations": [
+    "All comparison windows were already observed; these are retrospective diagnostic checks.",
+    "The fixed 0.60 risk control is preregistered for this run, not optimized or precisely exposure matched.",
+    "Protective exits reuse an existing exploratory policy; positive historical checks cannot promote it automatically.",
+    "Future stability requires actual forward fills and first-seen data. No current result can replace that evidence."
+  ]
+}

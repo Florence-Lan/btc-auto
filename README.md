@@ -1,5 +1,15 @@
 # BTC Auto
 
+October 1 execution update: account drawdown now constrains the executed target independently
+of the shadow ledger, with an 8% soft reduction and a latched 15% flattening stop. Simulation
+settles actual historical funding against its recorded inventory, archives all fills, and
+blocks additions when funding data is unavailable. Legacy accounts start funding tracking at
+upgrade; prior fees are not invented. Macro entry decisions are pinned on first observation.
+See [implementation, execution replay and limitations](docs/execution_fixes_20261001.md).
+Run `.venv/bin/python scripts/validate_execution_model.py` for comparisons using the terminal's
+simulated account, including fees, funding and exchange quantity constraints. The frozen signal
+parameters remain unchanged; the protected-exit alternative did not pass the comparison.
+
 September 27 update: the default multifactor shadow runner now uses a new candidate with
 automatic Fed/ECB/UN news, official FOMC/economic calendars, and named-contract Fed funds
 futures expectations. Source health, first-seen times, calendar revisions and premeeting

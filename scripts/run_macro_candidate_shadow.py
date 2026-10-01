@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import simulate_range_swing as sim
+from forward_macro import archive_snapshot
 
 
 def parse_args() -> argparse.Namespace:
@@ -50,6 +51,7 @@ def refresh_macro_if_needed(args: argparse.Namespace) -> None:
     if args.macro_snapshot.exists():
         age_seconds = time.time() - args.macro_snapshot.stat().st_mtime
     if age_seconds < args.refresh_hours * 3600:
+        archive_snapshot(args.macro_snapshot)
         return
     run_checked([
         sys.executable,
@@ -60,6 +62,7 @@ def refresh_macro_if_needed(args: argparse.Namespace) -> None:
         str(args.macro_snapshot),
         "--force",
     ])
+    archive_snapshot(args.macro_snapshot)
 
 
 def run_shadow_once(args: argparse.Namespace) -> None:

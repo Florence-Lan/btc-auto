@@ -12,6 +12,8 @@ from typing import Any
 
 import frozen_strategy
 import event_risk
+import execution_targets
+import forward_macro
 import macro_regime
 import multifactor
 import portfolio_risk
@@ -265,6 +267,7 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
         )
         sleeves = [tactical, core]
     annotate_open_position_fractions(sleeves)
+    execution_targets.prepare_sleeves(sleeves)
     macro_diagnostics = None
     factor_diagnostics = None
     if factor_profile:
@@ -277,10 +280,12 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
         factor_diagnostics["data_metadata"] = factor_snapshot.metadata
     if args.macro_snapshot:
         snapshot = macro_regime.load_macro_snapshot(args.macro_snapshot)
-        sleeves, macro_diagnostics = macro_regime.apply_macro_overlay(
+        sleeves, macro_diagnostics = forward_macro.apply_overlay(
             sleeves,
-            snapshot,
-            enabled_factors=macro_factors,
+            args.macro_snapshot,
+            args.state_path.with_suffix(".macro_decisions.json"),
+            now_ms,
+            factors=macro_factors,
             min_multiplier=args.macro_min_multiplier,
             block_score=args.macro_block_score,
         )
@@ -318,6 +323,8 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             evaluation_start_ms,
             include_execution_target=True,
         )
+        # Position sizing uses the open mark, without fictitious terminal liquidation costs.
+        result["execution_target"] = execution_targets.current_target(base_candles, sleeves, result, cfg)
     else:
         result = sim.combine_sleeve_results(
             base_candles,

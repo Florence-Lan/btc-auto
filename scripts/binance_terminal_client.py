@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import os
+import re
 import threading
 import time
 from datetime import datetime, timezone
@@ -19,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 
 MAINNET_FUTURES_URL = "https://fapi.binance.com"
+COOLDOWN_PATH = ROOT / "data/runtime/binance_api_cooldown.json"
 
 
 def sign_query(secret: str, query: str) -> str:
@@ -37,10 +40,12 @@ def env_flag(name: str, default: bool = False) -> bool:
 
 
 class BinanceApiError(RuntimeError):
-    def __init__(self, message: str, code: int | None = None, status: int | None = None) -> None:
+    def __init__(self, message: str, code: int | None = None, status: int | None = None,
+                 retry_at_ms: int | None = None) -> None:
         super().__init__(message)
         self.code = code
         self.status = status
+        self.retry_at_ms = retry_at_ms
 
 
 class BinanceTerminalClient:
@@ -71,6 +76,33 @@ class BinanceTerminalClient:
     def live_trading_enabled(self) -> bool:
         return env_flag("LIVE_TRADING_ENABLED")
 
+    def cooldown_until_ms(self) -> int:
+        if not COOLDOWN_PATH.exists():
+            return 0
+        payload = json.loads(COOLDOWN_PATH.read_text(encoding="utf-8"))
+        if payload.get("base_url") != self.base_url:
+            return 0
+        until = int(payload.get("retry_at_ms") or 0)
+        return until if until > int(time.time() * 1000) else 0
+
+    def record_cooldown(self, message: str, retry_after: str | None = None) -> int:
+        now_ms = int(time.time() * 1000)
+        match = re.search(r"banned until\s+(\d{13})", message, re.IGNORECASE)
+        until = int(match.group(1)) + 5000 if match else now_ms + 60_000
+        if retry_after:
+            try:
+                until = max(until, now_ms + int(float(retry_after) * 1000) + 5000)
+            except ValueError:
+                pass
+        until = max(until, self.cooldown_until_ms(), now_ms + 5000)
+        payload = {"base_url": self.base_url, "retry_at_ms": until,
+                   "reason": "Binance HTTP rate limit; requests suspended"}
+        COOLDOWN_PATH.parent.mkdir(parents=True, exist_ok=True)
+        temporary = COOLDOWN_PATH.with_name(f"{COOLDOWN_PATH.name}.{os.getpid()}.tmp")
+        temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(COOLDOWN_PATH)
+        return until
+
     def _decode_response(self, response: requests.Response) -> Any:
         try:
             payload = response.json()
@@ -80,13 +112,23 @@ class BinanceTerminalClient:
             return payload
         code = payload.get("code") if isinstance(payload, dict) else None
         message = payload.get("msg") if isinstance(payload, dict) else response.text
+        retry_at_ms = None
+        if response.status_code in {418, 429}:
+            retry_at_ms = self.record_cooldown(str(message or ""), response.headers.get("Retry-After"))
         raise BinanceApiError(
             f"Binance API {response.status_code}: {message or 'request failed'}",
             code=int(code) if code is not None else None,
             status=response.status_code,
+            retry_at_ms=retry_at_ms,
         )
 
     def public_get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+        retry_at_ms = self.cooldown_until_ms()
+        if retry_at_ms:
+            raise BinanceApiError(
+                f"Binance requests paused until {datetime_from_ms(retry_at_ms)}",
+                status=418, retry_at_ms=retry_at_ms,
+            )
         response = self.session.get(f"{self.base_url}{path}", params=params, timeout=15)
         return self._decode_response(response)
 
@@ -123,6 +165,25 @@ class BinanceTerminalClient:
 
     def server_time_ms(self) -> int:
         return int(self.public_get("/fapi/v1/time")["serverTime"])
+
+    def funding_history(self, start_ms: int, end_ms: int, symbol: str = "BTCUSDT") -> list[dict[str, Any]]:
+        """Fetch actual settlement rates and their associated mark prices, with pagination."""
+        rows = []
+        cursor = start_ms
+        while cursor <= end_ms:
+            batch = self.public_get("/fapi/v1/fundingRate", {
+                "symbol": symbol, "startTime": cursor, "endTime": end_ms, "limit": 1000,
+            })
+            if not isinstance(batch, list):
+                raise ValueError("Invalid funding history response")
+            rows.extend(row for row in batch if start_ms <= int(row["fundingTime"]) <= end_ms)
+            if not batch or len(batch) < 1000:
+                break
+            next_cursor = int(batch[-1]["fundingTime"]) + 1
+            if next_cursor <= cursor:
+                raise ValueError("Funding history pagination did not advance")
+            cursor = next_cursor
+        return sorted(rows, key=lambda row: int(row["fundingTime"]))
 
     def symbol_rules(self, symbol: str = "BTCUSDT") -> dict[str, Decimal]:
         if symbol in self.rules_cache:

@@ -68,17 +68,19 @@ function render(data) {
   const live = data.mode === "LIVE";
   const running = Boolean(data.execution.runtime.running);
   const emergency = data.execution.emergency;
+  const retryAt = data.execution.market_data_retry_at_utc;
   $("#modeBadge").textContent = data.mode;
   $("#modeBadge").classList.toggle("live", live);
-  $("#healthDot").classList.toggle("online", running && !emergency);
-  $("#healthText").textContent = emergency ? "急停锁定" : (running ? `${live ? "实盘" : "模拟盘"}运行中` : "自动化已暂停");
+  $("#healthDot").classList.toggle("online", running && !emergency && !retryAt);
+  $("#healthText").textContent = emergency ? "急停锁定" : (running ? (retryAt ? "行情限流，等待恢复" : `${live ? "实盘" : "模拟盘"}运行中`) : "自动化已暂停");
   $("#markPrice").textContent = data.market.mark_price ? `$${fmt(data.market.mark_price, 1)}` : "—";
-  $("#marketTime").textContent = data.market.data_time_ms ? `Binance · ${new Date(data.market.data_time_ms).toLocaleTimeString("zh-CN")}` : "等待行情";
+  $("#marketTime").textContent = data.market.data_time_ms ? `${data.exchange.connected ? "Binance" : "历史行情"} · ${new Date(data.market.data_time_ms).toLocaleTimeString("zh-CN")}` : "等待行情";
   $("#candidateId").textContent = data.strategy.candidate_id || "BTC 自动策略";
   $("#runtimeMeta").textContent = running ? `PID ${data.execution.runtime.pid} · ${live ? "真实下单" : "本地模拟成交"}` : `${live ? "实盘" : "模拟盘"}进程未运行`;
   $("#exchangeStatus").textContent = live
     ? (data.exchange.connected ? "Binance 主网账户已连接" : `实盘账户未连接${data.exchange.error ? " · " + data.exchange.error : ""}`)
     : (data.exchange.connected ? "Binance 主网实时行情已连接" : "Binance 主网行情未连接");
+  if (retryAt) $("#exchangeStatus").textContent = `行情限流 · ${new Date(retryAt).toLocaleString("zh-CN")} 后自动重试`;
   $("#equityLabel").textContent = live ? "实盘钱包余额" : "模拟权益";
   $("#equitySource").textContent = live ? "USDT · Binance" : "USDT · local simulation";
   $("#returnSource").textContent = live ? "由 Binance 账户结算" : "模拟运行期";
@@ -99,8 +101,8 @@ function render(data) {
   $("#heartbeat").textContent = `信号心跳 ${timeAgo(data.execution.heartbeat_age_seconds)}`;
   $("#strategyStatus").textContent = emergency ? "EMERGENCY" : (running ? data.mode : "PAUSED");
   $("#strategyStatus").classList.toggle("live", live);
-  $("#strategyList").innerHTML = data.strategy.strategy_modes.map(mode => `<div class="strategy-item"><span>${mode === "trend" ? "多周期趋势" : mode === "timeseries_trend" ? "6H 时间序列趋势" : mode}</span><strong>ACTIVE</strong></div>`).join("");
-  const strategyNames = { trend: "多周期趋势", timeseries_trend: "6H 时间序列趋势", range: "区间策略" };
+  $("#strategyList").innerHTML = data.strategy.strategy_modes.map(mode => `<div class="strategy-item"><span>${mode === "trend" ? "多周期趋势" : mode === "timeseries_trend" ? "1H 时间序列趋势" : mode}</span><strong>ACTIVE</strong></div>`).join("");
+  const strategyNames = { trend: "多周期趋势", timeseries_trend: "1H 时间序列趋势", range: "区间策略" };
   renderRows($("#sleeveSignalsBody"), data.strategy.sleeves || [], [
     { render: row => strategyNames[row.name] || row.name },
     { render: row => row.status === "POSITION" ? "持仓中" : "监控中", className: row => row.status === "POSITION" ? "positive" : "" },
@@ -119,6 +121,8 @@ function render(data) {
   $("#realizedPnlDetail").textContent = fmt(details.realized_pnl);
   $("#realizedPnlDetail").className = Number(details.realized_pnl || 0) >= 0 ? "positive" : "negative";
   $("#feesPaidDetail").textContent = fmt(details.fees_paid);
+  $("#fundingPnlDetail").textContent = fmt(details.funding_pnl);
+  $("#accountRiskDetail").textContent = ({normal: "正常", throttled: "降低风险", halted: Number(details.position_qty || 0) ? "已锁定，退出中" : "已平仓并锁定"})[data.execution.account_risk?.status] || "等待检查";
   $("#positionNotionalDetail").textContent = fmt(details.position_notional);
   $("#positionQtyDetail").textContent = fmt(details.position_qty, 6);
   $("#entryPriceDetail").textContent = fmt(details.entry_price, 1);
