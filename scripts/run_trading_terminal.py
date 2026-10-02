@@ -18,6 +18,9 @@ from typing import Any
 from urllib.parse import urlparse
 
 import macro_regime
+import multifactor
+import public_context
+import supplemental_market_data
 from binance_terminal_client import BinanceTerminalClient, datetime_from_ms
 from trading_execution import LIVE_STATE_PATH, SimulationAccount, read_json, write_json
 
@@ -33,6 +36,22 @@ STDOUT_PATH = DATA / "runtime/execution_supervisor_stdout.log"
 STDERR_PATH = DATA / "runtime/execution_supervisor_stderr.log"
 CANDIDATE_PATH = ROOT / "config/shadow_candidate_macro_20260917.json"
 MACRO_PATH = DATA / "snapshots/macro_shadow_latest.json.gz"
+ACTIVE_CANDIDATE_PATH = ROOT / "config/active_simulation_candidate.json"
+active_selection = read_json(ACTIVE_CANDIDATE_PATH, {}) or {}
+if active_selection.get("candidate_path"):
+    selected = (ROOT / active_selection["candidate_path"]).resolve()
+    if selected.parent != ROOT / "config":
+        raise ValueError("Active simulation candidate must be in config/")
+    CANDIDATE_PATH = selected
+    active_candidate = read_json(selected, {}) or {}
+    candidate_id = active_candidate["candidate_id"]
+    if not candidate_id.replace("_", "").isalnum():
+        raise ValueError("Invalid active candidate ID")
+    STATE_PATH = DATA / f"paper_trading/{candidate_id}_state.json"
+    REPORT_PATH = DATA / f"paper_trading/{candidate_id}_report.json"
+FACTOR_PATH = DATA / "snapshots/multifactor_latest.json.gz"
+PUBLIC_PATH = DATA / "snapshots/public_context_latest.json"
+SUPPLEMENTAL_PATH = supplemental_market_data.DEFAULT_PATH
 SYMBOL = "BTCUSDT"
 EXECUTION_CHECK_SECONDS = 30
 STRATEGY_BAR_SECONDS = 300
@@ -106,6 +125,19 @@ class TerminalController:
         payload = read_json(EMERGENCY_PATH)
         return payload if isinstance(payload, dict) and payload.get("active") else None
 
+    def supervisor_command(self, mode: str) -> list[str]:
+        command = [sys.executable, str(ROOT / "scripts/run_execution_supervisor.py"), "--mode", mode]
+        candidate = read_json(CANDIDATE_PATH, {}) or {}
+        if candidate.get("factor_profile"):
+            if mode != "simulation" or candidate.get("live_orders_allowed") is not False:
+                raise ValueError("Multifactor trial is simulation-only")
+            command.extend(["--factor-profile", str(ROOT / candidate["factor_profile"]),
+                            "--factor-snapshot", str(FACTOR_PATH),
+                            "--supplemental-snapshot", str(SUPPLEMENTAL_PATH),
+                            "--state-path", str(STATE_PATH), "--report-path", str(REPORT_PATH),
+                            "--trades-path", str(DATA / f"paper_trading/{candidate['candidate_id']}_trades.csv")])
+        return command
+
     def set_mode(self, mode: str, confirm: str = "") -> dict[str, Any]:
         with self.lock:
             if mode not in {"simulation", "live"}:
@@ -148,12 +180,7 @@ class TerminalController:
             stderr = STDERR_PATH.open("a", encoding="utf-8")
             creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
             self.process = subprocess.Popen(
-                [
-                    sys.executable,
-                    str(ROOT / "scripts/run_execution_supervisor.py"),
-                    "--mode",
-                    mode,
-                ],
+                self.supervisor_command(mode),
                 cwd=ROOT,
                 stdout=stdout,
                 stderr=stderr,
@@ -217,13 +244,7 @@ class TerminalController:
             if mode == "live":
                 self.client.validate_live_ready(SYMBOL)
             completed = subprocess.run(
-                [
-                    sys.executable,
-                    str(ROOT / "scripts/run_execution_supervisor.py"),
-                    "--mode",
-                    mode,
-                    "--once",
-                ],
+                self.supervisor_command(mode) + ["--once"],
                 cwd=ROOT,
                 capture_output=True,
                 text=True,
@@ -303,6 +324,20 @@ class TerminalController:
         macro = report.get("macro_overlay") or {}
         profile = state.get("profile") or report.get("shadow_profile") or {}
         current: dict[str, Any] = {}
+        if candidate.get("factor_profile"):
+            try:
+                factor_profile = multifactor.load_profile(ROOT / candidate["factor_profile"])
+                snapshot = multifactor.load_snapshot(FACTOR_PATH)
+                public = read_json(PUBLIC_PATH, {}) or {}
+                current = multifactor.asdict(multifactor.decision_at(snapshot, market_time_ms, "long", factor_profile, public))
+                healthy, missing = public_context.health_at(public, market_time_ms)
+                current.update(score=current["directional_score"], available_factors=tuple(current["contributions"]),
+                               public_context_healthy=healthy, public_missing_sources=missing)
+                if not healthy:
+                    current.update(allowed=False, risk_multiplier=0.0)
+            except (OSError, ValueError, KeyError) as exc:
+                current = {"allowed": False, "risk_multiplier": 0.0, "error": str(exc)}
+            return report.get("multifactor_overlay") or {}, current
         if MACRO_PATH.exists():
             try:
                 snapshot = macro_regime.load_macro_snapshot(MACRO_PATH)
@@ -345,9 +380,10 @@ class TerminalController:
                 ).total_seconds()
             except ValueError:
                 pass
+        input_path = FACTOR_PATH if candidate.get("factor_profile") else MACRO_PATH
         macro_age = (
-            max(0.0, datetime.now().timestamp() - MACRO_PATH.stat().st_mtime)
-            if MACRO_PATH.exists() else None
+            max(0.0, datetime.now().timestamp() - input_path.stat().st_mtime)
+            if input_path.exists() else None
         )
         try:
             mark_price = self.client.mark_price(SYMBOL)
@@ -360,7 +396,7 @@ class TerminalController:
             report,
             state,
             candidate,
-            int(execution_point.get("time_ms") or market_time_ms),
+            market_time_ms,
         )
         exchange = self.client.snapshot(SYMBOL) if mode == "live" else {
             "configured": self.client.configured,
@@ -538,6 +574,11 @@ class TerminalController:
                 "signal_price": signal_price or None,
                 "signal_age_seconds": signal_age_seconds,
             },
+            "information": {
+                "factors_enabled": bool(candidate.get("factor_profile")),
+                "public_context": (read_json(PUBLIC_PATH, {}) or {}).get("metadata", {}),
+                "supplemental": supplemental_market_data.source_view(read_json(SUPPLEMENTAL_PATH, {}) or {}),
+            },
             "account": account,
             "account_details": account_details,
             "risk": {
@@ -558,7 +599,7 @@ class TerminalController:
             "strategy": {
                 "candidate_id": candidate.get("candidate_id"),
                 "strategy_modes": candidate.get("strategy_modes", []),
-                "macro_factors": candidate.get("macro", {}).get("factors", []),
+                "macro_factors": list(candidate.get("groups", {})) if candidate.get("factor_profile") else candidate.get("macro", {}).get("factors", []),
                 "observations": state.get("observations", 0),
                 "updated_at_utc": updated,
                 "signal_time_ms": execution_point.get("time_ms"),

@@ -95,8 +95,8 @@ function render(data) {
   $("#targetNotional").className = Number(data.strategy.target_notional || 0) > 0 ? "positive" : Number(data.strategy.target_notional || 0) < 0 ? "negative" : "";
   $("#targetLeverage").textContent = `目标杠杆 ${Number(data.strategy.target_leverage || 0).toFixed(3)}×`;
   $("#macroMultiplier").textContent = data.risk.macro_current.risk_multiplier == null ? "—" : `${fmt(data.risk.macro_current.risk_multiplier, 2)}×`;
-  const coverage = data.risk.macro.factor_coverage_pct || {};
-  $("#macroCoverage").textContent = Object.keys(coverage).length ? `${Object.keys(coverage).length} 组因子在线` : "等待产生信号";
+  const coverage = data.risk.macro_current.available_factors || [];
+  $("#macroCoverage").textContent = `${coverage.length} 组因子可用${data.risk.macro_current.allowed === false ? " · 开仓受限" : ""}`;
   $("#observations").textContent = data.strategy.observations;
   $("#heartbeat").textContent = `信号心跳 ${timeAgo(data.execution.heartbeat_age_seconds)}`;
   $("#strategyStatus").textContent = emergency ? "EMERGENCY" : (running ? data.mode : "PAUSED");
@@ -156,13 +156,35 @@ function render(data) {
   $("#emergencyState").className = emergency ? "negative" : "positive";
   const macroAgeHours = data.market.macro_snapshot_age_seconds == null ? null : data.market.macro_snapshot_age_seconds / 3600;
   $("#macroFreshness").textContent = macroAgeHours == null ? "无快照" : `${fmt(macroAgeHours, 1)}h ago`;
-  const factorNames = { vix: "VIX 恐慌", dollar: "美元指数", metals: "黄金 / 白银", sentiment: "Crypto Fear & Greed" };
+  const factorNames = { vix: "VIX 恐慌", dollar: "美元指数", metals: "黄金 / 白银", sentiment: "Crypto Fear & Greed",
+    btc_momentum: "BTC 日 / 周动量", positioning: "持仓与主动买卖", fed: "美联储政策", treasury: "美债与实际利率", fx: "汇率与美元", global_risk: "美股 / 原油 / VIX" };
   const contributions = data.risk.macro_current.contributions || {};
   $("#factorList").innerHTML = data.strategy.macro_factors.map(factor => {
     const value = contributions[factor];
     const label = value == null ? "WAIT" : `${value >= 0 ? "+" : ""}${Number(value).toFixed(2)}`;
     return `<div class="factor-item"><span>${factorNames[factor] || factor}</span><strong class="${value == null ? "" : (value >= 0 ? "positive" : "negative")}">${label}</strong></div>`;
   }).join("");
+  const sourceRows = [];
+  const sourceNames = { fed_news: "美联储新闻", ecb_news: "欧洲央行新闻", un_news: "联合国新闻",
+    fomc_calendar: "议息日历", economic_calendar: "经济数据日历", rate_expectations: "利率预期",
+    options: "期权 IV / 偏斜", orderbook: "订单簿深度", exchange_flows: "链上交易所资金流",
+    etf_flows: "ETF 净流入", economic_consensus: "经济数据共识预期" };
+  const publicHealthy = data.risk.macro_current.public_context_healthy;
+  for (const [name, value] of Object.entries(data.information?.public_context?.source_status || {})) {
+    sourceRows.push({name, value: value.ok ? (publicHealthy === false ? "需刷新" : "已连接") : "获取失败", ok: value.ok && publicHealthy !== false});
+  }
+  for (const [name, value] of Object.entries(data.information?.supplemental || {})) {
+    sourceRows.push({name, value: !value.ok ? (value.value ? "刷新失败，有缓存" : "未获取") : (value.stale ? "已过期" : "观察中"), ok: value.ok && !value.stale,
+      age: value.age_seconds});
+  }
+  $("#informationSources").replaceChildren(...sourceRows.map(row => {
+    const item = document.createElement("div"); item.className = "factor-item";
+    const label = document.createElement("span"); label.textContent = sourceNames[row.name] || row.name;
+    const status = document.createElement("strong"); status.className = row.ok ? "positive" : "negative";
+    status.textContent = row.value;
+    if (row.age != null) item.title = `数据日期距今 ${timeAgo(row.age)}`;
+    item.append(label, status); return item;
+  }));
   $("#positionCount").textContent = data.positions.length;
   $("#orderCount").textContent = data.open_orders.length;
   $("#tradeCount").textContent = data.recent_trades.length;

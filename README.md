@@ -341,3 +341,12 @@ No variant passed all preregistered development gates. The explicit exploratory 
 `--phase diagnose --variant wait12_break24` evaluates the moderate slowdown without promoting it.
 It reduced 2025 execution costs by 15%, but did not reduce costs in the recent window.
 See the [results and limitations](docs/cost_control_20260928.md); defaults remain unchanged.
+
+### 2026-10-02 simulation information activation
+
+The user-selected simulation now uses all six existing factor groups with automatic
+macro, positioning, news and calendar refreshes. Options, sampled orderbook depth,
+exchange on-chain flows, ETF flows, and public forecast/actual records are also
+collected and displayed as observations. The simulation account history is retained;
+this forward trial is not evidence that the added data improves profitability.
+See [sources, refresh intervals and validation](docs/information_activation_20261002.md).

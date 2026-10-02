@@ -39,6 +39,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--refresh-hours", type=float, default=12.0)
     parser.add_argument("--once", action="store_true")
+    parser.add_argument("--factor-profile", type=Path)
+    parser.add_argument("--factor-snapshot", type=Path,
+                        default=root / "data/snapshots/multifactor_latest.json.gz")
+    parser.add_argument("--supplemental-snapshot", type=Path,
+                        default=root / "data/snapshots/supplemental_market_latest.json")
     parser.add_argument(
         "--macro-snapshot",
         type=Path,
@@ -77,9 +82,13 @@ def strategy_args(args: argparse.Namespace) -> argparse.Namespace:
 def run_cycle(args: argparse.Namespace, client: BinanceTerminalClient) -> dict[str, object]:
     if args.mode != "simulation":
         raise ValueError("The September 17 research candidate is simulation-only")
-    shadow_args = strategy_args(args)
-    strategy_supervisor.refresh_macro_if_needed(shadow_args)
-    strategy_supervisor.run_shadow_once(shadow_args)
+    if getattr(args, "factor_profile", None):
+        import information_runtime
+        strategy_supervisor.run_checked(information_runtime.paper_command(args))
+    else:
+        shadow_args = strategy_args(args)
+        strategy_supervisor.refresh_macro_if_needed(shadow_args)
+        strategy_supervisor.run_shadow_once(shadow_args)
     report = json.loads(args.report_path.read_text(encoding="utf-8"))
     result = execute_report(args.mode, report, client)
     point = report.get("execution_target") or (report.get("summary") or {}).get("last_equity_point") or {}
@@ -144,8 +153,20 @@ def main() -> int:
     if args.mode == "live":
         client.validate_live_ready()
     if args.once:
+        if args.factor_profile:
+            import information_runtime
+            import multifactor
+            profile = multifactor.load_profile(args.factor_profile)
+            information_runtime.refresh_if_needed(args.factor_snapshot,
+                sim.repo_root() / profile["event_snapshot"], args.supplemental_snapshot)
         run_cycle(args, client)
         return 0
+    if args.factor_profile:
+        import information_runtime
+        import multifactor
+        profile = multifactor.load_profile(args.factor_profile)
+        information_runtime.start_worker(args.factor_snapshot,
+            sim.repo_root() / profile["event_snapshot"], args.supplemental_snapshot)
     print(
         f"scheduler_started mode={args.mode} check_seconds={args.poll_seconds} "
         f"bar_seconds={BAR_INTERVAL_MS // 1000} settle_delay_seconds={args.bar_settle_delay_seconds}",

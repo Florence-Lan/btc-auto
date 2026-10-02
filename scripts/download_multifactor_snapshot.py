@@ -16,6 +16,7 @@ import requests
 
 import download_macro_snapshot as legacy
 import multifactor as mf
+from binance_terminal_client import BinanceApiError, BinanceTerminalClient
 
 # Conservative estimated release delays for reconstructed research ONLY.
 # Actual forward availability is max(estimate, first_seen). FRED latest is not ALFRED vintage data.
@@ -69,9 +70,8 @@ def fetch_fred(name, start_ms, end_ms):
 
 
 def binance_json(path, params):
-    response = requests.get(BINANCE + path, params=params, timeout=20)
-    response.raise_for_status()
-    result = response.json()
+    # Share the terminal's persisted 418/429 cooldown instead of bypassing it.
+    result = BinanceTerminalClient().public_get(path, params)
     if not isinstance(result, list):
         raise ValueError("Unexpected Binance response")
     return result
@@ -171,7 +171,13 @@ def collect(output: Path, start_ms: int, end_ms: int):
     def run(item):
         name, (fn, arg) = item
         try:
-            rows = fn(arg, start_ms, end_ms) if arg else fn(start_ms, end_ms)
+            # Preserve overlap for corrections/late publication; avoid re-downloading
+            # six months of BTC candles and funding on every hourly refresh.
+            since = start_ms
+            if previous.get("series", {}).get(name):
+                overlap = 90 * mf.DAY if name == "gold" else (14 * mf.DAY if name in FRED else 2 * mf.DAY)
+                since = max(start_ms, max(int(r[0]) for r in previous["series"][name]) - overlap)
+            rows = fn(arg, since, end_ms) if arg else fn(since, end_ms)
             if not rows:
                 raise ValueError("Empty provider response")
             # First-seen is actual receipt time, not the time the batch started.
@@ -179,7 +185,7 @@ def collect(output: Path, start_ms: int, end_ms: int):
             for row in rows:
                 row[3] = max(end_ms, received)
             return name, rows, None
-        except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+        except (requests.RequestException, BinanceApiError, RuntimeError, ValueError, KeyError, TypeError) as exc:
             return name, [], f"{type(exc).__name__}: {str(exc)[:220]}"
 
     series = dict(previous.get("series", {}))
