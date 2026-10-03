@@ -21,6 +21,7 @@ import macro_regime
 import multifactor
 import public_context
 import supplemental_market_data
+import simulation_risk_monitor
 from binance_terminal_client import BinanceTerminalClient, datetime_from_ms
 from trading_execution import LIVE_STATE_PATH, SimulationAccount, read_json, write_json
 
@@ -557,6 +558,8 @@ class TerminalController:
                 "entry_guard": execution_state.get("entry_guard"),
                 "funding_status": execution_state.get("funding_status", "not_observed"),
                 "account_risk": execution_state.get("account_risk") or {},
+                "risk_monitor": simulation_risk_monitor.status_view(
+                    account_epoch=execution_state.get("created_at_utc")) if mode == "simulation" else {},
                 "llm_trade_gate": execution_state.get("llm_trade_gate") or {
                     "enabled": False,
                     "status": "disabled",

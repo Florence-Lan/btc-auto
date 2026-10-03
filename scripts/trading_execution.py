@@ -649,13 +649,10 @@ def simulation_funding(client, account, now_ms):
         return (), False
 
 
-def monitor_simulation_account(client, now_ms):
-    account = SimulationAccount()
-    if not account.path.exists():
-        return None
-    mark = client.mark_price(SYMBOL)
-    events, available = simulation_funding(client, account, now_ms)
-    return account.observe(mark, now_ms, events, available, client.symbol_rules(SYMBOL))
+def monitor_simulation_account(client, now_ms, *, clock_available=True, clock_error=None):
+    import simulation_risk_monitor
+    return simulation_risk_monitor.monitor(
+        client, now_ms, clock_available=clock_available, clock_error=clock_error)
 
 
 def execute_report(

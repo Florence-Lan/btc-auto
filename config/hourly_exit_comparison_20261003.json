@@ -1,0 +1,69 @@
+{
+  "research_id": "hourly_exit_comparison_20261003",
+  "research_only": true,
+  "live_orders_allowed": false,
+  "initial_equity_usdt": 1000,
+  "profile": "data/validation/latest_strategy_20261003/sources/profile_multifactor_trial_20261002.json",
+  "manifest": "data/validation/latest_strategy_20261003/sources/manifest_frozen_strategy_candidate_20260917.json",
+  "factor_snapshot": "data/validation/latest_strategy_20261003/sources/factors_multifactor_latest.json.gz",
+  "event_snapshot": "data/validation/latest_strategy_20261003/sources/public_public_context_latest.json",
+  "policy_sources": ["config/exit_research_plan_20260927.json", "config/execution_validation_20261001.json"],
+  "policies": {
+    "baseline": {"name": "baseline"},
+    "protective_exit_only": {"name": "volatility", "stop_atr": 2.0, "trail_atr": 3.0},
+    "protective_reentry_fixed": {"name": "volatility", "stop_atr": 2.0, "trail_atr": 3.0, "reentry_enabled": true, "cooldown_bars": 12, "breakout_bars": 24, "stop_risk_fraction": 0.005}
+  },
+  "cost_multipliers": [1, 2],
+  "execution": {
+    "model": "closed_signal_known_open_v1",
+    "decision": "Closed hourly bar only; next known opening tick; previous closed hourly liquidity.",
+    "fill": "Next five-minute opening tick plus 3000 ms; no final invented fill.",
+    "fee_rate": 0.00045,
+    "slippage_bps": 1.0,
+    "max_leverage": 2.0,
+    "max_notional_usdt": 0,
+    "quantity_step": 0.001,
+    "minimum_quantity": 0.001,
+    "minimum_notional_usdt": 50,
+    "funding": "Actual archived timestamp/rate/mark-price settlements; funding is not doubled by transaction-cost stress."
+  },
+  "windows": {
+    "current_six_factor_archive": {
+      "scope": "current_six_factor",
+      "market_snapshot": "data/validation/latest_strategy_20261003/sources/market_market_extended.json.gz",
+      "funding_snapshot": "data/validation/latest_strategy_20261003/sources/funding_funding_extended.json",
+      "utc": ["2026-09-27T02:15:00+00:00", "2026-10-03T03:10:00+00:00"],
+      "actual_forward_inception_utc": "2026-10-02T11:15:03.356870+00:00"
+    },
+    "price_only_30d": {
+      "scope": "price_only_diagnostic",
+      "market_snapshot": "data/snapshots/btc_strategy_review_20260415_20261001_1200.json.gz",
+      "funding_snapshot": "data/snapshots/funding_execution_20250101_20261001_1200.json",
+      "utc": ["2026-09-01T12:00:00Z", "2026-10-01T12:00:00Z"]
+    },
+    "price_only_90d": {
+      "scope": "price_only_diagnostic",
+      "market_snapshot": "data/snapshots/btc_strategy_review_20260415_20261001_1200.json.gz",
+      "funding_snapshot": "data/snapshots/funding_execution_20250101_20261001_1200.json",
+      "utc": ["2026-07-03T12:00:00Z", "2026-10-01T12:00:00Z"]
+    },
+    "price_only_2025": {
+      "scope": "price_only_diagnostic",
+      "market_snapshot": "data/snapshots/btc_reentry_20231101_20260101.json.gz",
+      "funding_snapshot": "data/snapshots/funding_execution_20250101_20261001_1200.json",
+      "utc": ["2025-01-01T00:00:00Z", "2026-01-01T00:00:00Z"]
+    }
+  },
+  "comparison_checks": ["normal_return_at_least_baseline", "normal_drawdown_no_worse_than_baseline", "positive_double_cost_return", "normal_fees_no_more_than_baseline", "at_least_20_closed_execution_episodes"],
+  "selection": "No parameter search, no winner selection, no automatic activation. Both historical protective policies are fixed before this run.",
+  "limitations": [
+    "Current first-seen six-factor/public history is short and discontinuous. No fills cannot establish strategy profitability or validate exits.",
+    "The long price-only windows deliberately omit all macro/factor/public overlays. They cannot represent the selected six-factor strategy or its future results.",
+    "All historical windows were previously examined. They are diagnostic and cannot be called untouched out-of-sample or forward evidence.",
+    "The protective reentry variant changes exits, reentry and risk sizing together. The exit-only variant isolates the fixed additional exit rule.",
+    "Current parameters, fees and lot/minimum-notional constraints are applied historically; historical changes and order-book matching are unverified.",
+    "The frozen research engine retains its 100 USDT shadow equity for parity with current target construction; actual execution settles and rounds a 1000 USDT account.",
+    "Both variants use a bar-close protective decision, not an exchange stop order. Gaps can exceed the ATR or 0.5% sizing budget.",
+    "The reentry/exit policies previously failed qualification. This corrected timing/account-size replay is a new diagnostic, not a reset of that evidence."
+  ]
+}

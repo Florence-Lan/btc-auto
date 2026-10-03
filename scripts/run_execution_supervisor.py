@@ -141,6 +141,36 @@ def seconds_until_next_check(
     return min(float(poll_seconds), until_due)
 
 
+def monitored_clock(mode, client):
+    """A failed scheduler clock must not skip the independent risk observation."""
+    server_time_ms = int(time.time() * 1000)
+    clock_error = None
+    try:
+        server_time_ms = client.server_time_ms()
+    except Exception as exc:
+        clock_error = exc
+    if mode == "simulation":
+        monitor_simulation_account(
+            client, server_time_ms, clock_available=clock_error is None, clock_error=clock_error)
+    if clock_error is not None:
+        # The mark endpoint's clock may support a protective exit, but cannot
+        # authorize a strategy cycle or an entry during scheduler clock failure.
+        raise clock_error
+    return server_time_ms
+
+
+def check_once(args, client):
+    server_time_ms = monitored_clock(args.mode, client)
+    last_processed = last_processed_signal_ms(args.mode)
+    due_bar = due_closed_bar_open_ms(server_time_ms, last_processed, args.bar_settle_delay_seconds)
+    if due_bar is not None:
+        result = run_cycle(args, client)
+        actual_signal = int(result.get("signal_time_ms") or 0)
+        if actual_signal < due_bar:
+            raise RuntimeError(f"Strategy report signal {actual_signal} is older than due bar {due_bar}")
+    return server_time_ms
+
+
 def main() -> int:
     args = parse_args()
     if args.poll_seconds < 5:
@@ -153,6 +183,7 @@ def main() -> int:
     if args.mode == "live":
         client.validate_live_ready()
     if args.once:
+        monitored_clock(args.mode, client)
         if args.factor_profile:
             import information_runtime
             import multifactor
@@ -177,23 +208,7 @@ def main() -> int:
         loop_started = time.time()
         server_time_ms = int(loop_started * 1000)
         try:
-            server_time_ms = client.server_time_ms()
-            if args.mode == "simulation":
-                # Account hard stops run even while strategy refresh is unavailable.
-                monitor_simulation_account(client, server_time_ms)
-            last_processed = last_processed_signal_ms(args.mode)
-            due_bar = due_closed_bar_open_ms(
-                server_time_ms,
-                last_processed,
-                args.bar_settle_delay_seconds,
-            )
-            if due_bar is not None:
-                result = run_cycle(args, client)
-                actual_signal = int(result.get("signal_time_ms") or 0)
-                if actual_signal < due_bar:
-                    raise RuntimeError(
-                        f"Strategy report signal {actual_signal} is older than due bar {due_bar}"
-                    )
+            server_time_ms = check_once(args, client)
         except BinanceApiError as exc:
             if args.mode != "simulation":
                 raise

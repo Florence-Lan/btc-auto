@@ -123,6 +123,12 @@ function render(data) {
   $("#feesPaidDetail").textContent = fmt(details.fees_paid);
   $("#fundingPnlDetail").textContent = fmt(details.funding_pnl);
   $("#accountRiskDetail").textContent = ({normal: "正常", throttled: "降低风险", halted: Number(details.position_qty || 0) ? "已锁定，退出中" : "已平仓并锁定"})[data.execution.account_risk?.status] || "等待检查";
+  const monitor = data.execution.risk_monitor || {};
+  const monitoring = Boolean(data.execution.runtime?.running);
+  const unavailableLabel = monitor.errors?.account ? "账户记录异常" : monitor.errors?.mark_price ? "行情中断，等待恢复" : "暂时无法检查";
+  $("#riskMonitorState").textContent = monitoring ? ({healthy: "持续监测", degraded: "已检查，部分数据异常", unavailable: unavailableLabel, stale: "监测更新中断", not_observed: "等待检查"})[monitor.status] || "等待检查" : "已暂停";
+  $("#riskMonitorState").className = monitoring && monitor.status === "healthy" ? "positive" : "negative";
+  $("#riskMonitorState").title = Object.values(monitor.errors || {}).join("；");
   $("#positionNotionalDetail").textContent = fmt(details.position_notional);
   $("#positionQtyDetail").textContent = fmt(details.position_qty, 6);
   $("#entryPriceDetail").textContent = fmt(details.entry_price, 1);

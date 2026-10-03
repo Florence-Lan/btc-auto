@@ -163,6 +163,13 @@ class BinanceTerminalClient:
         payload = self.public_get("/fapi/v1/premiumIndex", {"symbol": symbol})
         return float(payload["markPrice"])
 
+    def mark_price_observation(self, symbol: str = "BTCUSDT") -> dict[str, Any]:
+        """Return the exchange timestamp too, so risk monitoring can reject stale marks."""
+        payload = self.public_get("/fapi/v1/premiumIndex", {"symbol": symbol})
+        if not isinstance(payload, dict) or payload.get("symbol") != symbol:
+            raise ValueError("Invalid mark-price observation")
+        return {"price": float(payload["markPrice"]), "time_ms": int(payload["time"])}
+
     def server_time_ms(self) -> int:
         return int(self.public_get("/fapi/v1/time")["serverTime"])
 

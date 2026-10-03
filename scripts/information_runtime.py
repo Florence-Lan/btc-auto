@@ -10,16 +10,54 @@ import multifactor
 import public_context
 import supplemental_market_data as supplemental
 
+_refresh_failures = {}
+
 
 def refresh_if_needed(factor_path, event_path, supplemental_path, force=False):
     def due(path, seconds):
         return force or not path.exists() or time.time() - path.stat().st_mtime >= seconds
-    if due(factor_path, 3600):
+
+    def run(name, path, fn):
+        key = (name, str(path))
+        failure = _refresh_failures.get(key, {})
+        timestamp = int(time.time() * 1000)
+        if not force and timestamp < failure.get("next_retry_at_ms", 0):
+            return {"ok": False, "skipped": "retry_wait", **failure}
+        try:
+            payload = fn()
+            _refresh_failures.pop(key, None)
+            if payload is None:
+                return {"ok": True, "skipped": "not_due"}
+            metadata = payload.get("metadata", {})
+            states = metadata.get("source_status", payload.get("status", {}))
+            errors = metadata.get("errors", {}) or {
+                source: state.get("error") for source, state in states.items() if not state.get("ok")}
+            return {"ok": not errors, "errors": errors, "source_status": states}
+        except Exception as exc:
+            failures = int(failure.get("consecutive_failures", 0)) + 1
+            state = {"error": f"{type(exc).__name__}: {str(exc)[:220]}",
+                     "consecutive_failures": failures,
+                     "next_retry_at_ms": int(time.time() * 1000) + download.retry_delay_ms(failures)}
+            _refresh_failures[key] = state
+            print(f"information_refresh_failed source={name} next_retry_at_ms="
+                  f"{state['next_retry_at_ms']} error={state['error']}", flush=True)
+            traceback.print_exc()
+            return {"ok": False, **state}
+
+    def factors():
         end = int(time.time() * 1000)
-        download.collect(factor_path, end - 180 * multifactor.DAY, end)
-    if due(event_path, 300):
-        public_context.collect(event_path, factor_path)
-    supplemental.collect(supplemental_path, force=force)
+        return download.collect(factor_path, end - 180 * multifactor.DAY, end,
+                                only_due=True, force=force)
+
+    # Collection failures are independent: a factor/provider error cannot skip
+    # news/calendar or supplemental refresh in this worker cycle.
+    return {
+        "factors": run("factors", factor_path, factors),
+        "public_context": run("public_context", event_path, lambda:
+                              public_context.collect(event_path, factor_path) if due(event_path, 300) else None),
+        "supplemental": run("supplemental", supplemental_path, lambda:
+                            supplemental.collect(supplemental_path, force=force)),
+    }
 
 
 def start_worker(factor_path, event_path, supplemental_path):

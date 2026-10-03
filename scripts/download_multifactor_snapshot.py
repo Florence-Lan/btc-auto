@@ -8,6 +8,7 @@ import io
 import json
 import math
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,6 +38,18 @@ DERIVATIVES = {
     "open_interest": ("openInterestHist", "sumOpenInterest"),
 }
 BINANCE = "https://fapi.binance.com"
+REFRESH_SECONDS = 3600
+RETRY_BASE_SECONDS = 60
+RETRY_MAX_SECONDS = 900
+
+
+def now_ms():
+    return int(datetime.now(timezone.utc).timestamp() * 1000)
+
+
+def retry_delay_ms(failures):
+    # One attempt per source per worker cycle; no synchronous retry loop.
+    return min(RETRY_MAX_SECONDS, RETRY_BASE_SECONDS * 2 ** min(max(failures - 1, 0), 4)) * 1000
 
 
 def fred_rows(text, series_id, lag_days, end_ms):
@@ -158,7 +171,7 @@ def merge_rows(previous, incoming):
     return sorted(merged.values())
 
 
-def collect(output: Path, start_ms: int, end_ms: int):
+def collect(output: Path, start_ms: int, end_ms: int, *, only_due=False, force=False, sources=None):
     previous = {"series": {}}
     if output.exists():
         with gzip.open(output, "rt", encoding="utf-8") as handle:
@@ -167,6 +180,38 @@ def collect(output: Path, start_ms: int, end_ms: int):
     jobs = {name: (fetch_fred, name) for name in FRED}
     jobs.update({name: (fetch_derivatives, name) for name in DERIVATIVES})
     jobs.update({"btc_close": (fetch_btc, None), "funding": (fetch_funding, None), "gold": (fetch_gold, None)})
+    if sources is not None:
+        sources = set(sources)
+        unknown = sources - jobs.keys()
+        if unknown:
+            raise ValueError(f"Unknown factor sources: {sorted(unknown)}")
+        jobs = {name: job for name, job in jobs.items() if name in sources}
+
+    metadata = previous.get("metadata", {})
+    errors = dict(metadata.get("errors", {}))
+    source_status = {name: dict(state) for name, state in metadata.get("source_status", {}).items()}
+    # Adopt old archives once, without interpreting a new partial-refresh mtime
+    # as successful collection for every source.
+    archive_time = int(output.stat().st_mtime * 1000) if output.exists() else 0
+    for name in jobs:
+        if name not in source_status:
+            error = errors.get(name)
+            interval = RETRY_BASE_SECONDS if error else REFRESH_SECONDS
+            source_status[name] = {
+                "ok": bool(previous.get("series", {}).get(name)) and not error,
+                "error": error, "consecutive_failures": 1 if error else 0,
+                "next_retry_at_ms": archive_time + interval * 1000
+                if previous.get("series", {}).get(name) or error else 0,
+            }
+    if only_due and not force:
+        timestamp = now_ms()
+        jobs = {name: job for name, job in jobs.items()
+                if timestamp >= int(source_status[name].get("next_retry_at_ms") or 0)}
+    if not jobs:
+        return previous
+
+    binance_sources = set(DERIVATIVES) | {"btc_close", "funding"}
+    binance_lock = threading.Lock()
 
     def run(item):
         name, (fn, arg) = item
@@ -177,30 +222,58 @@ def collect(output: Path, start_ms: int, end_ms: int):
             if previous.get("series", {}).get(name):
                 overlap = 90 * mf.DAY if name == "gold" else (14 * mf.DAY if name in FRED else 2 * mf.DAY)
                 since = max(start_ms, max(int(r[0]) for r in previous["series"][name]) - overlap)
-            rows = fn(arg, since, end_ms) if arg else fn(since, end_ms)
+            if name in binance_sources:
+                # Serialize this batch so a 418/429 on one source persists the
+                # shared pause before another source attempts a network call.
+                with binance_lock:
+                    rows = fn(arg, since, end_ms) if arg else fn(since, end_ms)
+            else:
+                rows = fn(arg, since, end_ms) if arg else fn(since, end_ms)
             if not rows:
                 raise ValueError("Empty provider response")
             # First-seen is actual receipt time, not the time the batch started.
-            received = int(datetime.now(timezone.utc).timestamp() * 1000)
+            received = now_ms()
             for row in rows:
                 row[3] = max(end_ms, received)
-            return name, rows, None
-        except (requests.RequestException, BinanceApiError, RuntimeError, ValueError, KeyError, TypeError) as exc:
-            return name, [], f"{type(exc).__name__}: {str(exc)[:220]}"
+            # A malformed provider response must fail only its own source.
+            mf.Snapshot({"schema_version": 1, "series": {name: rows}})
+            return name, rows, None, received, 0
+        except Exception as exc:
+            return name, [], f"{type(exc).__name__}: {str(exc)[:220]}", now_ms(), int(
+                getattr(exc, "retry_at_ms", None) or 0)
 
     series = dict(previous.get("series", {}))
-    errors = {}
     with ThreadPoolExecutor(max_workers=4) as pool:
-        for name, rows, error in pool.map(run, jobs.items()):
+        for name, rows, error, received, provider_retry in pool.map(run, jobs.items()):
+            state = source_status[name]
+            failures = int(state.get("consecutive_failures") or 0) + 1 if error else 0
             if error:
                 errors[name] = error
+            else:
+                errors.pop(name, None)
             series[name] = merge_rows(series.get(name, []), rows)
-            print(f"{name}: {'ERROR ' + error if error else str(len(rows)) + ' observations'}", flush=True)
+            delay = retry_delay_ms(failures) if error else REFRESH_SECONDS * 1000
+            source_status[name] = {
+                "ok": error is None, "error": error, "last_attempt_ms": received,
+                "last_success_ms": state.get("last_success_ms") if error else received,
+                "consecutive_failures": failures,
+                "next_retry_at_ms": max(received + delay, provider_retry),
+                "provider_retry_at_ms": provider_retry or None,
+                "latest_observed_at_ms": max((int(row[0]) for row in series[name]), default=None),
+            }
+            detail = 'ERROR ' + error if error else str(len(rows)) + ' observations'
+            print(f"{name}: {detail}; failures={failures} next_retry_at_ms="
+                  f"{source_status[name]['next_retry_at_ms']}", flush=True)
     payload = {
         "schema_version": 1, "series": series,
         "metadata": {
+            **metadata,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-            "errors": errors, "fred_series": FRED,
+            "errors": errors, "source_status": source_status, "fred_series": FRED,
+            "refresh_policy": {"success_seconds": REFRESH_SECONDS,
+                               "retry_base_seconds": RETRY_BASE_SECONDS,
+                               "retry_max_seconds": RETRY_MAX_SECONDS,
+                               "binance_cooldown": "shared persisted 418/429 pause takes precedence"},
             "sources": ["FRED CSV (latest vintage)", "Binance USD-M public REST", "Yahoo GC=F"],
             "availability": "forward uses max(estimated availability, first_seen); existing rows immutable",
             "research_warning": "Reconstructed FRED history can contain revisions; not point-in-time OOS.",

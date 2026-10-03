@@ -7,6 +7,15 @@ the corrected hourly execution model. Backtests use the same selected rules and 
 entry permissions at every execution timestamp. See
 [the current strategy backtest](docs/latest_strategy_backtest_20261003.md).
 
+October 3 reliability update: failed factor sources now retry independently with
+bounded backoff and the shared exchange cooldown. Account hard-stop monitoring
+continues after scheduler-clock failures when a fresh timestamped mark is available,
+and records outages explicitly. The terminal exposes monitoring health. Run
+`.venv/bin/python scripts/report_forward_progress.py` to capture a read-only forward
+progress report with ledger checks. Fixed hourly protective-exit comparisons did
+not qualify for replacement. See [details and activation evidence](docs/data_risk_reliability_20261003.md)
+and [the exit comparison](docs/hourly_exit_comparison_20261003.md).
+
 October 3 execution update: entries and additions now recheck current factor permissions,
 event windows and source health immediately before execution, including retries of an old
 target. Reductions and exits remain available when entries are blocked. Hourly targets use
