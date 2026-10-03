@@ -1,5 +1,12 @@
 # BTC Auto
 
+October 3 startup repair: the selected simulation now starts a separate
+`btc_multifactor_startup_20261003` forward generation. At its first eligible observed
+hourly open it can join the last closed confirmed trend, while retaining all entry
+and account risk gates. Restarting reuses that generation's fixed inception; it does
+not backfill trades before activation. The existing simulated account and old paper
+reports are preserved. See [behavior, verification and activation](docs/hourly_startup_fix_20261003.md).
+
 The simulation terminal, execution backtest and independent observation runner default to
 the strategy selected in `config/active_simulation_candidate.json`. The current selection
 uses six factor groups, news/calendars, policy expectations, account risk controls and

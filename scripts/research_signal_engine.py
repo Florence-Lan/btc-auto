@@ -1,8 +1,9 @@
-"""Research-only signal replay; copied from the frozen v3 execution model.
+"""Signal replay for research and the order-disabled hourly startup model.
 
 Signals use completed candles and execute on the next candle open. None holds;
 flat closes. No changes to the active engine. Costs/funding/position sizing match
-its timeseries sleeve. Like that engine, depth impact uses execution-bar volume.
+its timeseries sleeve. The known-open wrapper supplies prior-hour liquidity and
+an optional initial side for a new forward generation; defaults retain research behavior.
 """
 from __future__ import annotations
 import math
@@ -22,7 +23,12 @@ def simulate_signals(
     cfg: StrategyConfig,
     evaluation_start_ms: Optional[int] = None,
     funding_history: Optional[FundingHistory] = None,
+    *,
+    initial_side: Optional[str] = None,
+    exit_reason: str = "signal_change",
 ) -> Dict[str, Any]:
+    if initial_side not in (None, "long", "short"):
+        raise ValueError("Invalid initial side")
     if cfg.timeseries_fast_ema >= cfg.timeseries_slow_ema:
         raise ValueError("timeseries fast EMA must be less than slow EMA")
     closes = [candle.close for candle in candles]
@@ -50,7 +56,7 @@ def simulate_signals(
     equity_curve: List[Dict[str, float]] = []
     position: Optional[Position] = None
     position_equity_base = equity
-    pending_side: Optional[str] = None
+    pending_side: Optional[str] = initial_side
     periods_per_year = 365 * (MS_PER_DAY / interval_to_ms(cfg.timeseries_timeframe))
 
     for index in range(start_index, len(candles)):
@@ -66,14 +72,14 @@ def simulate_signals(
                     fill,
                     position.qty,
                     cfg.taker_fee,
-                    "signal_change",
+                    exit_reason,
                     raw_exit,
                 )
                 trade = close_trade_record(
                     position,
                     candle,
                     position_equity_base,
-                    "signal_change",
+                    exit_reason,
                     f"timeseries_trend_{position.side}",
                 )
                 trade.bars_held = index - position.entry_index

@@ -25,7 +25,11 @@ from download_market_snapshot import validate_contiguous
 
 def replay(base, sleeves, cfg, start, funding_events, initial=10000, cost_multiplier=1,
            rules=None, lag_ms=3000, entry_report=None):
-    causal_hourly = any(s.get("execution_timing", {}).get("model") == timeseries_execution.MODEL for s in sleeves)
+    models = {s.get("execution_timing", {}).get("model") for s in sleeves}
+    known_models = models & timeseries_execution.KNOWN_OPEN_MODELS
+    if len(known_models) > 1:
+        raise ValueError("Cannot replay different hourly execution models together")
+    causal_hourly = bool(known_models)
     opening_prices = timeseries_execution.decision_open_prices(base, sleeves) if causal_hourly else None
     result = execution_portfolio.combine(
         base, sleeves, cfg, portfolio_risk.DrawdownRiskPolicy(), start, decision_open_prices=opening_prices)
@@ -55,6 +59,7 @@ def replay(base, sleeves, cfg, start, funding_events, initial=10000, cost_multip
                   "position_id": point["position_id"], "origin_signal_time_ms": point["origin_signal_time_ms"]}
         halt = result["risk_diagnostics"]["hard_halt_time_ms"]
         report = {**(entry_report or {}),
+                  "execution_model": next(iter(known_models)) if causal_hourly else "legacy_research",
                   "risk_diagnostics": {"hard_halt_time_ms": halt if halt is not None and halt <= now_ms else None}}
         execution = account.reconcile(target, next_bar.open, rules or DEFAULT_SIMULATION_RULES, report,
                                       funding_events=events, now_ms=now_ms)
@@ -101,7 +106,7 @@ def replay(base, sleeves, cfg, start, funding_events, initial=10000, cost_multip
             "equity_curve": equity_curve, "fills": fills,
             "funding_settlements": state["funding_settlements"],
             "research_only": True, "places_orders": False,
-            "execution_model": timeseries_execution.MODEL if causal_hourly else "legacy_research",
+            "execution_model": next(iter(known_models)) if causal_hourly else "legacy_research",
             "entry_gate_diagnostics": {
                 "execution_checks": gate_checks, "allowed_checks": gate_allowed,
                 "blocked_checks": gate_checks-gate_allowed, "reason_counts": gate_reasons,
@@ -191,7 +196,8 @@ def run_selected_strategy(args):
     opening = timeseries_execution.opening_from_base(data['5m'], data[cfg.timeseries_timeframe][-1].close_time_ms+1, asof)
     sleeves = [sim.simulate(data['5m'],replace(cfg,strategy_modes=('trend',)),start,None,funding),
                timeseries_execution.build_sleeve(data[cfg.timeseries_timeframe],replace(cfg,strategy_modes=('timeseries_trend',)),
-                   start,funding,opening=opening,asof_ms=asof)]
+                   start,funding,opening=opening,asof_ms=asof,
+                   activation_ms=start if timeseries_execution.startup_enabled(profile) else None)]
     annotate_open_position_fractions(sleeves)
     execution_targets.prepare_sleeves(sleeves)
     factor = multifactor.load_snapshot(captured["factor"], "first_seen")
@@ -218,13 +224,14 @@ def run_selected_strategy(args):
                    "factor_diagnostics":factor_diagnostics, "event_diagnostics":event_diagnostics,
                    "public_coverage_blocked_entries":coverage_blocked,
                    "raw_price_signal_records":sum(len(s['trades']) for s in sleeves),
+                   "hourly_startup":sleeves[1].get('hourly_startup'),
                    "cost_multiplier":args.cost_multiplier,
                    "captured_inputs":{name:str(path) for name,path in captured.items()},
                    "input_sha256":{str(p):frozen_strategy.sha256_file(p) for p in captured.values()},
                    "code_sha256":{name:frozen_strategy.sha256_file(root/'scripts'/name) for name in (
                        'backtest_execution.py','active_strategy.py','multifactor.py','event_risk.py','public_context.py',
                        'timeseries_execution.py','execution_portfolio.py','execution_targets.py','trading_execution.py',
-                       'execution_ledger.py','portfolio_risk.py','simulate_range_swing.py')},
+                       'execution_ledger.py','portfolio_risk.py','simulate_range_swing.py','research_signal_engine.py')},
                    "limitations":report['limitations'] + [
                        "Missing or expired first-seen inputs block entries; coverage gaps are not profitable-strategy evidence.",
                        "Filtered sleeve trades are precomputed; rejected-entry opportunity paths are not fully resimulated.",

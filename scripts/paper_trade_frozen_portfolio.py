@@ -214,10 +214,18 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             profile["public_context_sha256"] = frozen_strategy.sha256_file(Path(public_context.__file__))
             profile["event_risk_sha256"] = frozen_strategy.sha256_file(Path(event_risk.__file__))
     causal_hourly = args.tiered_drawdown and research_profile is None
+    startup_hourly = timeseries_execution.startup_enabled(factor_profile)
+    if startup_hourly and not causal_hourly:
+        raise ValueError("Hourly startup requires the corrected non-research hourly execution model")
     if causal_hourly:
-        profile["hourly_execution_model"] = timeseries_execution.MODEL
+        profile["hourly_execution_model"] = (timeseries_execution.STARTUP_MODEL if startup_hourly
+                                              else timeseries_execution.MODEL)
         profile["hourly_execution_sha256"] = frozen_strategy.sha256_file(Path(timeseries_execution.__file__))
         profile["execution_portfolio_sha256"] = frozen_strategy.sha256_file(Path(execution_portfolio.__file__))
+        if startup_hourly:
+            import research_signal_engine
+            profile["hourly_startup_enabled"] = True
+            profile["hourly_signal_replay_sha256"] = frozen_strategy.sha256_file(Path(research_signal_engine.__file__))
     if research_profile:
         profile["research_profile_sha256"] = frozen_strategy.sha256_file(research_profile_path)
         profile["research_candidate_id"] = research_profile["candidate_id"]
@@ -276,7 +284,8 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             if opening is None:
                 opening = timeseries_execution.fetch_opening(symbol, cfg.timeseries_timeframe, opening_time, now_ms)
             core = timeseries_execution.build_sleeve(trend_candles, core_cfg, evaluation_start_ms,
-                funding, opening=opening, asof_ms=now_ms)
+                funding, opening=opening, asof_ms=now_ms,
+                activation_ms=evaluation_start_ms if startup_hourly else None)
         else:
             core = sim.simulate_timeseries_trend(trend_candles, core_cfg, evaluation_start_ms, funding)
         sleeves = [tactical, core]
@@ -371,7 +380,8 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
                 "macro_factors": list(macro_factors), "macro_min_multiplier": args.macro_min_multiplier,
                 "macro_block_score": args.macro_block_score,
             },
-            "execution_model": timeseries_execution.MODEL if causal_hourly else "legacy_research",
+            "execution_model": core["execution_timing"]["model"] if causal_hourly else "legacy_research",
+            "hourly_startup": core.get("hourly_startup") if causal_hourly else None,
         }
     )
     state["observations"] = int(state["observations"]) + 1

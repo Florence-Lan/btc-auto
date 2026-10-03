@@ -13,6 +13,7 @@ from binance_terminal_client import BinanceTerminalClient
 from llm_trade_gate import apply_llm_trade_gate
 from account_risk import constrain_target, block_increases
 import execution_entry_gate
+import timeseries_execution
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -97,6 +98,9 @@ def apply_startup_entry_guard(
     state: dict[str, Any],
     target: dict[str, Any],
     current_qty: float,
+    *,
+    allow_fresh_signal: bool = False,
+    now_ms: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
     guarded = dict(target)
     position_id = str(target.get("position_id") or "")
@@ -121,6 +125,18 @@ def apply_startup_entry_guard(
         and state.get("signal_time_ms") is None
         and not bool(state.get("observed_flat_target"))
     )
+    if first_observation and allow_fresh_signal:
+        origin = target.get("origin_signal_time_ms")
+        try:
+            inception_ms = int(datetime.fromisoformat(state["created_at_utc"].replace("Z", "+00:00")).timestamp() * 1000)
+        except (KeyError, ValueError, TypeError):
+            inception_ms = None
+        if (isinstance(origin, int) and not isinstance(origin, bool) and inception_ms is not None
+                and now_ms is not None and inception_ms <= origin <= now_ms):
+            state["observed_flat_target"] = True
+            state["blocked_target_id"] = None
+            return guarded, {"status": "fresh_signal_allowed", "position_id": position_id,
+                             "origin_signal_time_ms": origin}
     if blocked_id == position_id or first_observation:
         state["blocked_target_id"] = position_id
         guarded["target_leverage"] = 0.0
@@ -376,6 +392,8 @@ class SimulationAccount:
             state,
             target,
             current_qty,
+            allow_fresh_signal=(report or {}).get("execution_model") == timeseries_execution.STARTUP_MODEL,
+            now_ms=now_ms,
         )
         state["entry_guard"] = entry_guard
         effective_target, risk = constrain_target(state, effective_target, equity, current_qty,

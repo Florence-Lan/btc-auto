@@ -1,5 +1,7 @@
 {
-  "candidate_path": "config/multifactor_trial_20261002.json",
-  "activated_by": "user_request_20261002",
-  "execution_mode": "simulation"
+  "candidate_path": "config/multifactor_startup_20261003.json",
+  "activated_by": "user_requested_startup_fix_20261003",
+  "execution_mode": "simulation",
+  "activated_at_utc": "2026-10-03T13:09:58.902385+00:00",
+  "previous_candidate_path": "config/multifactor_trial_20261002.json"
 }

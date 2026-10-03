@@ -601,6 +601,7 @@ class TerminalController:
             "equity_curve": equity_curve,
             "strategy": {
                 "candidate_id": candidate.get("candidate_id"),
+                "hourly_startup": report.get("hourly_startup"),
                 "strategy_modes": candidate.get("strategy_modes", []),
                 "macro_factors": list(candidate.get("groups", {})) if candidate.get("factor_profile") else candidate.get("macro", {}).get("factors", []),
                 "observations": state.get("observations", 0),
