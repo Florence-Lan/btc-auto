@@ -13,12 +13,14 @@ from typing import Any
 import frozen_strategy
 import event_risk
 import execution_targets
+import execution_portfolio
 import forward_macro
 import macro_regime
 import multifactor
 import portfolio_risk
 import public_context
 import simulate_range_swing as sim
+import timeseries_execution
 
 
 def parse_utc_ms(value: str) -> int:
@@ -211,6 +213,11 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
         if public is not None:
             profile["public_context_sha256"] = frozen_strategy.sha256_file(Path(public_context.__file__))
             profile["event_risk_sha256"] = frozen_strategy.sha256_file(Path(event_risk.__file__))
+    causal_hourly = args.tiered_drawdown and research_profile is None
+    if causal_hourly:
+        profile["hourly_execution_model"] = timeseries_execution.MODEL
+        profile["hourly_execution_sha256"] = frozen_strategy.sha256_file(Path(timeseries_execution.__file__))
+        profile["execution_portfolio_sha256"] = frozen_strategy.sha256_file(Path(execution_portfolio.__file__))
     if research_profile:
         profile["research_profile_sha256"] = frozen_strategy.sha256_file(research_profile_path)
         profile["research_candidate_id"] = research_profile["candidate_id"]
@@ -259,12 +266,19 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             None,
             funding,
         )
-        core = sim.simulate_timeseries_trend(
-            trend_candles,
-            replace(sleeve_cfg, strategy_modes=("timeseries_trend",)),
-            evaluation_start_ms,
-            funding,
-        )
+        core_cfg = replace(sleeve_cfg, strategy_modes=("timeseries_trend",))
+        if causal_hourly:
+            opening_time = trend_candles[-1].close_time_ms + 1
+            step = sim.interval_to_ms(cfg.timeseries_timeframe)
+            if opening_time != now_ms // step * step:
+                raise ValueError("Closed hourly history is stale at the decision boundary")
+            opening = timeseries_execution.opening_from_base(base_candles, opening_time, now_ms)
+            if opening is None:
+                opening = timeseries_execution.fetch_opening(symbol, cfg.timeseries_timeframe, opening_time, now_ms)
+            core = timeseries_execution.build_sleeve(trend_candles, core_cfg, evaluation_start_ms,
+                funding, opening=opening, asof_ms=now_ms)
+        else:
+            core = sim.simulate_timeseries_trend(trend_candles, core_cfg, evaluation_start_ms, funding)
         sleeves = [tactical, core]
     annotate_open_position_fractions(sleeves)
     execution_targets.prepare_sleeves(sleeves)
@@ -315,13 +329,15 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             args.hard_drawdown_stop_pct,
             args.drawdown_min_multiplier,
         )
-        result = portfolio_risk.combine_sleeves_with_drawdown_policy(
+        result = execution_portfolio.combine(
             base_candles,
             sleeves,
             cfg,
             policy,
             evaluation_start_ms,
             include_execution_target=True,
+            decision_open_prices=(timeseries_execution.decision_open_prices(base_candles, sleeves)
+                                  if causal_hourly else None),
         )
         # Position sizing uses the open mark, without fictitious terminal liquidation costs.
         result["execution_target"] = execution_targets.current_target(base_candles, sleeves, result, cfg)
@@ -346,6 +362,16 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             "multifactor_overlay": factor_diagnostics,
             "research_only": bool(factor_profile or research_profile),
             "research_candidate": research_profile["candidate_id"] if research_profile else None,
+            "execution_entry_context": {
+                "factor_profile": str(factor_profile_path.resolve()) if factor_profile_path else None,
+                "factor_profile_sha256": multifactor.profile_hash(factor_profile) if factor_profile else None,
+                "factor_snapshot": str(factor_snapshot_path.resolve()) if factor_snapshot_path else None,
+                "event_snapshot": str(args.event_snapshot.resolve()) if args.event_snapshot else None,
+                "macro_snapshot": str(args.macro_snapshot.resolve()) if args.macro_snapshot else None,
+                "macro_factors": list(macro_factors), "macro_min_multiplier": args.macro_min_multiplier,
+                "macro_block_score": args.macro_block_score,
+            },
+            "execution_model": timeseries_execution.MODEL if causal_hourly else "legacy_research",
         }
     )
     state["observations"] = int(state["observations"]) + 1

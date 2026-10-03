@@ -37,6 +37,10 @@ def _utc_ms(value: str) -> int:
 
 def load_event_snapshot(path: Path) -> tuple[RiskEvent, ...]:
     payload = json.loads(path.read_text(encoding="utf-8"))
+    return events_from_payload(payload)
+
+
+def events_from_payload(payload: Mapping[str, Any]) -> tuple[RiskEvent, ...]:
     if payload.get("schema_version") != 1:
         raise ValueError("Unsupported event snapshot schema")
     events: list[RiskEvent] = []

@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import multifactor
+import active_strategy
 import simulate_range_swing as sim
 
 
@@ -20,19 +21,28 @@ def record_status(root, candidate, status, stage, returncode):
     })
 
 
-def main():
+def parse_args(argv=None):
     root = sim.repo_root()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--poll-seconds", type=int, default=300)
-    parser.add_argument("--profile", type=Path, default=root / "config/multifactor_candidate_20260927.json")
+    parser.add_argument("--profile", type=Path, help="Defaults to the terminal's selected strategy")
     parser.add_argument("--snapshot", type=Path, default=root / "data/snapshots/multifactor_latest.json.gz")
     parser.add_argument("--research-profile", type=Path, help="Optional isolated reentry candidate")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.poll_seconds < 60:
         parser.error("--poll-seconds must be >= 60")
+    args.profile = args.profile or active_strategy.candidate_path()
+    return args
+
+
+def main():
+    root = sim.repo_root()
+    args = parse_args()
     profile = multifactor.load_profile(args.profile)
-    candidate = profile["candidate_id"]
+    # This command observes the selected rules independently; it must never
+    # overwrite the terminal's active forward state/report.
+    candidate = profile["candidate_id"] + "_shadow"
     if args.research_profile:
         import reentry_candidate
         research = reentry_candidate.load_candidate(args.research_profile, root / profile["base_manifest"])

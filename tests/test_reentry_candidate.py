@@ -39,11 +39,11 @@ def test_failed_collection_skips_paper_run_and_persists_health(tmp_path):
     profile = {"candidate_id": "test_candidate", "base_manifest": "unused", "event_snapshot": "unused"}
     with patch.object(runner.sim, "repo_root", return_value=tmp_path), \
          patch.object(runner.multifactor, "load_profile", return_value=profile), \
-         patch.object(runner.sys, "argv", ["runner", "--once"]), \
+         patch.object(runner.sys, "argv", ["runner", "--once", "--profile", str(tmp_path / "profile.json")]), \
          patch.object(runner.subprocess, "run", return_value=SimpleNamespace(returncode=1)) as run:
         assert runner.main() == 1
     assert run.call_count == 1
-    status = json.loads((tmp_path / "data/paper_trading/test_candidate_status.json").read_text())
+    status = json.loads((tmp_path / "data/paper_trading/test_candidate_shadow_status.json").read_text())
     assert status["status"] == "degraded"
     assert status["stage"] == "factor_collection"
     assert status["places_orders"] is False

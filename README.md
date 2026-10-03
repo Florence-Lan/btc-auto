@@ -1,5 +1,21 @@
 # BTC Auto
 
+The simulation terminal, execution backtest and independent observation runner default to
+the strategy selected in `config/active_simulation_candidate.json`. The current selection
+uses six factor groups, news/calendars, policy expectations, account risk controls and
+the corrected hourly execution model. Backtests use the same selected rules and recheck
+entry permissions at every execution timestamp. See
+[the current strategy backtest](docs/latest_strategy_backtest_20261003.md).
+
+October 3 execution update: entries and additions now recheck current factor permissions,
+event windows and source health immediately before execution, including retries of an old
+target. Reductions and exits remain available when entries are blocked. Hourly targets use
+closed signals plus the known next opening price, without unfinished hourly OHLC or volume.
+The frozen signal parameters and drawdown thresholds remain unchanged. See
+[repair details and activation evidence](docs/execution_integrity_fixes_20261003.md).
+Run `.venv/bin/python scripts/validate_execution_integrity.py` for the local historical
+cutoff regression. Previous return comparisons retain their recorded execution model.
+
 October 1 execution update: account drawdown now constrains the executed target independently
 of the shadow ledger, with an 8% soft reduction and a latched 15% flattening stop. Simulation
 settles actual historical funding against its recorded inventory, archives all fills, and
@@ -10,28 +26,14 @@ Run `.venv/bin/python scripts/validate_execution_model.py` for comparisons using
 simulated account, including fees, funding and exchange quantity constraints. The frozen signal
 parameters remain unchanged; the protected-exit alternative did not pass the comparison.
 
-September 27 update: the default multifactor shadow runner now uses a new candidate with
-automatic Fed/ECB/UN news, official FOMC/economic calendars, and named-contract Fed funds
-futures expectations. Source health, first-seen times, calendar revisions and premeeting
-expectation archives are enforced. See [data sources, behavior and limitations](docs/multifactor_strategy.md).
-`python scripts/run_multifactor_shadow.py --once` performs one order-disabled forward cycle;
-omit `--once` to keep refreshing and observing. No background service is installed automatically.
-
-September 26 update: a separate, order-disabled [multifactor research candidate](docs/multifactor_strategy.md)
-now includes BTC momentum, derivatives positioning, Fed policy/balance-sheet data, nominal/real
-Treasury yields, major FX rates, and global risk indicators. Its initial comparison failed the
-return/drawdown gates, so it has **not replaced the current terminal strategy**. Run
-`python scripts/run_multifactor_shadow.py --once` for a separate forward observation.
-The terminal supervisor currently selects the September 17 candidate (1h EMA 48/240,
-0.40% spread threshold); the profiles described below include older research generations.
-
-BTCUSDT futures strategy research and paper-trading tools. The default portfolio combines
-the tactical `trend` strategy with a six-hour `timeseries_trend` sleeve. Experimental event
-modules are not promoted automatically.
-
-The active v3 shadow profile uses `48/240` EMAs on one-hour candles, requires a 0.30%
-fast/slow EMA spread before changing direction, and targets 11% annualized volatility.
-It remains shadow-only until prospective promotion gates pass.
+BTCUSDT futures strategy research and paper-trading tools. The selected simulation combines
+the tactical `trend` strategy with a one-hour `timeseries_trend` sleeve (EMA 48/240,
+0.40% spread threshold, 11% target annualized volatility). Six groups cover BTC momentum,
+positioning, Fed policy, Treasury yields, FX and global risk. Automatic Fed/ECB/UN news,
+official economic calendars and named-contract Fed-funds expectations provide additional
+risk context. See [sources and limitations](docs/information_activation_20261002.md).
+`python scripts/run_multifactor_shadow.py --once` runs the selected rules in independent
+`*_shadow_*` files; omit `--once` to keep observing. It preserves the terminal's active state.
 
 ## Reproducible Data
 
@@ -49,7 +51,21 @@ the snapshot SHA-256.
 
 ## Backtests
 
-Current default portfolio:
+Selected strategy, including execution costs, funding, current entry checks and hourly timing:
+
+```sh
+.venv/bin/python scripts/backtest_execution.py \
+  --market-snapshot data/validation/current_backtest_20261003/market_extended.json.gz \
+  --funding-snapshot data/validation/current_backtest_20261003/funding_extended.json \
+  --start-utc 2026-09-27T02:15:00Z --end-utc 2026-10-03T03:10:00Z \
+  --output data/validation/latest_strategy_backtest.json
+```
+
+The command captures the selected profile and source snapshots before replay. Missing
+first-seen history remains missing; the command refuses a start before public-context
+collection. Use `--cost-multiplier 2` for doubled execution fees/slippage.
+
+Frozen price-engine research:
 
 ```powershell
 python scripts\simulate_range_swing.py --days 365 --max-drawdown-stop-pct 0

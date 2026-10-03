@@ -25,7 +25,7 @@ def prepare_sleeves(sleeves):
                         + abs(signed * point["price"]) * cfg["taker_fee"])
                 interval = sim.interval_to_ms(cfg["timeseries_timeframe"] if trade["strategy"].startswith("timeseries") else "5m")
                 trade["_execution_terminal_observation"] = {
-                    "time_ms": int(point["time_ms"]) + interval - 1,
+                    "time_ms": int(point.get("available_time_ms", int(point["time_ms"]) + interval - 1)),
                     "remaining_fraction": abs(signed) / qty, "cash_per_unit": cash / qty}
             completed += trade["net_pnl"]
 
@@ -54,7 +54,7 @@ def target_stream(base, sleeves, result, cfg):
     events.sort(key=lambda item: item[:3])
     active, cursor = {}, 0
     for point in result["equity_curve"]:
-        close_ms = int(point["time_ms"]) + 300_000 - 1
+        close_ms = int(point.get("available_time_ms", int(point["time_ms"]) + 300_000 - 1))
         while cursor < len(events) and events[cursor][0] <= close_ms:
             _, _, identity, kind, trade, event = events[cursor]
             cursor += 1

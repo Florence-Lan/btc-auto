@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import event_risk
+import active_strategy
 import frozen_strategy
 import macro_regime
 import multifactor
@@ -73,14 +74,15 @@ def public_coverage(base, start, public):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--profile", type=Path, default=Path("config/multifactor_candidate_20260926.json"))
+    parser.add_argument("--profile", type=Path, help="Defaults to the terminal's selected strategy")
     parser.add_argument("--factor-snapshot", type=Path, default=Path("data/snapshots/multifactor_latest.json.gz"))
     parser.add_argument("--market-snapshot", type=Path, required=True)
     parser.add_argument("--legacy-macro-snapshot", type=Path)
     parser.add_argument("--event-snapshot", type=Path)
     parser.add_argument("--start-utc", required=True)
-    parser.add_argument("--output", type=Path, default=Path("data/validation/multifactor_20260926.json"))
+    parser.add_argument("--output", type=Path, default=Path("data/validation/selected_strategy_factor_validation.json"))
     args = parser.parse_args()
+    args.profile = args.profile or active_strategy.candidate_path()
     profile = multifactor.load_profile(args.profile)
     manifest, cfg = frozen_strategy.load_frozen_strategy(sim.repo_root() / profile["base_manifest"])
     cfg = replace(cfg, max_drawdown_stop_pct=0)

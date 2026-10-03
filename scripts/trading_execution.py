@@ -12,6 +12,7 @@ from typing import Any, Mapping
 from binance_terminal_client import BinanceTerminalClient
 from llm_trade_gate import apply_llm_trade_gate
 from account_risk import constrain_target, block_increases
+import execution_entry_gate
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -351,6 +352,7 @@ class SimulationAccount:
         rules: Mapping[str, Decimal] | None = None,
         report: Mapping[str, Any] | None = None,
         *, funding_events=(), funding_available: bool = True, now_ms: int | None = None,
+        execution_clock=None,
     ) -> dict[str, Any]:
         state = self.load()
         now_ms = now_ms if now_ms is not None else int(datetime.now(timezone.utc).timestamp() * 1000)
@@ -388,10 +390,29 @@ class SimulationAccount:
         else:
             llm_trade_gate = {"enabled": False, "status": "disabled_historical_replay"}
         state["llm_trade_gate"] = llm_trade_gate
+        # The LLM/provider may have crossed a calendar boundary. Production
+        # injects the exchange clock; historical replays keep their explicit clock.
+        clock_failed = False
+        if execution_clock is not None:
+            try:
+                now_ms = int(execution_clock())
+            except (RuntimeError, OSError, ValueError, TypeError):
+                # Losing the fresh exchange clock must not become an exit blocker.
+                now_ms = max(now_ms, int(datetime.now(timezone.utc).timestamp() * 1000))
+                clock_failed = True
+        entry_gate = execution_entry_gate.decision_at(
+            report, now_ms, "long" if effective_target["target_leverage"] >= 0 else "short")
+        if clock_failed:
+            entry_gate.update(allowed=False, status="blocked")
+            entry_gate["reasons"].append("execution_clock_unavailable")
+        state["execution_entry_gate"] = entry_gate
         target_notional = float(effective_target["target_leverage"]) * equity
         target_notional = max(-max_notional, min(max_notional, target_notional))
         target_qty = target_notional / mark_price if mark_price > 0 else 0.0
+        target_qty = execution_entry_gate.constrain_quantity(target_qty, current_qty, entry_gate)
         target_qty = quantize_signed_quantity(target_qty, rules)
+        if not entry_gate["allowed"]:
+            effective_target["target_leverage"] = target_qty * mark_price / max(equity, 1e-12)
         active_rules = rules or DEFAULT_SIMULATION_RULES
         fill = self._fill_to(state, target_qty, mark_price, now_ms, int(target["signal_time_ms"]), active_rules)
         state["last_signal_time_ms"] = int(target["signal_time_ms"])
@@ -429,6 +450,7 @@ class SimulationAccount:
             "funding_pnl": state["funding_pnl"],
             "entry_guard": entry_guard,
             "llm_trade_gate": llm_trade_gate,
+            "execution_entry_gate": entry_gate,
             "account": self.snapshot(mark_price)["account"],
         }
 
@@ -503,10 +525,14 @@ class LiveExecutor:
             mode="live",
             previous_decision=history.get("llm_trade_gate"),
         )
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        entry_side = "long" if effective_target["target_leverage"] >= 0 else "short"
+        entry_gate = execution_entry_gate.decision_at(report, now_ms, entry_side)
         desired_notional = float(effective_target["target_leverage"]) * max(equity, 0.0)
         desired_notional = max(-max_notional, min(max_notional, desired_notional))
-        target_qty = self.client.quantize_quantity(desired_notional / mark_price, SYMBOL)
-        if desired_notional < 0:
+        desired_qty = execution_entry_gate.constrain_quantity(desired_notional / mark_price, current_qty, entry_gate)
+        target_qty = self.client.quantize_quantity(desired_qty, SYMBOL)
+        if desired_qty < 0:
             target_qty = -target_qty
         orders: list[Any] = []
         signal_time = int(target["signal_time_ms"])
@@ -521,6 +547,13 @@ class LiveExecutor:
                 reduce_only=True,
             ))
             current_qty = 0.0
+
+        # Closing a reversal can take time. Recheck immediately before its new
+        # exposure rather than reuse the approval from before the close request.
+        entry_gate = execution_entry_gate.decision_at(report,
+            int(datetime.now(timezone.utc).timestamp() * 1000), entry_side)
+        target_qty = execution_entry_gate.constrain_quantity(target_qty, current_qty, entry_gate)
+        effective_target["target_leverage"] = target_qty * mark_price / max(equity, 1e-12)
 
         delta = target_qty - current_qty
         delta_qty = self.client.quantize_quantity(delta, SYMBOL)
@@ -588,6 +621,7 @@ class LiveExecutor:
             "blocked_target_id": history.get("blocked_target_id"),
             "entry_guard": entry_guard,
             "llm_trade_gate": llm_trade_gate,
+            "execution_entry_gate": entry_gate,
             "account_risk": risk,
             "risk_halt_at_utc": history.get("risk_halt_at_utc"),
             "risk_halt_reason": history.get("risk_halt_reason"),
@@ -648,5 +682,6 @@ def execute_report(
             client.symbol_rules(SYMBOL),
             report,
             funding_events=events, funding_available=available, now_ms=now_ms,
+            execution_clock=client.server_time_ms,
         )
     return LiveExecutor(client).reconcile(target, mark_price, report)
