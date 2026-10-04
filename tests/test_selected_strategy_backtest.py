@@ -128,6 +128,30 @@ def test_selected_pipeline_refuses_to_invent_missing_context_history(tmp_path):
     assert not args.output.exists()
 
 
+def test_selected_pipeline_uses_tenfold_profile_and_replay_report_caps(tmp_path, monkeypatch):
+    args = selected_inputs(tmp_path)
+    profile = json.loads(args.profile.read_text())
+    profile['risk_limits']['portfolio_leverage_cap'] = 10
+    args.profile.write_text(json.dumps(profile))
+    monkeypatch.delenv('SIM_MAX_LEVERAGE', raising=False)
+    original = backtest.SimulationAccount.reconcile
+    seen = []
+
+    def reconcile(account, target, mark, rules, report, **kwargs):
+        seen.append(report['config']['portfolio_leverage_cap'])
+        return original(account, target, mark, rules, report, **kwargs)
+
+    monkeypatch.setattr(backtest.SimulationAccount, 'reconcile', reconcile)
+    report = backtest.run_selected_strategy(args)
+    assert seen and set(seen) == {10}
+    assert report['config']['leverage'] == 10
+    assert report['config']['timeseries_max_leverage'] == 10
+    assert report['config']['portfolio_leverage_cap'] == 10
+    assert report['runtime_risk_limits']['simulation_leverage_cap'] == 10
+    assert report['effective_config_sha256'] == frozen_strategy.canonical_config_hash(report['config'])
+    assert report['summary']['fills'] > 0
+
+
 def test_independent_observation_does_not_overwrite_terminal_state(tmp_path,monkeypatch):
     from types import SimpleNamespace
     from unittest.mock import Mock

@@ -1,5 +1,11 @@
 # BTC Auto
 
+October 4 leverage update: the selected `btc_multifactor_regular_10x_20261004`
+simulation generation uses a 10x ceiling across tactical/hourly sizing, portfolio
+risk, execution and the terminal. Actual positions still follow the original risk
+budget and volatility target. The existing account and earlier 2x reports are
+preserved. See [the change and activation record](docs/leverage_ceiling_20261004.md).
+
 October 4 data resilience update: public exchange reads can recover from a failed
 TLS connection through a second verified transport. The supervisor uses an
 incremental cache of complete candles and funding coverage, records strategy
@@ -7,7 +13,7 @@ judgments separately from execution, and retries a current report after an
 execution-data failure. Missing current inputs are visible as unavailable.
 See [implementation and activation evidence](docs/data_resilience_20261004.md).
 
-October 4 simulation update: the selected `btc_multifactor_regular_20261004`
+October 4 simulation update: the `btc_multifactor_regular_20261004`
 generation disables the one-time hourly trend startup. The previously opened
 0.002 BTC simulated position was closed at the user's request, with normal fees
 and accounting. The supervisor continues evaluating each newly closed five-minute

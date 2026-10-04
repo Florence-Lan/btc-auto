@@ -11,6 +11,7 @@ from pathlib import Path
 import run_macro_candidate_shadow as strategy_supervisor
 import simulate_range_swing as sim
 import decision_runtime
+from active_strategy import simulation_leverage_cap
 from binance_terminal_client import BinanceApiError, BinanceTerminalClient, datetime_from_ms
 from trading_execution import (
     LIVE_STATE_PATH,
@@ -114,7 +115,8 @@ def run_cycle(args: argparse.Namespace, client: BinanceTerminalClient, *,
         raise RuntimeError("Strategy target is ahead of the verified decision clock")
     if required_bar is not None and int(point.get("time_ms") or 0) != required_bar:
         raise RuntimeError("Strategy report does not match the due closed candle")
-    target = target_from_report(report, now_ms=asof_ms)
+    target = target_from_report(report, now_ms=asof_ms,
+                                leverage_cap=simulation_leverage_cap(report))
     judgment = {
         "mode": args.mode, "places_orders": False,
         "report_path": str(args.report_path.resolve()), "account_epoch": (read_json(SIMULATION_STATE_PATH, {}) or {}).get("created_at_utc"),

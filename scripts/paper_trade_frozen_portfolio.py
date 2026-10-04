@@ -5,11 +5,12 @@ import argparse
 import json
 import time
 import traceback
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import active_strategy
 import frozen_strategy
 import event_risk
 import execution_targets
@@ -162,6 +163,8 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
     if bool(factor_profile_path) != bool(factor_snapshot_path):
         raise ValueError("--factor-profile and --factor-snapshot must be supplied together")
     factor_profile = multifactor.load_profile(factor_profile_path) if factor_profile_path else None
+    cfg = active_strategy.apply_risk_limits(cfg, factor_profile)
+    runtime_cap = active_strategy.simulation_leverage_cap(strategy_cap=cfg.portfolio_leverage_cap)
     if factor_profile and factor_profile["availability_mode"] != "first_seen":
         raise ValueError("Forward shadow requires first_seen factor availability")
     if factor_profile and args.macro_snapshot:
@@ -377,6 +380,13 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             "places_orders": False,
             "freeze_id": manifest["freeze_id"],
             "config_sha256": manifest["config_sha256"],
+            "effective_config_sha256": frozen_strategy.canonical_config_hash(asdict(cfg)),
+            "runtime_risk_limits": {
+                "leverage": cfg.leverage,
+                "timeseries_max_leverage": cfg.timeseries_max_leverage,
+                "portfolio_leverage_cap": cfg.portfolio_leverage_cap,
+                "simulation_leverage_cap": runtime_cap,
+            },
             "paper_inception_utc": state["created_at_utc"],
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "macro_overlay": macro_diagnostics,

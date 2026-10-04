@@ -13,6 +13,7 @@ from typing import Any, Mapping
 from binance_terminal_client import BinanceTerminalClient
 from llm_trade_gate import apply_llm_trade_gate
 from account_risk import constrain_target, block_increases
+from active_strategy import simulation_leverage_cap
 import execution_entry_gate
 import timeseries_execution
 
@@ -380,6 +381,14 @@ class SimulationAccount:
             "equity": float(state["wallet_balance"]),
         }
         qty = float(state.get("position_qty", 0))
+        stored_cap = float(state.get("simulation_leverage_cap", 2.0))
+        # A zero execution bound disables exposure; it is not a zero strategy
+        # limit. Still validate the current environment when reporting margin.
+        leverage_cap = simulation_leverage_cap(strategy_cap=stored_cap if stored_cap != 0 else 2.0)
+        if stored_cap == 0:
+            leverage_cap = 0.0
+        reserved_margin = abs(qty * price) / leverage_cap if leverage_cap > 0 else (
+            marked["equity"] if abs(qty) > 1e-12 else 0.0)
         positions = []
         if abs(qty) > 1e-12:
             positions.append({
@@ -398,7 +407,8 @@ class SimulationAccount:
             "state": state,
             "account": {
                 "wallet_balance": float(state["wallet_balance"]),
-                "available_balance": max(marked["equity"] - abs(qty * price) / 2, 0.0),
+                "available_balance": max(marked["equity"] - reserved_margin, 0.0),
+                "simulation_leverage_cap": leverage_cap,
                 "unrealized_pnl": marked["unrealized_pnl"],
                 "margin_balance": marked["equity"],
                 "margin_ratio_pct": 0.0,
@@ -456,10 +466,11 @@ class SimulationAccount:
         elif funding_available:
             state["funding_last_fetch_ms"] = now_ms
         marked = self._mark(state, mark_price)
-        leverage_cap = min(float(os.getenv("SIM_MAX_LEVERAGE", "2") or 2), 2.0)
+        leverage_cap = simulation_leverage_cap(report)
         configured_cap = float(os.getenv("SIM_MAX_NOTIONAL_USDT", "0") or 0)
         if not math.isfinite(leverage_cap) or leverage_cap < 0 or not math.isfinite(configured_cap) or configured_cap < 0:
             raise ValueError("Invalid simulation leverage or notional cap")
+        state["simulation_leverage_cap"] = leverage_cap
         equity = max(marked["equity"], 0.0)
         natural_cap = equity * leverage_cap
         max_notional = min(natural_cap, configured_cap) if configured_cap > 0 else natural_cap
@@ -523,6 +534,9 @@ class SimulationAccount:
         if not funding_covered:
             effective_target = block_increases(effective_target, current_qty, equity, mark_price)
         state["funding_status"] = "ok" if funding_covered else "unavailable_new_risk_blocked"
+        target_cap = max_notional / max(equity, 1e-12)
+        effective_target["target_leverage"] = max(-target_cap, min(
+            target_cap, float(effective_target["target_leverage"])))
         target_notional = float(effective_target["target_leverage"]) * equity
         target_notional = max(-max_notional, min(max_notional, target_notional))
         target_qty = target_notional / mark_price if mark_price > 0 else 0.0
@@ -560,6 +574,7 @@ class SimulationAccount:
             "mode": "simulation",
             "target_leverage": effective_target["target_leverage"],
             "desired_target_leverage": target["target_leverage"],
+            "simulation_leverage_cap": leverage_cap,
             "target_qty": target_qty,
             "fill": fill,
             "risk_fill": risk_fill,
@@ -800,7 +815,8 @@ def execute_report(
         import decision_runtime
         account = SimulationAccount()
         clock = decision_runtime.resolve_clock(client)
-        target = target_from_report(report, now_ms=clock["time_ms"], max_age_seconds=max_age)
+        target = target_from_report(report, now_ms=clock["time_ms"], max_age_seconds=max_age,
+                                    leverage_cap=simulation_leverage_cap(report))
         rules = client.symbol_rules(SYMBOL)
         # The next settlement comes from the exchange, never a guessed fixed
         # funding interval. Keep it from BEFORE the fetch to detect crossings.
@@ -832,7 +848,8 @@ def execute_report(
             observation = client.mark_price_observation(SYMBOL)
             clock = decision_runtime.resolve_clock(client, mark_observation=observation)
             observed = decision_runtime.validate_mark(observation, clock["time_ms"])
-        target = target_from_report(report, now_ms=clock["time_ms"], max_age_seconds=max_age)
+        target = target_from_report(report, now_ms=clock["time_ms"], max_age_seconds=max_age,
+                                    leverage_cap=simulation_leverage_cap(report))
         client.simulation_clock = clock
         return account.reconcile(
             target,

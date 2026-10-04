@@ -1,7 +1,7 @@
 """Replay five-minute target execution with the same simulated account as the terminal."""
 import argparse
 from bisect import bisect_left
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from datetime import datetime, timezone
 import json
@@ -25,6 +25,7 @@ from download_market_snapshot import validate_contiguous
 
 def replay(base, sleeves, cfg, start, funding_events, initial=10000, cost_multiplier=1,
            rules=None, lag_ms=3000, entry_report=None):
+    runtime_cap = active_strategy.simulation_leverage_cap(strategy_cap=cfg.portfolio_leverage_cap)
     models = {s.get("execution_timing", {}).get("model") for s in sleeves}
     known_models = models & timeseries_execution.KNOWN_OPEN_MODELS
     if len(known_models) > 1:
@@ -59,6 +60,7 @@ def replay(base, sleeves, cfg, start, funding_events, initial=10000, cost_multip
                   "position_id": point["position_id"], "origin_signal_time_ms": point["origin_signal_time_ms"]}
         halt = result["risk_diagnostics"]["hard_halt_time_ms"]
         report = {**(entry_report or {}),
+                  "config": asdict(cfg),
                   "execution_model": next(iter(known_models)) if causal_hourly else "legacy_research",
                   "risk_diagnostics": {"hard_halt_time_ms": halt if halt is not None and halt <= now_ms else None}}
         execution = account.reconcile(target, next_bar.open, rules or DEFAULT_SIMULATION_RULES, report,
@@ -106,6 +108,14 @@ def replay(base, sleeves, cfg, start, funding_events, initial=10000, cost_multip
             "equity_curve": equity_curve, "fills": fills,
             "funding_settlements": state["funding_settlements"],
             "research_only": True, "places_orders": False,
+            "config": asdict(cfg),
+            "effective_config_sha256": frozen_strategy.canonical_config_hash(asdict(cfg)),
+            "runtime_risk_limits": {
+                "leverage": cfg.leverage,
+                "timeseries_max_leverage": cfg.timeseries_max_leverage,
+                "portfolio_leverage_cap": cfg.portfolio_leverage_cap,
+                "simulation_leverage_cap": runtime_cap,
+            },
             "execution_model": next(iter(known_models)) if causal_hourly else "legacy_research",
             "entry_gate_diagnostics": {
                 "execution_checks": gate_checks, "allowed_checks": gate_allowed,
@@ -153,9 +163,9 @@ def run_selected_strategy(args):
     if not math.isfinite(initial) or initial <= 0 or not math.isfinite(args.cost_multiplier) or args.cost_multiplier <= 0:
         raise ValueError("Account size and cost multiplier must be positive and finite")
     policy = portfolio_risk.DrawdownRiskPolicy()
+    active_strategy.profile_leverage_cap(profile)
     if (profile["risk_limits"]["soft_drawdown_start_pct"] != policy.soft_start_pct
-            or profile["risk_limits"]["hard_drawdown_stop_pct"] != policy.hard_stop_pct
-            or profile["risk_limits"]["portfolio_leverage_cap"] != 2):
+            or profile["risk_limits"]["hard_drawdown_stop_pct"] != policy.hard_stop_pct):
         raise ValueError("Selected strategy risk limits must match terminal execution")
     if tuple(profile["strategy_modes"]) != ("trend", "timeseries_trend"):
         raise ValueError("Unsupported selected strategy modules")
@@ -179,6 +189,7 @@ def run_selected_strategy(args):
         raise ValueError("Selected strategy changed while capturing inputs")
     profile = captured_profile
     manifest, cfg = frozen_strategy.load_frozen_strategy(captured["manifest"])
+    cfg = active_strategy.apply_risk_limits(cfg, profile)
     cfg = replace(cfg,max_drawdown_stop_pct=0)
     data,funding,_ = sim.load_market_snapshot(captured["market"])
     start,end = sim._utc_ms(args.start_utc),sim._utc_ms(args.end_utc)

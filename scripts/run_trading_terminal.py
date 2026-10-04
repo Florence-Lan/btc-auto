@@ -23,6 +23,7 @@ import public_context
 import supplemental_market_data
 import simulation_risk_monitor
 import decision_runtime
+import active_strategy
 from binance_terminal_client import BinanceTerminalClient, datetime_from_ms
 from trading_execution import LIVE_STATE_PATH, SimulationAccount, read_json, write_json
 
@@ -465,12 +466,14 @@ class TerminalController:
             target_signed_qty * signal_price / signal_equity
             if signal_equity > 0 and signal_price > 0 else 0.0
         )
-        target_leverage = max(-2.0, min(2.0, target_leverage))
+        strategy_cap = active_strategy.profile_leverage_cap(candidate) if mode == "simulation" else 2.0
         leverage_limit = (
             int(os.getenv("LIVE_LEVERAGE", "1") or 1)
             if mode == "live"
-            else min(float(os.getenv("SIM_MAX_LEVERAGE", "2") or 2), 2.0)
+            else active_strategy.simulation_leverage_cap(strategy_cap=strategy_cap)
         )
+        target_cap = leverage_limit if mode == "simulation" else 2.0
+        target_leverage = max(-target_cap, min(target_cap, target_leverage))
         natural_cap = account_equity * leverage_limit
         effective_cap = min(natural_cap, max_notional) if max_notional > 0 else natural_cap
         target_notional = max(-effective_cap, min(effective_cap, target_leverage * account_equity))
@@ -594,7 +597,7 @@ class TerminalController:
                     "risk_multiplier", summary_point.get("drawdown_risk_multiplier", 1.0)),
                 "soft_limit_pct": 8.0,
                 "hard_limit_pct": 15.0,
-                "portfolio_leverage_cap": 2.0,
+                "portfolio_leverage_cap": strategy_cap,
                 "macro": macro,
                 "macro_current": macro_current,
                 "profile": state.get("profile") or report.get("shadow_profile") or {},
