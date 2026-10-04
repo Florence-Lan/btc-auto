@@ -74,6 +74,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--factor-profile", type=Path)
     parser.add_argument("--factor-snapshot", type=Path)
     parser.add_argument("--research-profile", type=Path, help="Frozen reentry candidate; isolated paper state only")
+    parser.add_argument("--market-cache", type=Path, help="Incremental verified public market-data cache")
+    parser.add_argument("--asof-ms", type=int, help="Validated simulation decision cutoff")
     return parser.parse_args()
 
 
@@ -239,7 +241,11 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
         raise RuntimeError("Paper state symbol does not match --symbol")
 
     evaluation_start_ms = parse_utc_ms(state["created_at_utc"])
-    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    now_ms = getattr(args, "asof_ms", None)
+    if now_ms is None:
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    if now_ms <= 0:
+        raise ValueError("Decision cutoff must be a positive timestamp")
     warmup_days = max(
         45.0,
         cfg.timeseries_slow_ema
@@ -248,14 +254,20 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
         + 2,
     )
     fetch_start_ms = evaluation_start_ms - int(warmup_days * sim.MS_PER_DAY)
-    base_candles = sim.fetch_futures_klines_range(symbol, "5m", fetch_start_ms, now_ms)
-    trend_candles = sim.fetch_futures_klines_range(
-        symbol,
-        cfg.timeseries_timeframe,
-        fetch_start_ms,
-        now_ms,
-    )
-    funding = sim.fetch_funding_history(symbol, fetch_start_ms, now_ms)
+    market_data = None
+    if getattr(args, "market_cache", None):
+        import market_data_runtime
+        market_data = market_data_runtime.load_market_data(
+            symbol, fetch_start_ms, now_ms, cache_dir=args.market_cache,
+            intervals=tuple(dict.fromkeys(("5m", cfg.timeseries_timeframe))))
+        base_candles = market_data.candles["5m"]
+        trend_candles = market_data.candles[cfg.timeseries_timeframe]
+        funding = market_data.funding
+    else:
+        base_candles = sim.fetch_futures_klines_range(symbol, "5m", fetch_start_ms, now_ms)
+        trend_candles = sim.fetch_futures_klines_range(
+            symbol, cfg.timeseries_timeframe, fetch_start_ms, now_ms)
+        funding = sim.fetch_funding_history(symbol, fetch_start_ms, now_ms)
     cfg = replace(cfg, strategy_modes=strategy_modes)
     sleeve_cfg = replace(cfg, max_drawdown_stop_pct=0.0) if args.tiered_drawdown else cfg
     tactical_modes = tuple(mode for mode in strategy_modes if mode != "timeseries_trend")
@@ -281,6 +293,8 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             if opening_time != now_ms // step * step:
                 raise ValueError("Closed hourly history is stale at the decision boundary")
             opening = timeseries_execution.opening_from_base(base_candles, opening_time, now_ms)
+            if opening is None and market_data is not None:
+                opening = market_data.opening(cfg.timeseries_timeframe, opening_time)
             if opening is None:
                 opening = timeseries_execution.fetch_opening(symbol, cfg.timeseries_timeframe, opening_time, now_ms)
             core = timeseries_execution.build_sleeve(trend_candles, core_cfg, evaluation_start_ms,
@@ -382,6 +396,8 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             },
             "execution_model": core["execution_timing"]["model"] if causal_hourly else "legacy_research",
             "hourly_startup": core.get("hourly_startup") if causal_hourly else None,
+            "market_data": market_data.diagnostics if market_data is not None else None,
+            "decision_asof_ms": now_ms,
         }
     )
     state["observations"] = int(state["observations"]) + 1

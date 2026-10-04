@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import os
+import time
 from datetime import datetime, timezone
 from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
@@ -30,6 +31,53 @@ DEFAULT_SIMULATION_RULES = {
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _funding_coverage_available(available, now_ms, fetched_through_ms, next_funding_time_ms):
+    """A successful fetch covers its cutoff and a known settlement-free gap."""
+    if not available:
+        return False
+    if fetched_through_ms is None:
+        return True  # Historical/direct callers retain their explicit contract.
+    if now_ms <= fetched_through_ms:
+        return True
+    return (next_funding_time_ms is not None
+            and fetched_through_ms < next_funding_time_ms
+            and now_ms < next_funding_time_ms)
+
+
+def _funding_timestamp(value):
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ValueError("Invalid funding coverage timestamp")
+    try:
+        timestamp = int(value)
+    except (ValueError, TypeError, OverflowError) as exc:
+        raise ValueError("Invalid funding coverage timestamp") from exc
+    if timestamp <= 0 or (isinstance(value, float) and value != timestamp):
+        raise ValueError("Invalid funding coverage timestamp")
+    return timestamp
+
+
+def _next_funding_boundary(observation):
+    try:
+        boundary = _funding_timestamp(observation.get("next_funding_time_ms"))
+        observed_at = _funding_timestamp(observation.get("time_ms"))
+    except ValueError:
+        return None
+    return boundary if boundary is not None and observed_at is not None and boundary > observed_at else None
+
+
+def _funding_boundary_observed(state, events, boundary, through_ms):
+    if boundary is None:
+        return True
+    timestamps = [int(row["time_ms"]) for row in state.get("funding_settlements", [])]
+    timestamps.extend(int(row["fundingTime"]) for row in events)
+    # Binance records may be a few milliseconds after the advertised boundary.
+    # A later, unrelated settlement must not clear an unpublished earlier one.
+    return any(boundary <= timestamp <= min(through_ms, boundary + 5_000)
+               for timestamp in timestamps)
 
 
 def read_json(path: Path, default: Any = None) -> Any:
@@ -61,7 +109,10 @@ def target_from_report(
     signed_qty = float(point.get("signed_qty") or 0)
     if signal_time_ms <= 0 or strategy_equity <= 0 or signal_price <= 0:
         raise RuntimeError("Strategy report does not contain a valid target position")
-    current_ms = now_ms or int(datetime.now(timezone.utc).timestamp() * 1000)
+    current_ms = now_ms if now_ms is not None else int(datetime.now(timezone.utc).timestamp() * 1000)
+    available_time_ms = int(point.get("available_time_ms") or signal_time_ms)
+    if signal_time_ms > current_ms or available_time_ms > current_ms:
+        raise RuntimeError("Strategy target is from the future; execution blocked")
     age_seconds = max(0.0, (current_ms - signal_time_ms) / 1000)
     if age_seconds > max_age_seconds:
         raise RuntimeError(
@@ -368,16 +419,41 @@ class SimulationAccount:
         rules: Mapping[str, Decimal] | None = None,
         report: Mapping[str, Any] | None = None,
         *, funding_events=(), funding_available: bool = True, now_ms: int | None = None,
-        execution_clock=None,
+        execution_clock=None, mark_time_ms=None,
+        funding_fetch_through_ms=None, next_funding_time_ms=None,
+        funding_pending_settlement_ms=None,
     ) -> dict[str, Any]:
         state = self.load()
         now_ms = now_ms if now_ms is not None else int(datetime.now(timezone.utc).timestamp() * 1000)
+        initial_clock_ms, initial_monotonic = now_ms, time.monotonic()
+        funding_fetch_through_ms = _funding_timestamp(funding_fetch_through_ms)
+        next_funding_time_ms = _funding_timestamp(next_funding_time_ms)
+        pending_boundaries = [_funding_timestamp(state.get("funding_pending_settlement_ms")),
+                              _funding_timestamp(funding_pending_settlement_ms)]
+        pending_funding = min((value for value in pending_boundaries if value is not None), default=None)
+
+        def funding_covered_at(current_ms):
+            nonlocal pending_funding
+            if next_funding_time_ms is not None and current_ms >= next_funding_time_ms:
+                pending_funding = min(pending_funding or next_funding_time_ms, next_funding_time_ms)
+            event_cutoff = min(current_ms, funding_fetch_through_ms) if funding_fetch_through_ms is not None else current_ms
+            if _funding_boundary_observed(state, funding_events, pending_funding, event_cutoff):
+                pending_funding = None
+            if pending_funding is not None or "funding_pending_settlement_ms" in state:
+                state["funding_pending_settlement_ms"] = pending_funding
+            return (pending_funding is None and _funding_coverage_available(
+                funding_available, current_ms, funding_fetch_through_ms, next_funding_time_ms))
         if not math.isfinite(mark_price) or mark_price <= 0 or not math.isfinite(float(target["target_leverage"])):
             raise ValueError("Execution requires a positive price and finite target")
+        if mark_time_ms is not None:
+            from decision_runtime import validate_mark
+            validate_mark({"price": mark_price, "time_ms": mark_time_ms}, now_ms)
         if state["position_history"] and now_ms < state["position_history"][-1]["time_ms"]:
             raise ValueError("Execution clock cannot move backwards")
         self.settle_funding(state, funding_events, now_ms)
-        if funding_available:
+        if funding_fetch_through_ms is not None:
+            state["funding_last_fetch_ms"] = funding_fetch_through_ms
+        elif funding_available:
             state["funding_last_fetch_ms"] = now_ms
         marked = self._mark(state, mark_price)
         leverage_cap = min(float(os.getenv("SIM_MAX_LEVERAGE", "2") or 2), 2.0)
@@ -398,9 +474,10 @@ class SimulationAccount:
         state["entry_guard"] = entry_guard
         effective_target, risk = constrain_target(state, effective_target, equity, current_qty,
                                                   mark_price, now_ms, report)
-        if not funding_available:
+        funding_covered = funding_covered_at(now_ms)
+        if not funding_covered:
             effective_target = block_increases(effective_target, current_qty, equity, mark_price)
-        state["funding_status"] = "ok" if funding_available else "unavailable_new_risk_blocked"
+        state["funding_status"] = "ok" if funding_covered else "unavailable_new_risk_blocked"
         if self.allow_llm:
             effective_target, llm_trade_gate = apply_llm_trade_gate(
                 report or {}, effective_target, current_qty=current_qty, equity=equity,
@@ -413,17 +490,39 @@ class SimulationAccount:
         clock_failed = False
         if execution_clock is not None:
             try:
-                now_ms = int(execution_clock())
+                resolved_ms = int(execution_clock())
+                elapsed_ms = max(0, int(round((time.monotonic() - initial_monotonic) * 1000)))
+                now_ms = max(initial_clock_ms + elapsed_ms, resolved_ms)
             except (RuntimeError, OSError, ValueError, TypeError):
                 # Losing the fresh exchange clock must not become an exit blocker.
                 now_ms = max(now_ms, int(datetime.now(timezone.utc).timestamp() * 1000))
                 clock_failed = True
+        if mark_time_ms is not None or execution_clock is not None:
+            elapsed_ms = max(0, int(round((time.monotonic() - initial_monotonic) * 1000)))
+            now_ms = max(now_ms, initial_clock_ms + elapsed_ms)
+        clock_checked_monotonic = time.monotonic()
+        if mark_time_ms is not None:
+            # Funding/rule lookups or the LLM may have delayed this reconciliation.
+            # Even a reduction cannot create a simulated fill at an expired price.
+            from decision_runtime import validate_mark
+            validate_mark({"price": mark_price, "time_ms": mark_time_ms}, now_ms)
         entry_gate = execution_entry_gate.decision_at(
             report, now_ms, "long" if effective_target["target_leverage"] >= 0 else "short")
         if clock_failed:
             entry_gate.update(allowed=False, status="blocked")
             entry_gate["reasons"].append("execution_clock_unavailable")
         state["execution_entry_gate"] = entry_gate
+        if mark_time_ms is not None:
+            # Current source health can require large snapshot reads. Include
+            # that elapsed time in the last check immediately before a fill.
+            now_ms += max(0, int(round((time.monotonic() - clock_checked_monotonic) * 1000)))
+            validate_mark({"price": mark_price, "time_ms": mark_time_ms}, now_ms)
+        if state["position_history"] and now_ms < int(state["position_history"][-1]["time_ms"]):
+            raise ValueError("Execution clock cannot move backwards")
+        funding_covered = funding_covered_at(now_ms)
+        if not funding_covered:
+            effective_target = block_increases(effective_target, current_qty, equity, mark_price)
+        state["funding_status"] = "ok" if funding_covered else "unavailable_new_risk_blocked"
         target_notional = float(effective_target["target_leverage"]) * equity
         target_notional = max(-max_notional, min(max_notional, target_notional))
         target_qty = target_notional / mark_price if mark_price > 0 else 0.0
@@ -466,6 +565,8 @@ class SimulationAccount:
             "risk_fill": risk_fill,
             "account_risk": risk,
             "funding_pnl": state["funding_pnl"],
+            "funding_fetch_through_ms": state.get("funding_last_fetch_ms"),
+            "funding_pending_settlement_ms": pending_funding,
             "entry_guard": entry_guard,
             "llm_trade_gate": llm_trade_gate,
             "execution_entry_gate": entry_gate,
@@ -478,6 +579,11 @@ class SimulationAccount:
         self.settle_funding(state, funding_events, now_ms)
         if funding_available:
             state["funding_last_fetch_ms"] = now_ms
+        pending_funding = _funding_timestamp(state.get("funding_pending_settlement_ms"))
+        if pending_funding is not None and _funding_boundary_observed(
+                state, funding_events, pending_funding, now_ms):
+            state["funding_pending_settlement_ms"] = None
+            pending_funding = None
         equity = self._mark(state, mark_price)["equity"]
         target = {"target_leverage": 0.0, "signal_time_ms": now_ms}
         _, risk = constrain_target(state, target, equity, state["position_qty"], mark_price, now_ms)
@@ -487,7 +593,7 @@ class SimulationAccount:
             equity = self._mark(state, mark_price)["equity"]
             _, risk = constrain_target(state, target, equity, 0.0, mark_price, now_ms)
         state["last_mark_price"] = mark_price
-        state["funding_status"] = "ok" if funding_available else "unavailable_new_risk_blocked"
+        state["funding_status"] = "ok" if funding_available and pending_funding is None else "unavailable_new_risk_blocked"
         state["updated_at_utc"] = datetime.fromtimestamp(now_ms / 1000, timezone.utc).isoformat()
         self._save(state)
         self._record_fills(state, [fill])
@@ -652,6 +758,9 @@ def simulation_funding(client, account, now_ms):
     state = account.load()
     start = max(int(state["funding_tracking_start_ms"]),
                 int(state.get("funding_last_fetch_ms", state["funding_tracking_start_ms"])) - 86_400_000)
+    pending = state.get("funding_pending_settlement_ms")
+    if pending is not None:
+        start = max(int(state["funding_tracking_start_ms"]), min(start, int(pending)))
     try:
         events = client.funding_history(start, now_ms, SYMBOL)
         if not isinstance(events, list):
@@ -667,10 +776,12 @@ def simulation_funding(client, account, now_ms):
         return (), False
 
 
-def monitor_simulation_account(client, now_ms, *, clock_available=True, clock_error=None):
+def monitor_simulation_account(client, now_ms, *, clock_available=True, clock_error=None,
+                               clock_source=None):
     import simulation_risk_monitor
     return simulation_risk_monitor.monitor(
-        client, now_ms, clock_available=clock_available, clock_error=clock_error)
+        client, now_ms, clock_available=clock_available, clock_error=clock_error,
+        clock_source=clock_source)
 
 
 def execute_report(
@@ -685,18 +796,56 @@ def execute_report(
     if mode == "live" and report.get("freeze_id") == "btc_trend_filter_research_20260917":
         raise ValueError("The September 17 research candidate is simulation-only")
     max_age = float(os.getenv("MAX_SIGNAL_AGE_SECONDS", "900") or 900)
-    target = target_from_report(report, max_age_seconds=max_age)
-    mark_price = client.mark_price(SYMBOL)
     if mode == "simulation":
+        import decision_runtime
         account = SimulationAccount()
-        now_ms = client.server_time_ms()
-        events, available = simulation_funding(client, account, now_ms)
+        clock = decision_runtime.resolve_clock(client)
+        target = target_from_report(report, now_ms=clock["time_ms"], max_age_seconds=max_age)
+        rules = client.symbol_rules(SYMBOL)
+        # The next settlement comes from the exchange, never a guessed fixed
+        # funding interval. Keep it from BEFORE the fetch to detect crossings.
+        before_funding = client.mark_price_observation(SYMBOL)
+        clock = decision_runtime.resolve_clock(client, mark_observation=before_funding)
+        decision_runtime.validate_mark(before_funding, clock["time_ms"])
+        next_funding = _next_funding_boundary(before_funding)
+        pending_funding = _funding_timestamp(account.load().get("funding_pending_settlement_ms"))
+        funding_cutoff = clock["time_ms"]
+        events, available = simulation_funding(client, account, funding_cutoff)
+        fetched_through = funding_cutoff if available else None
+        # Price comes after the potentially slow metadata and funding lookups.
+        observation = client.mark_price_observation(SYMBOL)
+        clock = decision_runtime.resolve_clock(client, mark_observation=observation)
+        observed = decision_runtime.validate_mark(observation, clock["time_ms"])
+        if next_funding is not None and clock["time_ms"] >= next_funding:
+            pending_funding = min(pending_funding or next_funding, next_funding)
+        if available and not _funding_coverage_available(
+                available, clock["time_ms"], fetched_through, next_funding):
+            # Fetch once more if a settlement boundary was crossed. A second
+            # outage still permits exits with the known cash events, but never
+            # grants additional exposure against incomplete funding coverage.
+            next_funding = _next_funding_boundary(observation)
+            refresh_cutoff = clock["time_ms"]
+            refreshed_events, refreshed_available = simulation_funding(client, account, refresh_cutoff)
+            if refreshed_available:
+                events, fetched_through = refreshed_events, refresh_cutoff
+            available = refreshed_available
+            observation = client.mark_price_observation(SYMBOL)
+            clock = decision_runtime.resolve_clock(client, mark_observation=observation)
+            observed = decision_runtime.validate_mark(observation, clock["time_ms"])
+        target = target_from_report(report, now_ms=clock["time_ms"], max_age_seconds=max_age)
+        client.simulation_clock = clock
         return account.reconcile(
             target,
-            mark_price,
-            client.symbol_rules(SYMBOL),
+            observed["price"],
+            rules,
             report,
-            funding_events=events, funding_available=available, now_ms=now_ms,
-            execution_clock=client.server_time_ms,
+            funding_events=events, funding_available=available, now_ms=clock["time_ms"],
+            mark_time_ms=observed["time_ms"],
+            funding_fetch_through_ms=fetched_through, next_funding_time_ms=next_funding,
+            funding_pending_settlement_ms=pending_funding,
+            execution_clock=lambda: decision_runtime.resolve_clock(
+                client, mark_observation=observation)["time_ms"],
         )
+    target = target_from_report(report, max_age_seconds=max_age)
+    mark_price = client.mark_price(SYMBOL)
     return LiveExecutor(client).reconcile(target, mark_price, report)

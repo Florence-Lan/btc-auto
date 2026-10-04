@@ -1,0 +1,51 @@
+{
+  "candidate_id": "btc_multifactor_regular_20261004",
+  "status": "prospective_simulation",
+  "live_orders_allowed": false,
+  "base_manifest": "config/frozen_strategy_candidate_20260917.json",
+  "objective": "net_return_and_drawdown",
+  "groups": {
+    "btc_momentum": 0.2,
+    "positioning": 0.2,
+    "fed": 0.15,
+    "treasury": 0.15,
+    "fx": 0.15,
+    "global_risk": 0.15
+  },
+  "minimum_group_coverage": 1.0,
+  "minimum_risk_multiplier": 0.35,
+  "block_alignment_below": -0.35,
+  "block_stress_at": 0.9,
+  "availability_mode": "first_seen",
+  "public_context_enabled": true,
+  "policy_expectations_enabled": true,
+  "event_snapshot": "data/snapshots/public_context_latest.json",
+  "notes": [
+    "Official Fed/ECB/UN news and official economic calendars refresh automatically.",
+    "News classification is a conservative headline risk rule, not semantic alpha.",
+    "Fed expectation uses a named nonmeeting-month futures anchor or a single-meeting day-weighted contract; not FedWatch probabilities.",
+    "Policy surprises require an archived premeeting expectation and subsequently published target rate.",
+    "No verified CPI/jobs consensus forecast feed is available; those surprises remain missing.",
+    "All required public sources must be healthy for new entries. No automatic live promotion.",
+    "User requested activation on 2026-10-02. Existing six groups drive entry/risk decisions in simulation.",
+    "Supplemental options, depth, exchange flows and ETF flows are collected as observations; no unvalidated directional weights.",
+    "Existing simulation equity and execution history are preserved; this strategy has a new forward inception.",
+    "All factor, event, funding, quantity, leverage and account drawdown gates remain in force. This startup policy is not evidence of improved profitability.",
+    "User requested cancellation of the one-time hourly startup on 2026-10-03 and flattening the existing simulated position on 2026-10-04.",
+    "Hourly trend entries require the original threshold-state changes; no confirmed-trend bootstrap at activation. The execution supervisor continues judging each newly closed five-minute candle.",
+    "A separate forward generation preserves the old paper reports. The simulated account keeps its inception, fills, funding, fees and drawdown history; closing the prior position is recorded as a new simulated fill."
+  ],
+  "strategy_modes": [
+    "trend",
+    "timeseries_trend"
+  ],
+  "factor_profile": "config/multifactor_regular_20261004.json",
+  "risk_limits": {
+    "starting_equity_usdt": 1000,
+    "soft_drawdown_start_pct": 8,
+    "hard_drawdown_stop_pct": 15,
+    "portfolio_leverage_cap": 2
+  },
+  "based_on_candidate": "btc_multifactor_startup_20261003",
+  "hourly_startup_enabled": false
+}

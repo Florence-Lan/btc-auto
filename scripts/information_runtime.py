@@ -78,11 +78,15 @@ def paper_command(args):
     import sys
     root = sim.repo_root()
     profile = multifactor.load_profile(args.factor_profile)
-    return [sys.executable, str(root / "scripts/paper_trade_frozen_portfolio.py"),
+    command = [sys.executable, str(root / "scripts/paper_trade_frozen_portfolio.py"),
             "--manifest", str(root / profile["base_manifest"]),
             "--factor-profile", str(args.factor_profile), "--factor-snapshot", str(args.factor_snapshot),
             "--event-snapshot", str(root / profile["event_snapshot"]),
             "--strategy-modes-override", "trend,timeseries_trend", "--tiered-drawdown",
             "--soft-drawdown-start-pct", "8", "--hard-drawdown-stop-pct", "15",
             "--drawdown-min-multiplier", "0.35", "--state-path", str(args.state_path),
-            "--report-path", str(args.report_path), "--trades-path", str(args.trades_path)]
+            "--report-path", str(args.report_path), "--trades-path", str(args.trades_path),
+            "--market-cache", str(root / "data/runtime/market_cache")]
+    if getattr(args, "signal_asof_ms", None) is not None:
+        command.extend(["--asof-ms", str(args.signal_asof_ms)])
+    return command

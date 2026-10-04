@@ -5,13 +5,16 @@ import hmac
 import json
 import os
 import re
+import shutil
+import subprocess
+import tempfile
 import threading
 import time
 from datetime import datetime, timezone
-from decimal import Decimal, ROUND_DOWN
+from decimal import Decimal, InvalidOperation, ROUND_DOWN
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import requests
 from dotenv import load_dotenv
@@ -22,6 +25,18 @@ load_dotenv(ROOT / ".env")
 
 MAINNET_FUTURES_URL = "https://fapi.binance.com"
 COOLDOWN_PATH = ROOT / "data/runtime/binance_api_cooldown.json"
+RULES_CACHE_PATH = ROOT / "data/runtime/binance_symbol_rules.json"
+RULES_CACHE_TTL_SECONDS = 6 * 3600
+PUBLIC_TRANSPORT_PREFERENCE_SECONDS = 300
+PUBLIC_PATHS = {
+    "/fapi/v1/ping", "/fapi/v1/time", "/fapi/v1/exchangeInfo",
+    "/fapi/v1/premiumIndex", "/fapi/v1/klines", "/fapi/v1/fundingRate",
+    "/fapi/v1/depth", "/fapi/v1/ticker/price", "/fapi/v1/ticker/bookTicker",
+}
+PRIVATE_QUERY_FIELDS = {
+    "signature", "api_key", "apikey", "api_secret", "apisecret",
+    "x-mbx-apikey", "authorization", "secret",
+}
 
 
 def sign_query(secret: str, query: str) -> str:
@@ -63,6 +78,9 @@ class BinanceTerminalClient:
         self.cached_at = 0.0
         self.cached: dict[str, Any] | None = None
         self.rules_cache: dict[str, dict[str, Decimal]] = {}
+        self.rules_cached_at_ms: dict[str, int] = {}
+        self.last_public_transport: dict[str, Any] = {}
+        self._curl_preferred_until = 0.0
 
     @property
     def configured(self) -> bool:
@@ -122,15 +140,105 @@ class BinanceTerminalClient:
             retry_at_ms=retry_at_ms,
         )
 
-    def public_get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+    def _check_public_cooldown(self) -> None:
         retry_at_ms = self.cooldown_until_ms()
         if retry_at_ms:
             raise BinanceApiError(
                 f"Binance requests paused until {datetime_from_ms(retry_at_ms)}",
                 status=418, retry_at_ms=retry_at_ms,
             )
-        response = self.session.get(f"{self.base_url}{path}", params=params, timeout=15)
-        return self._decode_response(response)
+
+    def _curl_public_get(self, path: str, params: dict[str, Any] | None) -> requests.Response:
+        """Alternate TLS stack for public reads; never reuse authenticated headers."""
+        origin = urlsplit(self.base_url)
+        if (origin.scheme != "https" or not origin.hostname or origin.username
+                or origin.password or origin.path or origin.query or origin.fragment):
+            raise requests.ConnectionError("Public fallback requires an HTTPS origin without credentials")
+        executable = shutil.which("curl")
+        if not executable:
+            raise requests.ConnectionError("Public fallback transport is unavailable")
+        url = f"{self.base_url}{path}"
+        if params:
+            url += "?" + urlencode(params, doseq=True)
+        with tempfile.TemporaryDirectory(prefix="binance-public-") as directory:
+            headers_path = Path(directory) / "headers.txt"
+            # -q must be first: local curl configuration cannot add credentials,
+            # redirects or insecure TLS options to these public requests.
+            command = [
+                executable, "-q", "--silent", "--show-error", "--request", "GET",
+                "--proto", "=https", "--proto-redir", "=https",
+                "--connect-timeout", "5", "--max-time", "15",
+                "--dump-header", str(headers_path), "--write-out", "\n%{http_code}",
+                "--url", url,
+            ]
+            public_environment = {
+                key: value for key, value in os.environ.items()
+                if key in {"PATH", "HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy",
+                           "ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy", "SSL_CERT_FILE",
+                           "SSL_CERT_DIR", "CURL_CA_BUNDLE"}
+            }
+            try:
+                result = subprocess.run(command, capture_output=True, text=True, timeout=17,
+                                        check=False, env=public_environment)
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                raise requests.ConnectionError("Public fallback transport failed") from exc
+            if result.returncode:
+                # Do not propagate tool output: it can contain local proxy details.
+                raise requests.ConnectionError(f"Public fallback transport failed (curl {result.returncode})")
+            body, separator, status = result.stdout.rpartition("\n")
+            if not separator or not status.isdigit() or not 100 <= int(status) <= 599:
+                raise requests.ConnectionError("Invalid public fallback HTTP response")
+            response = requests.Response()
+            response.status_code = int(status)
+            response._content = body.encode("utf-8")
+            response.encoding = "utf-8"
+            response.url = url
+            try:
+                raw_headers = headers_path.read_text(encoding="utf-8")
+            except OSError as exc:
+                raise requests.ConnectionError("Missing public fallback HTTP headers") from exc
+            blocks = [block for block in re.split(r"\r?\n\r?\n", raw_headers) if block.strip()]
+            for line in blocks[-1].splitlines() if blocks else []:
+                name, separator, value = line.partition(":")
+                if separator:
+                    response.headers[name.strip()] = value.strip()
+            return response
+
+    def public_get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+        if path not in PUBLIC_PATHS and not re.fullmatch(r"/futures/data/[A-Za-z_]+", path):
+            raise ValueError("Unsupported public Binance endpoint")
+        if params and any(str(key).lower() in PRIVATE_QUERY_FIELDS for key in params):
+            raise ValueError("Credentials and signatures are not allowed in public queries")
+        transports = ("curl", "requests") if time.monotonic() < self._curl_preferred_until else ("requests", "curl")
+        first_error: requests.RequestException | None = None
+        for index, transport in enumerate(transports):
+            # A transport retry must respect a ban recorded by another worker.
+            self._check_public_cooldown()
+            self.last_public_transport = {
+                "transport": transport, "endpoint": path,
+                "observed_at_ms": int(time.time() * 1000), "ok": False,
+                "fallback": index > 0,
+                "primary_error_type": type(first_error).__name__ if first_error else None,
+            }
+            try:
+                response = (self._curl_public_get(path, params) if transport == "curl" else
+                            self.session.get(f"{self.base_url}{path}", params=params, timeout=15))
+                payload = self._decode_response(response)
+                if payload is None:
+                    raise ValueError("Invalid public Binance JSON response")
+            except (requests.ConnectionError, requests.Timeout) as exc:
+                self.last_public_transport["error_type"] = type(exc).__name__
+                if transport == "curl":
+                    self._curl_preferred_until = 0.0
+                if index:
+                    raise requests.ConnectionError("Both Binance public transports failed") from exc
+                first_error = exc
+                continue
+            self.last_public_transport.update(ok=True, observed_at_ms=int(time.time() * 1000))
+            if transport == "curl":
+                self._curl_preferred_until = time.monotonic() + PUBLIC_TRANSPORT_PREFERENCE_SECONDS
+            return payload
+        raise requests.ConnectionError("No Binance public transport available")
 
     def signed_request(
         self,
@@ -168,7 +276,10 @@ class BinanceTerminalClient:
         payload = self.public_get("/fapi/v1/premiumIndex", {"symbol": symbol})
         if not isinstance(payload, dict) or payload.get("symbol") != symbol:
             raise ValueError("Invalid mark-price observation")
-        return {"price": float(payload["markPrice"]), "time_ms": int(payload["time"])}
+        observation = {"price": float(payload["markPrice"]), "time_ms": int(payload["time"])}
+        if payload.get("nextFundingTime") is not None:
+            observation["next_funding_time_ms"] = int(payload["nextFundingTime"])
+        return observation
 
     def server_time_ms(self) -> int:
         return int(self.public_get("/fapi/v1/time")["serverTime"])
@@ -193,22 +304,88 @@ class BinanceTerminalClient:
         return sorted(rows, key=lambda row: int(row["fundingTime"]))
 
     def symbol_rules(self, symbol: str = "BTCUSDT") -> dict[str, Decimal]:
-        if symbol in self.rules_cache:
-            return self.rules_cache[symbol]
-        payload = self.public_get("/fapi/v1/exchangeInfo")
-        item = next(entry for entry in payload["symbols"] if entry["symbol"] == symbol)
-        filters = {entry["filterType"]: entry for entry in item["filters"]}
-        lot = filters["LOT_SIZE"]
-        market_lot = filters.get("MARKET_LOT_SIZE", lot)
-        min_notional = filters.get("MIN_NOTIONAL", {})
-        rules = {
-            "step_size": Decimal(str(market_lot.get("stepSize") or lot["stepSize"])),
-            "min_qty": Decimal(str(market_lot.get("minQty") or lot["minQty"])),
-            "max_qty": Decimal(str(market_lot.get("maxQty") or lot["maxQty"])),
-            "min_notional": Decimal(str(min_notional.get("notional", "0"))),
-        }
-        self.rules_cache[symbol] = rules
+        with self.lock:
+            now_ms = int(time.time() * 1000)
+            cached_at = self.rules_cached_at_ms.get(symbol, 0)
+            if symbol in self.rules_cache and 0 <= now_ms - cached_at < RULES_CACHE_TTL_SECONDS * 1000:
+                return self.rules_cache[symbol]
+            cached = self._load_symbol_rules(symbol, now_ms)
+            if cached is not None:
+                rules, fetched_at_ms = cached
+                self.rules_cache[symbol] = rules
+                self.rules_cached_at_ms[symbol] = fetched_at_ms
+                return rules
+            payload = self.public_get("/fapi/v1/exchangeInfo")
+            item = next(entry for entry in payload["symbols"] if entry["symbol"] == symbol)
+            filters = {entry["filterType"]: entry for entry in item["filters"]}
+            lot = filters["LOT_SIZE"]
+            market_lot = filters.get("MARKET_LOT_SIZE", lot)
+            min_notional = filters.get("MIN_NOTIONAL", {})
+            rules = self._validate_symbol_rules({
+                "step_size": market_lot.get("stepSize") or lot["stepSize"],
+                "min_qty": market_lot.get("minQty") or lot["minQty"],
+                "max_qty": market_lot.get("maxQty") or lot["maxQty"],
+                "min_notional": min_notional.get("notional", "0"),
+            })
+            fetched_at_ms = int(time.time() * 1000)
+            self.rules_cache[symbol] = rules
+            self.rules_cached_at_ms[symbol] = fetched_at_ms
+            self._save_symbol_rules(symbol, rules, fetched_at_ms)
+            return rules
+
+    @staticmethod
+    def _validate_symbol_rules(raw: dict[str, Any]) -> dict[str, Decimal]:
+        rules = {name: Decimal(str(raw[name])) for name in ("step_size", "min_qty", "max_qty", "min_notional")}
+        if (any(not value.is_finite() for value in rules.values())
+                or rules["step_size"] <= 0 or rules["min_qty"] <= 0
+                or rules["max_qty"] < rules["min_qty"] or rules["min_notional"] < 0):
+            raise ValueError("Invalid Binance symbol rules")
         return rules
+
+    def _load_symbol_rules(self, symbol: str, now_ms: int) -> tuple[dict[str, Decimal], int] | None:
+        try:
+            payload = json.loads(RULES_CACHE_PATH.read_text(encoding="utf-8"))
+            if (not isinstance(payload, dict) or payload.get("schema_version") != 1
+                    or payload.get("base_url") != self.base_url):
+                return None
+            cached = payload["symbols"][symbol]
+            fetched_at_ms = int(cached["fetched_at_ms"])
+            if not 0 <= now_ms - fetched_at_ms < RULES_CACHE_TTL_SECONDS * 1000:
+                return None
+            return self._validate_symbol_rules(cached["rules"]), fetched_at_ms
+        except (OSError, KeyError, TypeError, ValueError, InvalidOperation):
+            return None
+
+    def _save_symbol_rules(self, symbol: str, rules: dict[str, Decimal], fetched_at_ms: int) -> None:
+        temporary: Path | None = None
+        try:
+            try:
+                payload = json.loads(RULES_CACHE_PATH.read_text(encoding="utf-8"))
+                if (not isinstance(payload, dict) or payload.get("schema_version") != 1
+                        or payload.get("base_url") != self.base_url or not isinstance(payload.get("symbols"), dict)):
+                    payload = {}
+            except (OSError, TypeError, ValueError):
+                payload = {}
+            payload.update(schema_version=1, base_url=self.base_url)
+            payload.setdefault("symbols", {})[symbol] = {
+                "fetched_at_ms": fetched_at_ms, "rules": {key: str(value) for key, value in rules.items()},
+            }
+            RULES_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=RULES_CACHE_PATH.parent,
+                                             prefix=RULES_CACHE_PATH.name + ".", suffix=".tmp", delete=False) as handle:
+                temporary = Path(handle.name)
+                json.dump(payload, handle, indent=2)
+                handle.write("\n")
+            temporary.replace(RULES_CACHE_PATH)
+        except OSError:
+            # A cache-write failure cannot invalidate freshly fetched exchange rules.
+            pass
+        finally:
+            if temporary is not None:
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     def quantize_quantity(self, quantity: float, symbol: str = "BTCUSDT") -> float:
         rules = self.symbol_rules(symbol)

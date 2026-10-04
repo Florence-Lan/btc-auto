@@ -129,6 +129,15 @@ function render(data) {
   $("#riskMonitorState").textContent = monitoring ? ({healthy: "持续监测", degraded: "已检查，部分数据异常", unavailable: unavailableLabel, stale: "监测更新中断", not_observed: "等待检查"})[monitor.status] || "等待检查" : "已暂停";
   $("#riskMonitorState").className = monitoring && monitor.status === "healthy" ? "positive" : "negative";
   $("#riskMonitorState").title = Object.values(monitor.errors || {}).join("；");
+  const judgment = data.execution.judgment || {};
+  const judgmentStatus = ["stale", "unavailable", "not_observed"].includes(judgment.status) ? judgment.status : judgment.decision_status;
+  const judgmentLabel = ({evaluated: "已完成判断", waiting_for_bar: "等待下根收盘", unavailable: "数据不足，待补齐", stale: "判断检查中断", not_observed: "等待判断"})[judgmentStatus] || "等待判断";
+  $("#judgmentState").textContent = monitoring ? judgmentLabel : "已暂停";
+  $("#judgmentState").className = monitoring && judgmentStatus === "evaluated" ? "positive" : "";
+  $("#judgmentState").title = judgment.decision_error || (judgment.last_judged_at_utc ? `最近判断 ${new Date(judgment.last_judged_at_utc).toLocaleString("zh-CN")}` : "");
+  $("#judgmentExecutionState").textContent = monitoring ? ({completed: "执行检查完成", deferred: "暂缓，自动重试", pending: "检查执行条件"})[judgment.execution_status] || "等待判断" : "已暂停";
+  $("#judgmentExecutionState").className = monitoring && judgment.execution_status === "completed" ? "positive" : "";
+  $("#judgmentExecutionState").title = judgment.execution_error || "";
   $("#positionNotionalDetail").textContent = fmt(details.position_notional);
   $("#positionQtyDetail").textContent = fmt(details.position_qty, 6);
   $("#entryPriceDetail").textContent = fmt(details.entry_price, 1);

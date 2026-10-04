@@ -295,6 +295,7 @@ def test_execute_report_settles_public_funding_without_exchange_orders(tmp_path)
     client = Mock()
     client.server_time_ms.return_value = now
     client.mark_price.return_value = 100000
+    client.mark_price_observation.return_value = {"price": 100000, "time_ms": now}
     client.funding_history.return_value = [funding(now-10000)]
     from trading_execution import DEFAULT_SIMULATION_RULES
     client.symbol_rules.return_value = DEFAULT_SIMULATION_RULES

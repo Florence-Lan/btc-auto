@@ -208,19 +208,21 @@ def test_scheduler_clock_failure_monitors_but_cannot_run_strategy(monkeypatch):
     client = Mock()
     failure = OSError("clock disconnected")
     client.server_time_ms.side_effect = failure
+    client.mark_price_observation.side_effect = OSError("mark disconnected")
     observe, cycle = Mock(), Mock()
     monkeypatch.setattr(supervisor, "monitor_simulation_account", observe)
     monkeypatch.setattr(supervisor, "run_cycle", cycle)
-    with pytest.raises(OSError):
+    with pytest.raises(RuntimeError, match="No valid simulation decision clock"):
         supervisor.check_once(SimpleNamespace(mode="simulation", bar_settle_delay_seconds=3), client)
     assert observe.call_args.kwargs["clock_available"] is False
-    assert observe.call_args.kwargs["clock_error"] is failure
+    assert observe.call_args.kwargs["clock_error"].__cause__ is failure
     cycle.assert_not_called()
 
 
 def test_manual_once_also_observes_risk_before_clock_failure(monkeypatch):
     client = Mock()
     client.server_time_ms.side_effect = OSError("clock disconnected")
+    client.mark_price_observation.side_effect = OSError("mark disconnected")
     observe, cycle = Mock(), Mock()
     monkeypatch.setattr(supervisor, "monitor_simulation_account", observe)
     monkeypatch.setattr(supervisor, "run_cycle", cycle)
@@ -228,7 +230,7 @@ def test_manual_once_also_observes_risk_before_clock_failure(monkeypatch):
     monkeypatch.setattr(supervisor, "parse_args", lambda:SimpleNamespace(
         mode="simulation", once=True, poll_seconds=30, bar_settle_delay_seconds=3,
         refresh_hours=12, factor_profile=None))
-    with pytest.raises(OSError):
+    with pytest.raises(RuntimeError, match="No valid simulation decision clock"):
         supervisor.main()
     observe.assert_called_once()
     assert observe.call_args.kwargs["clock_available"] is False

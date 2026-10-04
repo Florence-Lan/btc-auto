@@ -1,11 +1,19 @@
 # BTC Auto
 
-October 3 startup repair: the selected simulation now starts a separate
-`btc_multifactor_startup_20261003` forward generation. At its first eligible observed
-hourly open it can join the last closed confirmed trend, while retaining all entry
-and account risk gates. Restarting reuses that generation's fixed inception; it does
-not backfill trades before activation. The existing simulated account and old paper
-reports are preserved. See [behavior, verification and activation](docs/hourly_startup_fix_20261003.md).
+October 4 data resilience update: public exchange reads can recover from a failed
+TLS connection through a second verified transport. The supervisor uses an
+incremental cache of complete candles and funding coverage, records strategy
+judgments separately from execution, and retries a current report after an
+execution-data failure. Missing current inputs are visible as unavailable.
+See [implementation and activation evidence](docs/data_resilience_20261004.md).
+
+October 4 simulation update: the selected `btc_multifactor_regular_20261004`
+generation disables the one-time hourly trend startup. The previously opened
+0.002 BTC simulated position was closed at the user's request, with normal fees
+and accounting. The supervisor continues evaluating each newly closed five-minute
+candle; hourly entries use the original threshold-transition signals. The existing
+simulated account and old paper reports are preserved. See
+[the cancellation and activation record](docs/hourly_startup_disabled_20261004.md).
 
 The simulation terminal, execution backtest and independent observation runner default to
 the strategy selected in `config/active_simulation_candidate.json`. The current selection

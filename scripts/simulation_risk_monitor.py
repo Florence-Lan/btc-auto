@@ -15,7 +15,8 @@ MAX_MARK_FUTURE_MS = 5_000
 
 
 def monitor(client, now_ms, *, clock_available=True, clock_error=None,
-            account=None, status_path: Path | None = None):
+            account=None, status_path: Path | None = None, clock_source=None,
+            mark_observation=None):
     account = account or execution.SimulationAccount()
     if account.persist and not account.path.exists():
         return None
@@ -32,7 +33,7 @@ def monitor(client, now_ms, *, clock_available=True, clock_error=None,
     health = {
         "mode": "simulation", "places_orders": False, "account_epoch": epoch,
         "checked_at_ms": started_ms, "status": "unavailable", "assessment": "not_evaluated",
-        "clock_source": "exchange" if clock_available else "mark_endpoint",
+        "clock_source": clock_source or ("exchange" if clock_available else "mark_endpoint"),
         "last_success_at_ms": prior.get("last_success_at_ms"),
         "consecutive_failures": int(prior.get("consecutive_failures") or 0) + 1,
         "errors": {},
@@ -56,7 +57,8 @@ def monitor(client, now_ms, *, clock_available=True, clock_error=None,
         return {"monitor": save(), "fill": None}
 
     try:
-        observation = client.mark_price_observation(execution.SYMBOL)
+        observation = (mark_observation if mark_observation is not None else
+                       client.mark_price_observation(execution.SYMBOL))
         price, source_ms = float(observation["price"]), int(observation["time_ms"])
         received_ms = int(time.time() * 1000)
         reference_ms = int(now_ms) + max(0, received_ms - started_ms) if clock_available else received_ms
@@ -129,7 +131,7 @@ def monitor(client, now_ms, *, clock_available=True, clock_error=None,
     if not available:
         health["errors"].setdefault("funding", "Funding unavailable; settlement deferred and new risk blocked")
     health.update(
-        status="healthy" if clock_available and available else "degraded",
+        status="healthy" if clock_available and available and health["clock_source"] == "exchange" else "degraded",
         assessment="evaluated", assessment_time_ms=assessment_ms,
         mark_price=price, mark_time_ms=source_ms,
         last_success_at_ms=int(time.time() * 1000), consecutive_failures=0,

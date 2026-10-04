@@ -10,6 +10,7 @@ from pathlib import Path
 
 import run_macro_candidate_shadow as strategy_supervisor
 import simulate_range_swing as sim
+import decision_runtime
 from binance_terminal_client import BinanceApiError, BinanceTerminalClient, datetime_from_ms
 from trading_execution import (
     LIVE_STATE_PATH,
@@ -17,6 +18,7 @@ from trading_execution import (
     execute_report,
     monitor_simulation_account,
     read_json,
+    target_from_report,
 )
 
 
@@ -79,19 +81,67 @@ def strategy_args(args: argparse.Namespace) -> argparse.Namespace:
     )
 
 
-def run_cycle(args: argparse.Namespace, client: BinanceTerminalClient) -> dict[str, object]:
+def run_cycle(args: argparse.Namespace, client: BinanceTerminalClient, *,
+              asof_ms=None, required_bar=None) -> dict[str, object]:
     if args.mode != "simulation":
         raise ValueError("The September 17 research candidate is simulation-only")
-    if getattr(args, "factor_profile", None):
-        import information_runtime
-        strategy_supervisor.run_checked(information_runtime.paper_command(args))
-    else:
-        shadow_args = strategy_args(args)
-        strategy_supervisor.refresh_macro_if_needed(shadow_args)
-        strategy_supervisor.run_shadow_once(shadow_args)
-    report = json.loads(args.report_path.read_text(encoding="utf-8"))
-    result = execute_report(args.mode, report, client)
+    report = read_json(args.report_path, {}) or {}
+    paper_epoch = (read_json(args.state_path, {}) or {}).get("created_at_utc")
+    cached_point = report.get("execution_target") or {}
+    reuse = (required_bar is not None and int(cached_point.get("time_ms") or 0) == required_bar
+             and paper_epoch is not None and report.get("paper_inception_utc") == paper_epoch
+             and report.get("decision_asof_ms") is not None
+             and int(report["decision_asof_ms"]) >= required_bar + BAR_INTERVAL_MS - 1
+             and (asof_ms is None or int(report["decision_asof_ms"]) <= asof_ms))
+    if reuse and getattr(args, "factor_profile", None):
+        import multifactor
+        context = report.get("execution_entry_context") or {}
+        reuse = (context.get("factor_profile") == str(args.factor_profile.resolve())
+                 and context.get("factor_profile_sha256") == multifactor.profile_hash(
+                     multifactor.load_profile(args.factor_profile)))
+    if not reuse:
+        if getattr(args, "factor_profile", None):
+            import information_runtime
+            args.signal_asof_ms = asof_ms
+            strategy_supervisor.run_checked(information_runtime.paper_command(args))
+        else:
+            shadow_args = strategy_args(args)
+            strategy_supervisor.refresh_macro_if_needed(shadow_args)
+            strategy_supervisor.run_shadow_once(shadow_args)
+        report = json.loads(args.report_path.read_text(encoding="utf-8"))
     point = report.get("execution_target") or (report.get("summary") or {}).get("last_equity_point") or {}
+    if asof_ms is not None and int(point.get("available_time_ms") or point.get("time_ms") or 0) > asof_ms:
+        raise RuntimeError("Strategy target is ahead of the verified decision clock")
+    if required_bar is not None and int(point.get("time_ms") or 0) != required_bar:
+        raise RuntimeError("Strategy report does not match the due closed candle")
+    target = target_from_report(report, now_ms=asof_ms)
+    judgment = {
+        "mode": args.mode, "places_orders": False,
+        "report_path": str(args.report_path.resolve()), "account_epoch": (read_json(SIMULATION_STATE_PATH, {}) or {}).get("created_at_utc"),
+        "decision_status": "evaluated", "signal_time_ms": int(point.get("time_ms") or 0),
+        "last_judged_at_utc": report.get("generated_at_utc"), "target_leverage": target["target_leverage"],
+        "position_id": point.get("position_id"), "market_data": report.get("market_data"),
+        "clock": getattr(client, "simulation_clock", None), "execution_status": "pending",
+        "reused_report": reuse,
+    }
+    decision_runtime.write_judgment(judgment)
+    try:
+        result = execute_report(args.mode, report, client)
+    except Exception as exc:
+        # A recorded current decision survives a transient execution-data failure.
+        # The execution account cursor is unchanged, so a later check can retry
+        # this report with fresh permissions/price without recomputing history.
+        judgment.update(execution_status="deferred", execution_error=f"{type(exc).__name__}: {exc}"[:240])
+        decision_runtime.write_judgment(judgment)
+        print(f"strategy_judgment_complete={datetime.now(timezone.utc).isoformat()} "
+              f"mode={args.mode} execution=deferred signal_time_ms={judgment['signal_time_ms']}", flush=True)
+        return {"mode": args.mode, "target_leverage": target["target_leverage"],
+                "signal_time_ms": judgment["signal_time_ms"], "execution_status": "deferred"}
+    judgment.update(execution_status="completed", execution_error=None,
+                    effective_target_leverage=result["target_leverage"],
+                    execution_entry_gate=result.get("execution_entry_gate"),
+                    entry_guard=result.get("entry_guard"))
+    decision_runtime.write_judgment(judgment)
     result["signal_time_ms"] = int(point.get("time_ms") or 0)
     print(
         f"execution_cycle_complete={datetime.now(timezone.utc).isoformat()} "
@@ -145,16 +195,21 @@ def monitored_clock(mode, client):
     """A failed scheduler clock must not skip the independent risk observation."""
     server_time_ms = int(time.time() * 1000)
     clock_error = None
+    clock = None
     try:
-        server_time_ms = client.server_time_ms()
+        clock = decision_runtime.resolve_clock(client, mode)
+        server_time_ms = clock["time_ms"]
+        client.simulation_clock = clock
     except Exception as exc:
         clock_error = exc
     if mode == "simulation":
         monitor_simulation_account(
-            client, server_time_ms, clock_available=clock_error is None, clock_error=clock_error)
+            client, server_time_ms, clock_available=clock_error is None,
+            clock_error=clock_error or (clock or {}).get("primary_error"),
+            clock_source=(clock or {}).get("source"))
     if clock_error is not None:
-        # The mark endpoint's clock may support a protective exit, but cannot
-        # authorize a strategy cycle or an entry during scheduler clock failure.
+        # No verified clock or bounded anchor remains; this is unavailable
+        # input, not a neutral/flat strategy assessment.
         raise clock_error
     return server_time_ms
 
@@ -164,11 +219,39 @@ def check_once(args, client):
     last_processed = last_processed_signal_ms(args.mode)
     due_bar = due_closed_bar_open_ms(server_time_ms, last_processed, args.bar_settle_delay_seconds)
     if due_bar is not None:
-        result = run_cycle(args, client)
+        result = run_cycle(args, client, asof_ms=server_time_ms, required_bar=due_bar)
         actual_signal = int(result.get("signal_time_ms") or 0)
         if actual_signal < due_bar:
             raise RuntimeError(f"Strategy report signal {actual_signal} is older than due bar {due_bar}")
+    else:
+        previous = read_json(decision_runtime.STATUS_PATH, {}) or {}
+        account_epoch = (read_json(SIMULATION_STATE_PATH, {}) or {}).get("created_at_utc")
+        if (previous.get("account_epoch") != account_epoch
+                or previous.get("report_path") != str(args.report_path.resolve())):
+            previous = {}
+        previous.update(mode=args.mode, places_orders=False, report_path=str(args.report_path.resolve()),
+                        account_epoch=account_epoch, clock=getattr(client, "simulation_clock", None), decision_error=None)
+        latest_closed = server_time_ms // BAR_INTERVAL_MS * BAR_INTERVAL_MS - BAR_INTERVAL_MS
+        if int(previous.get("signal_time_ms") or 0) == latest_closed and latest_closed <= last_processed:
+            previous.update(decision_status="evaluated", execution_status="completed", execution_error=None)
+        else:
+            previous.update(decision_status="waiting_for_bar")
+        decision_runtime.write_judgment(previous)
     return server_time_ms
+
+
+def record_unavailable(args, error):
+    prior = read_json(decision_runtime.STATUS_PATH, {}) or {}
+    account_epoch = (read_json(SIMULATION_STATE_PATH, {}) or {}).get("created_at_utc")
+    if (prior.get("account_epoch") != account_epoch
+            or prior.get("report_path") != str(args.report_path.resolve())):
+        prior = {}
+    prior.update(mode=args.mode, places_orders=False,
+                 report_path=str(args.report_path.resolve()),
+                 account_epoch=account_epoch,
+                 decision_status="unavailable", decision_error=f"{type(error).__name__}: {error}"[:240],
+                 execution_status="deferred")
+    decision_runtime.write_judgment(prior)
 
 
 def main() -> int:
@@ -183,14 +266,14 @@ def main() -> int:
     if args.mode == "live":
         client.validate_live_ready()
     if args.once:
-        monitored_clock(args.mode, client)
+        server_time_ms = monitored_clock(args.mode, client)
         if args.factor_profile:
             import information_runtime
             import multifactor
             profile = multifactor.load_profile(args.factor_profile)
             information_runtime.refresh_if_needed(args.factor_snapshot,
                 sim.repo_root() / profile["event_snapshot"], args.supplemental_snapshot)
-        run_cycle(args, client)
+        run_cycle(args, client, asof_ms=server_time_ms)
         return 0
     if args.factor_profile:
         import information_runtime
@@ -212,13 +295,15 @@ def main() -> int:
         except BinanceApiError as exc:
             if args.mode != "simulation":
                 raise
+            record_unavailable(args, exc)
             if not exc.retry_at_ms:
                 traceback.print_exc()
             elif exc.retry_at_ms != announced_retry_ms:
                 print(f"market_data_paused retry_at_utc={datetime_from_ms(exc.retry_at_ms)} "
                       "mode=simulation reason=binance_rate_limit", flush=True)
                 announced_retry_ms = exc.retry_at_ms
-        except Exception:
+        except Exception as exc:
+            record_unavailable(args, exc)
             traceback.print_exc()
             if args.mode == "live":
                 raise

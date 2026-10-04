@@ -134,14 +134,16 @@ def test_trial_routes_paper_and_terminal_to_same_profile(tmp_path):
 
 def test_factor_cycle_consumes_snapshots_without_blocking_on_refresh(tmp_path):
     report_path = tmp_path / "report.json"
-    report_path.write_text(json.dumps({"execution_target": {"time_ms": 123}}))
+    report_path.write_text(json.dumps({"execution_target": {
+        "time_ms": 123, "equity": 100, "price": 100000, "signed_qty": 0}}))
     args = SimpleNamespace(mode="simulation", factor_profile=ROOT / "config/multifactor_trial_20261002.json",
                            factor_snapshot=tmp_path / "factor.gz", state_path=tmp_path / "state.json",
                            report_path=report_path, trades_path=tmp_path / "trades.csv")
     with patch.object(supervisor.strategy_supervisor, "run_checked") as run, \
          patch.object(information_runtime, "refresh_if_needed") as refresh, \
-         patch.object(supervisor, "execute_report", return_value={"target_leverage": 0}) as execute:
-        assert supervisor.run_cycle(args, Mock())["signal_time_ms"] == 123
+         patch.object(supervisor, "execute_report", return_value={"target_leverage": 0}) as execute, \
+         patch.object(supervisor.decision_runtime, "write_judgment"):
+        assert supervisor.run_cycle(args, Mock(), asof_ms=123)["signal_time_ms"] == 123
         refresh.assert_not_called()
         assert "--factor-profile" in run.call_args.args[0]
         execute.assert_called_once()
