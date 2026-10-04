@@ -163,6 +163,38 @@ def test_real_prepare_buckets_funding_into_five_minutes_with_hourly_indexes():
     assert ENTRY + STEP not in prepared["index"]
 
 
+@pytest.mark.parametrize("direction", [1, -1])
+@pytest.mark.parametrize("current_volume", [0, 1000000])
+def test_liquidity_size_uses_prior_closed_volume_not_current_or_future_volume(monkeypatch, direction, current_volume):
+    previous = Candle(ENTRY - STEP, 100, 101, 99, 100, 10)
+    current = Candle(ENTRY, 100, 101, 99, 100, current_volume)
+    target = bar(ENTRY + STEP, high=115) if direction == 1 else bar(ENTRY + STEP, low=85)
+    prepared = source([previous, current, target], direction=direction)
+    cfg = config() | {"entry_max_previous_bar_participation_fraction": .1}
+    result = run(monkeypatch, {"MUUSDT": prepared}, cfg)
+    assert result["trades"][0]["qty"] == pytest.approx(1)
+    assert result["trades"][0]["exit_reason"] == "target"
+
+
+@pytest.mark.parametrize("previous_volume", [None, 0, .01])
+def test_liquidity_rejects_missing_zero_or_below_minimum_previous_volume(monkeypatch, previous_volume):
+    bars = [bar(ENTRY), bar(ENTRY + STEP, high=115)]
+    if previous_volume is not None:
+        bars.insert(0, Candle(ENTRY - STEP, 100, 101, 99, 100, previous_volume))
+    result = run(monkeypatch, {"MUUSDT": source(bars)}, config() | {
+        "entry_max_previous_bar_participation_fraction": .1})
+    assert not result["trades"]
+    assert not result["summary"]["open_positions"]
+    assert result["summary"]["skipped_signals"]["previous_bar_liquidity"] == 1
+
+
+@pytest.mark.parametrize("fraction", [True, 0, -1, 1.01, float("nan"), float("inf"), "0.1"])
+def test_liquidity_rejects_invalid_participation_fraction(monkeypatch, fraction):
+    with pytest.raises(ValueError, match="participation fraction"):
+        run(monkeypatch, {"MUUSDT": source([bar(ENTRY)])}, config() | {
+            "entry_max_previous_bar_participation_fraction": fraction})
+
+
 def test_funding_after_exit_in_a_later_five_minute_bucket_is_not_charged(monkeypatch):
     hourly = [candle_row(bar(t)) for t in range(0, 8 * HOUR, HOUR)]
     snapshot = real_snapshot(hourly, funding_events=[funding(), funding(ENTRY + 17 * 60_000, 0.01)])

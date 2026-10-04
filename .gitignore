@@ -2,6 +2,13 @@
 .venv/
 __pycache__/
 data/*
+!data/research/
+data/research/*
+!data/research/stock_swing_liquidity_20261004/
+data/research/stock_swing_liquidity_20261004/*
+!data/research/stock_swing_liquidity_20261004/results.json
+!data/research/stock_swing_liquidity_20261004/verification.json
+!data/research/stock_swing_liquidity_20261004/forward_research_plan.json
 !data/validation/
 data/validation/*
 !data/validation/carry_trend_portfolio_85_15_20260801.json

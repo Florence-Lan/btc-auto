@@ -1,0 +1,35 @@
+{
+  "status": "prepared_not_started",
+  "automatic_promotion": false,
+  "places_orders": false,
+  "prepared_at_utc": "2026-10-04T15:55:22.679844+00:00",
+  "profile_sha256": "6ebb145c342fd96e8a20dd9f8454a73bdd0bb4a757151ae3c6b9545a7460fe6d",
+  "source_sha256": {
+    "research_stock_swing_robustness.py": "15631a9e53c009fe892af67922b88fd510dc9188c398622ef764cf34fd73970c",
+    "replay_stock_swing_per_symbol.py": "a5afdfc3e91a5627baa9a1e2e93da72e6d333c14eb11ad705b1a03771ee2add3",
+    "backtest_stock_swing_120.py": "1a1e496b872866c708f153b395d16bc42d014d47f259c4f7a8b9c74c07699bfc",
+    "stock_swing_signals.py": "e50d8de5bbbe245c94482e2d04e4efbdc0c70463ecae40dc19a55816942795ea",
+    "stock_swing_profiles.py": "4a69532e5e2409d1d991fc2c531f29fad166b1b3593f406e72014aa14550b156"
+  },
+  "experiment": {
+    "enabled": true,
+    "entry_max_previous_bar_participation_fraction": 0.1,
+    "hypothesis": "Use prior completed five-minute volume to cap quantity; reject unavailable or zero volume. No signal-date exclusions, current-bar final-volume lookahead or parameter grid.",
+    "warning": "A proxy for admission and sizing, not proof of opening-tick order book depth, actual fills or subsequent stop liquidity."
+  },
+  "next_evidence": [
+    "Timestamped bid/ask/depth and actual-trade observations at signal time; model partial fills, cancellation and protective stop latency.",
+    "Fixed-rules forward paper observations after explicit start; precollection history cannot count as forward evidence.",
+    "Investigate SNDK signal/exit behavior on newly collected data; retain all failed historical variants."
+  ],
+  "prospective_review_minimums": {
+    "calendar_days_after_actual_paper_start": 30,
+    "closed_trades_per_symbol": 10,
+    "positive_closed_net_pnl_at_normal_and_double_costs_each_symbol": true,
+    "max_drawdown_pct_each_symbol": 8,
+    "modeled_liquidation_stress_current_tier": 0,
+    "verified_source_and_fill_model": true
+  },
+  "paper_start_utc": null,
+  "limitation": "Review criteria prepared after inspected history; not a started paper service, execution authorization or guarantee."
+}

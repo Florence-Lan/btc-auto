@@ -1,3 +1,5 @@
+import { createResearchView } from "./research.js";
+
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const fmt = (value, digits = 2) => value == null ? "—" : Number(value).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -240,8 +242,9 @@ function render(data) {
     initialBalanceInput.value = data.execution.simulation_initial_balance ?? 100;
   }
   $("#resetSimulation").disabled = running || Boolean(emergency) || live;
-  $("#notionalLimit").textContent = data.execution.max_notional_usdt > 0 ? `${fmt(data.execution.max_notional_usdt)} USDT` : "按权益 × 2";
+  $("#notionalLimit").textContent = data.execution.max_notional_usdt > 0 ? `${fmt(data.execution.max_notional_usdt)} USDT` : `按权益 × ${fmt(data.execution.leverage, 1)}`;
   $("#leverageLimit").textContent = `${fmt(data.execution.leverage, 1)}×`;
+  $("#portfolioLeverageLimit").textContent = `${fmt(data.risk.portfolio_leverage_cap, 1)}×`;
   $("#observationInterval").textContent = `${data.execution.check_interval_seconds}秒检查 / ${Math.round(data.execution.strategy_bar_seconds / 60)}分钟K线`;
   $("#emergencyDescription").textContent = live
     ? "这会停止实盘自动化、撤销 BTCUSDT 挂单，并使用 reduceOnly 市价平掉当前 BTCUSDT 仓位。"
@@ -309,4 +312,5 @@ $("#clearViewButton").addEventListener("click", () => { logViewCleared = true; $
 $$('.tab').forEach(tab => tab.addEventListener("click", () => { $$('.tab').forEach(item => item.classList.toggle("active", item === tab)); ["positions","orders","trades"].forEach(name => $(`#${name}Pane`).classList.toggle("hidden", name !== tab.dataset.tab)); }));
 setInterval(() => $("#clock").textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false }), 1000);
 setInterval(refresh, 3000);
+createResearchView(document);
 refresh();

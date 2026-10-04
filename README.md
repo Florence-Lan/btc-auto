@@ -67,6 +67,12 @@ risk context. See [sources and limitations](docs/information_activation_20261002
 
 ## Memory-stock swing research
 
+The October 4 follow-up replays separate stock profiles with uniform five-minute
+execution and checks source gaps, costs and entry volume. A fixed prior-volume
+sizing experiment reduces MU's modeled return and leaves SNDK unprofitable;
+execution liquidity remains unverified. See [the follow-up findings and reproducible
+research](docs/stock_swing_followup_20261004.md). The stock candidates remain research-only.
+
 An isolated Aster/Binance Wallet candidate for `MUUSDT`, `SNDKUSDT` and
 `SKHYNIXUSDT` uses completed four-hour trend breakouts, 10x isolated-margin
 arithmetic, a net 120% initial-margin target and correlated account risk limits.
@@ -331,7 +337,17 @@ Run the localhost-only trading terminal:
 python scripts\run_trading_terminal.py --port 8766
 ```
 
-Open `http://127.0.0.1:8766/terminal/`. The terminal has two execution modes:
+Open `http://127.0.0.1:8766/terminal/`. The top tabs switch between BTC execution and
+stock research; `/terminal/#stocks` opens the research view directly. The read-only
+`/api/terminal/research` endpoint reads the artifacts selected by
+`config/stock_research_dashboard.json`, with independent MU/SNDK/SKHYNIX capital,
+normal/double cost comparisons, liquidity constraints, and forward observation status.
+Missing results display an unavailable state. The research view does not start trading.
+The selected historical summary, verification record, and prepared forward plan are
+included in Git so a fresh checkout can display the research view. Raw market snapshots
+and execution account state remain local.
+
+BTC execution has two modes:
 
 - `SIMULATION` is the default. It reads Binance USD-M mainnet market data and writes fills,
   positions, fees, and PnL only to a local simulated account. It never submits an exchange order.

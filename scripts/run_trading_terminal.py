@@ -24,6 +24,7 @@ import supplemental_market_data
 import simulation_risk_monitor
 import decision_runtime
 import active_strategy
+import stock_research_status
 from binance_terminal_client import BinanceTerminalClient, datetime_from_ms
 from trading_execution import LIVE_STATE_PATH, SimulationAccount, read_json, write_json
 
@@ -652,6 +653,9 @@ class TerminalHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
+        if path == "/api/terminal/research":
+            self.send_json(stock_research_status.research_status(ROOT))
+            return
         if path == "/api/terminal/status":
             self.send_json(CONTROLLER.status())
             return

@@ -1,0 +1,6 @@
+{
+  "results_path": "data/research/stock_swing_liquidity_20261004/results.json",
+  "verification_path": "data/research/stock_swing_liquidity_20261004/verification.json",
+  "forward_plan_path": "data/research/stock_swing_liquidity_20261004/forward_research_plan.json",
+  "report_path": "docs/stock_swing_followup_20261004.md"
+}

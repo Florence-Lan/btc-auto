@@ -3,21 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="BTCUSDT 自动化交易运维终端" />
-    <title>BTC AUTO · 交易终端</title>
+    <meta name="description" content="BTC 自动交易与存储股策略研究终端" />
+    <title>BTC AUTO · 策略终端</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <header class="topbar">
       <div class="brand"><span class="brand-mark">₿</span><div><strong>BTC AUTO</strong><small>AUTOMATED TRADING TERMINAL</small></div></div>
-      <div class="market-ticker"><span>BTC / USDT PERP</span><strong id="markPrice">—</strong><small id="marketTime">等待行情</small></div>
-      <div class="top-status"><span class="mode-badge" id="modeBadge">SIMULATION</span><span class="health"><i id="healthDot"></i><span id="healthText">连接中</span></span><time id="clock">—</time></div>
+      <div class="market-ticker" id="btcMarketTicker"><span>BTC / USDT PERP</span><strong id="markPrice">—</strong><small id="marketTime">等待行情</small></div>
+      <div class="market-ticker hidden" id="stockMarketTicker"><span>ASTER / STOCK PERPS</span><strong>股票研究</strong><small>历史回放</small></div>
+      <div class="top-status" id="btcHeaderStatus"><span class="mode-badge" id="modeBadge">SIMULATION</span><span class="health"><i id="healthDot"></i><span id="healthText">连接中</span></span><time id="clock">—</time></div>
+      <div class="top-status hidden" id="stockHeaderStatus"><span class="mode-badge">RESEARCH</span><span class="research-header-note">未接入自动交易</span></div>
     </header>
 
     <main>
+      <nav class="workspace-nav" role="tablist" aria-label="策略视图">
+        <button type="button" id="btcViewTab" class="workspace-tab active" data-workspace="btc" role="tab" aria-selected="true" aria-controls="btcWorkspace">BTC 交易 <span>BTCUSDT</span></button>
+        <button type="button" id="stockViewTab" class="workspace-tab" data-workspace="stocks" role="tab" aria-selected="false" aria-controls="stockWorkspace" tabindex="-1">股票研究 <span>3 个标的</span></button>
+      </nav>
+      <section id="btcWorkspace" role="tabpanel" aria-labelledby="btcViewTab">
       <section class="compatibility-banner" role="status">
-        <span class="compatibility-label">LEGACY EXECUTOR</span>
-        <p><strong>这是旧的单腿趋势执行终端。</strong> 新的 Carry 候选需要同步现货多单与永续空单，这里暂时不能执行；候选仍处于研究模式，不会下单。</p>
+        <span class="compatibility-label">BTC EXECUTION</span>
+        <p><strong>当前执行对象为 BTCUSDT。</strong> 本页控制作用于 BTC 账户；MU、SNDK、SKHYNIX 的策略和回测可在「股票研究」中查看。</p>
       </section>
       <section class="command-bar panel">
         <div class="bot-identity"><span class="pulse-ring"><i></i></span><div><small>运行实例</small><strong id="candidateId">宏观候选</strong><p id="runtimeMeta">读取状态中</p></div></div>
@@ -41,7 +48,7 @@
         <div class="execution-bar-title"><small>EXECUTION GUARD</small><strong>执行保护</strong><p id="guardDescription">模拟盘读取 Binance 主网实时行情，成交和资金仅写入本地账本。</p></div>
         <span class="guard-badge" id="guardStatus">SIM SAFE</span>
         <div class="execution-limit"><span>观测检查</span><strong id="observationInterval">30秒 / 新K线</strong></div>
-        <div class="execution-limit"><span>名义金额上限</span><strong id="notionalLimit">按权益 × 2</strong></div>
+        <div class="execution-limit"><span>名义金额上限</span><strong id="notionalLimit">—</strong></div>
         <div class="execution-limit"><span>杠杆上限</span><strong id="leverageLimit">--</strong></div>
       </section>
 
@@ -120,7 +127,7 @@
             <div class="risk-orbit"><div><strong id="riskMultiplier">1.00×</strong><span>当前仓位倍率</span></div></div>
             <div class="detail-row"><span>软降仓线</span><strong>8.0%</strong></div>
             <div class="detail-row"><span>硬停机线</span><strong>15.0%</strong></div>
-            <div class="detail-row"><span>组合杠杆上限</span><strong>2.0×</strong></div>
+            <div class="detail-row"><span>组合杠杆上限</span><strong id="portfolioLeverageLimit">—</strong></div>
             <div class="detail-row"><span>风控监测</span><strong id="riskMonitorState">等待检查</strong></div>
             <div class="detail-row"><span>策略判断</span><strong id="judgmentState">等待判断</strong></div>
             <div class="detail-row"><span>判断后执行</span><strong id="judgmentExecutionState">等待判断</strong></div>
@@ -138,6 +145,47 @@
           </article>
 
         </aside>
+      </section>
+      </section>
+
+      <section id="stockWorkspace" class="hidden" role="tabpanel" aria-labelledby="stockViewTab">
+        <div class="research-heading">
+          <div><p class="research-eyebrow">MEMORY STOCKS / STRATEGY RESEARCH</p><h1>存储股策略研究</h1><p>美光、闪迪、海力士 · 四小时信号 · 五分钟回放</p></div>
+          <div class="research-heading-actions"><span class="research-badge">研究阶段</span><a id="stockReportLink" class="text-button hidden" target="_blank" rel="noopener">完整研究记录 ↗</a></div>
+        </div>
+        <div class="research-context panel">
+          <div><strong id="stockResearchContext">历史回放 · 研究状态读取中</strong><p>各标的独立资金核算；收益包含期末估计平仓损益。实际盘口与成交仍需验证。</p></div>
+          <div class="research-cutoff"><span>数据截止（北京时间，结束不含）</span><strong id="stockDataCutoff">—</strong></div>
+        </div>
+        <div id="stockResearchLoading" class="research-empty panel" role="status">正在读取股票研究结果…</div>
+        <div id="stockResearchUnavailable" class="research-empty panel hidden" role="status"><strong id="stockResearchError">研究结果暂不可用</strong><p>结果恢复后会自动更新。</p><button type="button" class="btn" id="retryStockResearch">重新读取</button></div>
+        <div id="stockResearchContent" class="hidden">
+          <div class="research-section-heading">
+            <div><h2>流动性约束实验</h2><p id="stockLiquidityRule">仓位不超过此前已收盘五分钟成交量的 10%</p></div>
+            <div class="research-cost-switch" role="group" aria-label="回测成本"><button type="button" data-research-cost="1" class="active" aria-pressed="true">正常成本</button><button type="button" data-research-cost="2" aria-pressed="false">双倍成本</button></div>
+          </div>
+          <div class="stock-card-grid" id="stockCards"></div>
+          <div class="research-lower-grid">
+            <article class="panel research-comparison">
+              <div class="panel-heading"><div><small>EXECUTION SENSITIVITY</small><h2>流动性限制前后对比</h2></div><span id="stockCostLabel">正常成本</span></div>
+              <div class="table-wrap"><table><caption class="sr-only">各标的原策略与流动性约束实验的历史资金收益对比</caption><thead><tr><th>标的</th><th>原策略收益</th><th>限量后收益</th><th>近 30 天限量收益</th><th>原策略零量开仓</th></tr></thead><tbody id="stockComparisonBody"></tbody></table></div>
+              <p class="research-footnote">零量开仓按开仓所在五分钟线最终报告量统计，仅供事后核查；它不用于入场过滤。</p>
+            </article>
+            <article class="panel research-status-panel">
+              <div class="panel-heading"><div><small>RESEARCH PROGRESS</small><h2>研究进度</h2></div><span class="research-badge">待验证</span></div>
+              <div class="research-stage"><i class="stage-complete"></i><div><strong>固定规则回放</strong><p>完成成本、回撤与成交量约束检查</p></div></div>
+              <div class="research-stage"><i class="stage-current"></i><div><strong>成交可行性</strong><p>待核对盘口深度、部分成交与止损执行</p></div></div>
+              <div class="research-stage"><i></i><div><strong>前瞻模拟</strong><p id="stockForwardState">尚未启动，历史数据不计入前瞻样本</p></div></div>
+              <div class="research-stage"><i></i><div><strong>自动交易</strong><p>尚未接入执行账户</p></div></div>
+            </article>
+          </div>
+          <article class="panel research-findings-panel">
+            <div class="panel-heading"><div><small>FINDINGS & RULES</small><h2>研究结论与规则</h2></div><span id="stockResearchReviewed">—</span></div>
+            <div class="research-findings" id="stockFindings"></div>
+            <div class="research-rule-strip" id="stockRuleStrip"></div>
+            <p class="research-footnote" id="stockCoverageNote"></p>
+          </article>
+        </div>
       </section>
     </main>
 

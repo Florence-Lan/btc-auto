@@ -136,6 +136,12 @@ def simulate(snapshot: dict, config: dict, start_ms: int, end_ms: int,
              cost_multiplier: float = 1.0) -> dict:
     data = prepare(snapshot, config)
     step = int(snapshot.get("execution_step_ms", HOUR))
+    participation = config.get("entry_max_previous_bar_participation_fraction")
+    if participation is not None and (
+        isinstance(participation, bool) or not isinstance(participation, (int, float))
+        or not math.isfinite(participation) or not 0 < participation <= 1
+    ):
+        raise ValueError("Previous-bar participation fraction must be finite and in (0, 1]")
     fee = config["taker_fee_rate_assumption"] * cost_multiplier
     slip = config["adverse_slippage_fraction_assumption"] * cost_multiplier
     cash = float(config["initial_equity_usdt"])
@@ -288,6 +294,17 @@ def simulate(snapshot: dict, config: dict, start_ms: int, end_ms: int,
             free_margin = max(0, equity - reserved_margin)
             max_margin_qty = free_margin / (entry / config["leverage"] + entry * fee)
             qty = min(qty, max_risk_qty, max_notional_qty, max_margin_qty, source["max_qty"])
+            if participation is not None:
+                # Only the bar CLOSED before this opening is observable. The
+                # current execution bar's final volume cannot authorize entry.
+                previous_bar = source["trade"].get(timestamp - step)
+                if previous_bar is None or previous_bar.volume <= 0:
+                    skipped["previous_bar_liquidity"] += 1
+                    continue
+                qty = min(qty, previous_bar.volume * participation)
+                if qty < source["min_qty"] or qty * entry < source["min_notional"]:
+                    skipped["previous_bar_liquidity"] += 1
+                    continue
             qty = math.floor((qty + 1e-12) / source["step"]) * source["step"]
             if qty < source["min_qty"] or qty * entry < source["min_notional"]:
                 skipped["quantity_or_risk_cap"] += 1
