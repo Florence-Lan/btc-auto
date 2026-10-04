@@ -65,6 +65,17 @@ risk context. See [sources and limitations](docs/information_activation_20261002
 `python scripts/run_multifactor_shadow.py --once` runs the selected rules in independent
 `*_shadow_*` files; omit `--once` to keep observing. It preserves the terminal's active state.
 
+## Memory-stock swing research
+
+An isolated Aster/Binance Wallet candidate for `MUUSDT`, `SNDKUSDT` and
+`SKHYNIXUSDT` uses completed four-hour trend breakouts, 10x isolated-margin
+arithmetic, a net 120% initial-margin target and correlated account risk limits.
+Public trade/mark/index/funding data, fixed-rule replay and cost/margin stress
+results are recorded in [the strategy and validation report](docs/stock_swing_120_20261004.md).
+The candidate remains research-only: recent target captures are absent and two
+symbols have negative closed-trade contributions. It has no order-submission
+path and does not change the selected BTC account or strategy.
+
 ## Reproducible Data
 
 Freeze public Binance futures candles and funding rates:

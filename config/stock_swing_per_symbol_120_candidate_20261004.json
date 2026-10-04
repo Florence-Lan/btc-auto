@@ -1,0 +1,69 @@
+{
+  "candidate_id": "memory_stock_per_symbol_net120_v2_20261004",
+  "status": "research_only",
+  "base_config": "config/stock_swing_120_candidate_20261004.json",
+  "execution_timeframe": "5m",
+  "capital_weights": {
+    "MUUSDT": 0.3333333333333333,
+    "SNDKUSDT": 0.3333333333333333,
+    "SKHYNIXUSDT": 0.3333333333333333
+  },
+  "max_positions_per_capital_bucket": 1,
+  "risk_fraction_per_bucket_trade": 0.005,
+  "symbol_profiles": {
+    "MUUSDT": {
+      "signal_family": "breakout",
+      "research_variant": "B1",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "breakout_bars": 6,
+      "stop_atr": 2.0
+    },
+    "SNDKUSDT": {
+      "signal_family": "ema_transition",
+      "research_variant": "transition_12_36_120_slow0",
+      "ema_fast": 12,
+      "ema_mid": 36,
+      "ema_slow": 120,
+      "warmup_bars": 120,
+      "require_price_slow": false,
+      "stop_atr": 2.0
+    },
+    "SKHYNIXUSDT": {
+      "signal_family": "ema_transition",
+      "research_variant": "transition_8_24_60_slow1",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0
+    }
+  },
+  "individual_acceptance": {
+    "all_full_development_validation_returns_positive_at_both_costs": true,
+    "minimum_development_closed_trades": 3,
+    "minimum_validation_closed_trades": 3,
+    "minimum_full_net120_trades": 1,
+    "zero_current_maintenance_liquidation_stress": true
+  },
+  "selection_provenance": {
+    "finite_variants_researched": 18,
+    "families": ["faster_breakout", "pullback_reclaim", "fresh_ema_transition"],
+    "within_family_ranking": "positive development net returns at normal/double costs, >=3 closed and >=1 target; rank lower development cost return",
+    "composition": "MU uses breakout-family development winner; SNDK/SKHYNIX use transition-family development winners",
+    "family_composition_is_retrospective": true,
+    "already_reviewed_validation_history": true,
+    "independent_unseen_validation_claim": false
+  },
+  "notes": [
+    "Each stock has its own capital, ledger, risk budget and profit assessment; other stocks cannot offset a failed individual acceptance check.",
+    "Fixed equal capital buckets; no redistribution of profits or losses across stocks.",
+    "At most one position per bucket, at most three overall; each trade risks 0.5% of its own bucket, approximately 0.167% of starting total capital.",
+    "All three use the same fee/funding/mark/stop/target execution model and uniform five-minute history. No single-trade classification overrides.",
+    "Initial margin target remains net 120% at isolated 10x; no averaging down, martingale or extra leverage.",
+    "Historical family composition is research development and may overfit; a future paper period is needed before live qualification."
+  ]
+}
