@@ -67,6 +67,17 @@ risk context. See [sources and limitations](docs/information_activation_20261002
 
 ## Memory-stock swing research
 
+The requested joint BTC/MU/SNDK/SKHYNIX simulation uses four independent
+1,000-USDT accounts and a 10x ceiling. Its [launch plan](docs/parallel_simulation_20261005.md)
+is prepared pending stock-rule selection and forward-runner verification; it has
+not started a new four-account trial.
+
+The October 5 mechanism review compares eight declared rules across 288 replay
+scenarios and audits 42 historical fill bars against public aggregate trades.
+No variant passes the per-stock research screen; SKHYNIX long-only remains an
+observation hypothesis. The terminal shows this review without changing BTC's
+selected simulation. See [the mechanism findings](docs/stock_mechanism_review_20261005.md).
+
 The October 4 follow-up replays separate stock profiles with uniform five-minute
 execution and checks source gaps, costs and entry volume. A fixed prior-volume
 sizing experiment reduces MU's modeled return and leaves SNDK unprofitable;

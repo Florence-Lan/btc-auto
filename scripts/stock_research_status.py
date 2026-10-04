@@ -73,6 +73,9 @@ def research_status(root: Path = ROOT) -> dict:
         result = _load(_path(root, selection["results_path"], "data/research"))
         verification = _optional(_path(root, selection["verification_path"], "data/research"))
         plan = _optional(_path(root, selection["forward_plan_path"], "data/research"))
+        mechanism = _optional(_path(root, selection["mechanism_path"], "data/research")) if selection.get("mechanism_path") else {}
+        if mechanism.get("places_orders") is not False or mechanism.get("status") != "research_only":
+            mechanism = {}
         report = _path(root, selection["report_path"], "docs")
         profile = result["profile"]
         if profile.get("status") != "research_only" or result.get("places_orders") is not False:
@@ -92,6 +95,13 @@ def research_status(root: Path = ROOT) -> dict:
                            "capital_weight": profile["capital_weights"].get(symbol),
                            "scenarios": scenarios,
                            "slippage_stress": _metrics(runs.get("full_slippage50bps"))})
+            review = mechanism.get("stocks", {}).get(symbol)
+            if isinstance(review, dict):
+                stocks[-1]["mechanism_review"] = {
+                    "trial_count": _number(review.get("trial_count")),
+                    "passed_count": _number(review.get("passed_count")),
+                    "finding": review.get("finding") if isinstance(review.get("finding"), str) else None,
+                }
         first = next((stock["scenarios"]["liquidity"]["1"]["full"] for stock in stocks
                       if stock["scenarios"]["liquidity"]["1"]["full"]), None)
         if not first:
@@ -104,6 +114,7 @@ def research_status(root: Path = ROOT) -> dict:
             "forward_status": plan.get("status", "not_observed"),
             "forward_start_utc": plan.get("paper_start_utc"),
             "forward_validated": result.get("forward_validated") is True,
+            "mechanism_reviewed_at_utc": mechanism.get("reviewed_at_utc"),
             "coverage": result.get("coverage_choice", {}),
             "assumptions": {"leverage": config.get("leverage"),
                             "target_margin_return_pct": _percent(config.get("target_margin_return")),

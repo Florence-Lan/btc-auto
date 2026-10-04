@@ -23,9 +23,11 @@ export function researchMarkup(data, cost = 1) {
     const profile = stock.profile || {};
     const rule = `${profile.signal_family === "breakout" ? "四小时突破" : "四小时均线交叉"} · EMA ${[profile.ema_fast, profile.ema_mid, profile.ema_slow].map(value => numeric(value) == null ? "—" : value).join(" / ")}`;
     const loss = numeric(full?.estimated_close_return_pct) != null && full.estimated_close_return_pct < 0;
-    const status = !full ? "结果待补齐" : loss ? "收益未通过" : "待成交验证";
+    const review = stock.mechanism_review;
+    const failedReview = numeric(review?.trial_count) > 0 && review?.passed_count === 0;
+    const status = !full ? "结果待补齐" : failedReview ? "本轮研究未通过" : loss ? "收益未通过" : "待成交验证";
     cards.push(`<article class="stock-card panel">
-      <div class="stock-card-heading"><div class="stock-identity"><span class="stock-monogram">${escape(stock.symbol?.replace("USDT", "").slice(0, 2))}</span><div><h3>${escape(stock.name)}</h3><span>${escape(stock.symbol)}</span></div></div><span class="stock-status ${loss ? "stock-status-failed" : ""}">${status}</span></div>
+      <div class="stock-card-heading"><div class="stock-identity"><span class="stock-monogram">${escape(stock.symbol?.replace("USDT", "").slice(0, 2))}</span><div><h3>${escape(stock.name)}</h3><span>${escape(stock.symbol)}</span></div></div><span class="stock-status ${loss || failedReview ? "stock-status-failed" : ""}">${status}</span></div>
       <div class="stock-return"><span>独立资金收益 · ${cost === 2 ? "双倍" : "正常"}成本</span><strong class="${tone(full?.estimated_close_return_pct)}">${percent(full?.estimated_close_return_pct)}</strong><small>历史回放，含期末估计平仓损益</small></div>
       <div class="stock-metrics"><div><span>最大采样回撤</span><strong>${numeric(full?.max_sampled_drawdown_pct) == null ? "—" : `${number(full.max_sampled_drawdown_pct)}%`}</strong></div><div><span>已平仓交易</span><strong>${count(full?.closed_trades)} <small>笔</small></strong></div><div><span>净保证金 ≥120%</span><strong>${count(full?.target_trades_net_at_least_120pct_margin)} <small>笔</small></strong></div><div><span>近 30 天收益</span><strong class="${tone(recent?.estimated_close_return_pct)}">${percent(recent?.estimated_close_return_pct)}</strong></div></div>
       <div class="stock-accounting"><span>已平仓资金收益 <b class="${tone(full?.closed_return_pct)}">${percent(full?.closed_return_pct)}</b></span><span>期末估计平仓损益 <b>${number(full?.estimated_open_close_net_pnl)} USDT</b></span></div>
@@ -33,6 +35,7 @@ export function researchMarkup(data, cost = 1) {
     </article>`);
     rows.push(`<tr><td><strong>${escape(stock.name)}</strong><small class="stock-table-symbol">${escape(stock.symbol)}</small></td><td class="${tone(baseline?.estimated_close_return_pct)}">${percent(baseline?.estimated_close_return_pct)}</td><td class="${tone(full?.estimated_close_return_pct)}">${percent(full?.estimated_close_return_pct)}</td><td class="${tone(recent?.estimated_close_return_pct)}">${percent(recent?.estimated_close_return_pct)}</td><td>${count(baseline?.zero_volume_entries)} / ${count(baseline?.closed_trades)}</td></tr>`);
     const lines = [];
+    if (review?.finding) lines.push(review.finding);
     if (numeric(baseline?.zero_volume_entries) != null && baseline.zero_volume_entries > 0) lines.push(`原策略 ${count(baseline.zero_volume_entries)} / ${count(baseline.closed_trades)} 笔开仓所在五分钟线报告成交量为零。`);
     if (loss) lines.push("成交量限制后区间收益为负，需要继续研究信号与执行行为。");
     if (numeric(full?.zero_volume_entries) != null && full.zero_volume_entries > 0) lines.push(`限量后仍有 ${count(full.zero_volume_entries)} 笔零量开仓；此前成交量不能保证随后可成交。`);
@@ -98,7 +101,8 @@ export function createResearchView(root, fetcher = globalThis.fetch) {
       $("#stockResearchContent").classList.remove("hidden");
       $("#stockResearchUnavailable").classList.add("hidden");
       $("#stockDataCutoff").textContent = beijingTime(data.data_end_utc_exclusive);
-      $("#stockResearchReviewed").textContent = data.reviewed_at_utc ? `研究更新 ${beijingTime(data.reviewed_at_utc)}` : "研究更新时间未记录";
+      const reviewedAt = data.mechanism_reviewed_at_utc || data.reviewed_at_utc;
+      $("#stockResearchReviewed").textContent = reviewedAt ? `研究更新 ${beijingTime(reviewedAt)}` : "研究更新时间未记录";
       const rule = numeric(data.liquidity_rule);
       $("#stockLiquidityRule").textContent = rule == null ? "此前已收盘五分钟成交量限制；比例未记录" : `仓位不超过此前已收盘五分钟成交量的 ${(rule * 100).toFixed(0)}%`;
       $("#stockForwardState").textContent = data.forward_start_utc ? `前瞻记录起于 ${beijingTime(data.forward_start_utc)}` : data.forward_status === "prepared_not_started" ? "尚未启动，历史数据不计入前瞻样本" : "尚未取得前瞻运行记录";

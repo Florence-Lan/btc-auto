@@ -95,6 +95,16 @@ test("artifact text is escaped in generated HTML", () => {
   assert.ok(!markup.rows.includes("<img"));
 });
 
+test("failed mechanism research labels a positive return as unqualified and escapes findings", () => {
+  const value = data();
+  value.stocks[0].mechanism_review = {trial_count: 8, passed_count: 0, finding: '<script>alert(1)</script> 0 / 8 通过'};
+  const markup = researchMarkup(value);
+  assert.ok(markup.cards.includes("+0.73%"));
+  assert.ok(markup.cards.includes("本轮研究未通过"));
+  assert.ok(markup.findings.includes("&lt;script&gt;"));
+  assert.ok(!markup.findings.includes("<script>"));
+});
+
 test("timestamps explicitly use Beijing time", () => {
   assert.match(beijingTime("2026-10-04T12:00:00Z"), /2026\/10\/04 20:00/);
   assert.equal(beijingTime("invalid"), "—");

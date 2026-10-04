@@ -92,6 +92,38 @@ def test_missing_forward_record_is_not_reported_as_started(artifacts):
     assert status["forward_start_utc"] is None
 
 
+def test_latest_mechanism_failures_do_not_promote_a_positive_historical_return(artifacts):
+    root, _, _ = artifacts
+    status = research.research_status(root)
+    assert status["mechanism_reviewed_at_utc"]
+    assert status["report_url"] == "/docs/stock_mechanism_review_20261005.md"
+    for stock in status["stocks"]:
+        assert stock["mechanism_review"]["trial_count"] == 8
+        assert stock["mechanism_review"]["passed_count"] == 0
+    assert status["stocks"][2]["scenarios"]["liquidity"]["2"]["full"]["estimated_close_return_pct"] > 0
+    assert status["forward_validated"] is False and status["places_orders"] is False
+
+
+def test_optional_mechanism_file_missing_keeps_original_metrics_available(artifacts):
+    root, selection, _ = artifacts
+    (root / selection["mechanism_path"]).unlink()
+    status = research.research_status(root)
+    assert status["status"] == "available"
+    assert status["mechanism_reviewed_at_utc"] is None
+    assert all("mechanism_review" not in stock for stock in status["stocks"])
+
+
+def test_nonresearch_mechanism_summary_is_not_published(artifacts):
+    root, selection, _ = artifacts
+    path = root / selection["mechanism_path"]
+    payload = json.loads(path.read_text())
+    payload["places_orders"] = True
+    path.write_text(json.dumps(payload))
+    status = research.research_status(root)
+    assert status["status"] == "available"
+    assert all("mechanism_review" not in stock for stock in status["stocks"])
+
+
 def test_research_route_does_not_query_btc_controller(monkeypatch):
     import run_trading_terminal as terminal
     payload = {"status": "available", "stocks": [], "places_orders": False}

@@ -1,0 +1,54 @@
+{
+  "declared_at_utc": "2026-10-04T16:52:42.669623+00:00",
+  "places_orders": false,
+  "already_inspected_history": true,
+  "independent_holdout": false,
+  "signal_parameters_refit": false,
+  "variant_count": 5,
+  "variants": {
+    "prior5m": {},
+    "active30m": {
+      "entry_volume_lookback_bars": 6
+    },
+    "regular_clock": {
+      "entry_session": "weekday_regular_clock"
+    },
+    "long_only": {
+      "entry_direction": "long"
+    },
+    "active30m_regular_long": {
+      "entry_volume_lookback_bars": 6,
+      "entry_session": "weekday_regular_clock",
+      "entry_direction": "long"
+    }
+  },
+  "snapshot_sha256": "fe7ab9ba4d2597f88584a3d4f582468e3ec97d2a59eee0c87136d9c595c5a369",
+  "previous_results_sha256": "abf134b31c28b293234c449dde3443c6a195464c2f488717da256482fe00d0d0",
+  "participation_fraction": 0.1,
+  "hypotheses": [
+    "Require all prior six completed 5m volumes positive and cap at 10% of their minimum.",
+    "Weekday regular local clock, US DST respected; no holidays/early-close calendar claim.",
+    "Remove short entries; existing short PnL is descriptive, not independent selection evidence.",
+    "Combined rule is declared in advance, not selected after this experiment."
+  ],
+  "retrospective_screen": {
+    "positive_closed_pnl_both_costs_windows": [
+      "full",
+      "development",
+      "validation",
+      "recent30d"
+    ],
+    "minimum_closed_trades": {
+      "full": 10,
+      "development": 3,
+      "validation": 3,
+      "recent30d": 3
+    },
+    "full_pnl_without_best_trade_positive_both_costs": true,
+    "max_drawdown_pct": 8,
+    "full_net120_targets_both_costs_min": 1,
+    "zero_reported_volume_assumed_entry_or_exit": 0,
+    "stress_positive_closed_pnl_no_liquidation_dd_at_most8": true
+  },
+  "warning": "Retrospective engineering screen, stricter than prior screen; no auto-promotion. Live fills remain unverified."
+}

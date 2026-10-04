@@ -1,0 +1,43 @@
+{
+  "declared_at_utc": "2026-10-04T17:12:35.411697+00:00",
+  "places_orders": false,
+  "capital_per_account_usdt": 1000,
+  "max_leverage": 10,
+  "variants": {
+    "prior5m": {},
+    "active30m": {
+      "entry_volume_lookback_bars": 6
+    },
+    "regular_clock": {
+      "entry_session": "weekday_regular_clock"
+    },
+    "long_only": {
+      "entry_direction": "long"
+    },
+    "active30m_regular_long": {
+      "entry_volume_lookback_bars": 6,
+      "entry_session": "weekday_regular_clock",
+      "entry_direction": "long"
+    },
+    "wait4h_active30m": {
+      "entry_signal_validity_minutes": 240,
+      "entry_volume_lookback_bars": 6
+    },
+    "wait4h_active30m_regular": {
+      "entry_signal_validity_minutes": 240,
+      "entry_volume_lookback_bars": 6,
+      "entry_session": "weekday_regular_clock"
+    },
+    "wait4h_active30m_regular_long": {
+      "entry_signal_validity_minutes": 240,
+      "entry_volume_lookback_bars": 6,
+      "entry_session": "weekday_regular_clock",
+      "entry_direction": "long"
+    }
+  },
+  "selection": "Recheck all eight existing rules at user-requested capital; no refitting or new winner selection.",
+  "independent_holdout": false,
+  "forward_started": false,
+  "snapshot_sha256": "fe7ab9ba4d2597f88584a3d4f582468e3ec97d2a59eee0c87136d9c595c5a369",
+  "plan_sha256": "f4a0de9749a669fdc841e679eca408cb5f629d101571f4dfaad37477d18cc829"
+}

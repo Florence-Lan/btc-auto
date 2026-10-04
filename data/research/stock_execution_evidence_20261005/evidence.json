@@ -1,0 +1,1309 @@
+{
+  "collected_at_utc": "2026-10-04T16:53:30.698599+00:00",
+  "places_orders": false,
+  "server_time": {
+    "serverTime": 1791132783994
+  },
+  "observations": {
+    "MUUSDT": {
+      "book": {
+        "valid_two_sided_book": true,
+        "mid_price": 1067.58,
+        "spread_bps": 3.372112628560857,
+        "bid_notional_within20bps": 202126.8008,
+        "ask_notional_within20bps": 144709.2911,
+        "warning": "Visible depth snapshot only; no reserved liquidity or demonstrated fills."
+      },
+      "recent_trade_count": 1000,
+      "most_recent_trade_ms": 1791129089200,
+      "recent_candles_received": 12
+    },
+    "SNDKUSDT": {
+      "book": {
+        "valid_two_sided_book": true,
+        "mid_price": 1721.15,
+        "spread_bps": 2.672631670685509,
+        "bid_notional_within20bps": 375566.9601,
+        "ask_notional_within20bps": 328371.05580000003,
+        "warning": "Visible depth snapshot only; no reserved liquidity or demonstrated fills."
+      },
+      "recent_trade_count": 1000,
+      "most_recent_trade_ms": 1791132771150,
+      "recent_candles_received": 12
+    },
+    "SKHYNIXUSDT": {
+      "book": {
+        "valid_two_sided_book": true,
+        "mid_price": 1372.065,
+        "spread_bps": 2.1136024896777017,
+        "bid_notional_within20bps": 572162.45097,
+        "ask_notional_within20bps": 554313.9824099999,
+        "warning": "Visible depth snapshot only; no reserved liquidity or demonstrated fills."
+      },
+      "recent_trade_count": 1000,
+      "most_recent_trade_ms": 1791130784050,
+      "recent_candles_received": 12
+    }
+  },
+  "historical_fill_bar_queries": {
+    "MUUSDT": [
+      {
+        "ledger_index": 0,
+        "kind": "entry",
+        "bar_start_utc": "2026-05-26T20:00:00+00:00",
+        "model_fill": 897.909546,
+        "model_qty": 0.4,
+        "aggregates_returned": 7,
+        "within_bar_count": 7,
+        "bar_quantity_observed": 7.68,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 200,
+        "observed_min_price": 895.09,
+        "observed_max_price": 898.87
+      },
+      {
+        "ledger_index": 0,
+        "kind": "exit",
+        "bar_start_utc": "2026-05-27T13:35:00+00:00",
+        "model_fill": 928.124338,
+        "model_qty": 0.4,
+        "aggregates_returned": 88,
+        "within_bar_count": 88,
+        "bar_quantity_observed": 43.97,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 2800,
+        "observed_min_price": 915.0,
+        "observed_max_price": 943.62
+      },
+      {
+        "ledger_index": 1,
+        "kind": "entry",
+        "bar_start_utc": "2026-06-15T20:00:00+00:00",
+        "model_fill": 1084.7669099999998,
+        "model_qty": 0.4,
+        "aggregates_returned": 11,
+        "within_bar_count": 11,
+        "bar_quantity_observed": 2.0,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 10650,
+        "observed_min_price": 1083.05,
+        "observed_max_price": 1084.55
+      },
+      {
+        "ledger_index": 1,
+        "kind": "exit",
+        "bar_start_utc": "2026-06-16T15:25:00+00:00",
+        "model_fill": 1045.69082,
+        "model_qty": 0.4,
+        "aggregates_returned": 9,
+        "within_bar_count": 9,
+        "bar_quantity_observed": 6.6899999999999995,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 72750,
+        "observed_min_price": 1042.57,
+        "observed_max_price": 1047.82
+      },
+      {
+        "ledger_index": 2,
+        "kind": "entry",
+        "bar_start_utc": "2026-06-18T12:00:00+00:00",
+        "model_fill": 1094.048766,
+        "model_qty": 0.16,
+        "aggregates_returned": 0,
+        "within_bar_count": 0,
+        "bar_quantity_observed": 0,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": null,
+        "observed_min_price": null,
+        "observed_max_price": null
+      },
+      {
+        "ledger_index": 2,
+        "kind": "exit",
+        "bar_start_utc": "2026-06-22T20:15:00+00:00",
+        "model_fill": 1227.5644379999999,
+        "model_qty": 0.16,
+        "aggregates_returned": 14,
+        "within_bar_count": 14,
+        "bar_quantity_observed": 7.77,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 14600,
+        "observed_min_price": 1221.51,
+        "observed_max_price": 1229.67
+      },
+      {
+        "ledger_index": 3,
+        "kind": "entry",
+        "bar_start_utc": "2026-07-06T00:00:00+00:00",
+        "model_fill": 1033.603238,
+        "model_qty": 0.08,
+        "aggregates_returned": 23,
+        "within_bar_count": 23,
+        "bar_quantity_observed": 1.6500000000000001,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 45900,
+        "observed_min_price": 1031.92,
+        "observed_max_price": 1037.38
+      },
+      {
+        "ledger_index": 3,
+        "kind": "exit",
+        "bar_start_utc": "2026-07-07T05:05:00+00:00",
+        "model_fill": 907.741512,
+        "model_qty": 0.08,
+        "aggregates_returned": 61,
+        "within_bar_count": 61,
+        "bar_quantity_observed": 208.47,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 1950,
+        "observed_min_price": 902.73,
+        "observed_max_price": 920.38
+      },
+      {
+        "ledger_index": 4,
+        "kind": "entry",
+        "bar_start_utc": "2026-08-14T12:00:00+00:00",
+        "model_fill": 979.365834,
+        "model_qty": 0.12,
+        "aggregates_returned": 2,
+        "within_bar_count": 2,
+        "bar_quantity_observed": 4.63,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 92950,
+        "observed_min_price": 978.5,
+        "observed_max_price": 979.17
+      },
+      {
+        "ledger_index": 4,
+        "kind": "exit",
+        "bar_start_utc": "2026-08-18T14:55:00+00:00",
+        "model_fill": 940.231916,
+        "model_qty": 0.12,
+        "aggregates_returned": 10,
+        "within_bar_count": 10,
+        "bar_quantity_observed": 6.72,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 59350,
+        "observed_min_price": 938.02,
+        "observed_max_price": 942.2
+      },
+      {
+        "ledger_index": 5,
+        "kind": "entry",
+        "bar_start_utc": "2026-09-03T04:00:00+00:00",
+        "model_fill": 958.64169,
+        "model_qty": 0.01,
+        "aggregates_returned": 0,
+        "within_bar_count": 0,
+        "bar_quantity_observed": 0,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": null,
+        "observed_min_price": null,
+        "observed_max_price": null
+      },
+      {
+        "ledger_index": 5,
+        "kind": "exit",
+        "bar_start_utc": "2026-09-03T13:30:00+00:00",
+        "model_fill": 931.393684,
+        "model_qty": 0.01,
+        "aggregates_returned": 78,
+        "within_bar_count": 78,
+        "bar_quantity_observed": 269.4,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 850,
+        "observed_min_price": 930.0,
+        "observed_max_price": 959.42
+      },
+      {
+        "ledger_index": 6,
+        "kind": "entry",
+        "bar_start_utc": "2026-09-04T08:00:00+00:00",
+        "model_fill": 971.964354,
+        "model_qty": 0.04,
+        "aggregates_returned": 11,
+        "within_bar_count": 11,
+        "bar_quantity_observed": 60.16,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 17100,
+        "observed_min_price": 970.61,
+        "observed_max_price": 976.76
+      },
+      {
+        "ledger_index": 6,
+        "kind": "exit",
+        "bar_start_utc": "2026-09-08T06:10:00+00:00",
+        "model_fill": 1033.603238,
+        "model_qty": 0.04,
+        "aggregates_returned": 1,
+        "within_bar_count": 1,
+        "bar_quantity_observed": 0.83,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 97150,
+        "observed_min_price": 1033.81,
+        "observed_max_price": 1033.81
+      },
+      {
+        "ledger_index": 7,
+        "kind": "entry",
+        "bar_start_utc": "2026-09-14T12:00:00+00:00",
+        "model_fill": 920.5758480000001,
+        "model_qty": 0.01,
+        "aggregates_returned": 9,
+        "within_bar_count": 9,
+        "bar_quantity_observed": 2.4499999999999997,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 42150,
+        "observed_min_price": 919.57,
+        "observed_max_price": 920.76
+      },
+      {
+        "ledger_index": 7,
+        "kind": "exit",
+        "bar_start_utc": "2026-09-15T13:30:00+00:00",
+        "model_fill": 940.648092,
+        "model_qty": 0.01,
+        "aggregates_returned": 31,
+        "within_bar_count": 31,
+        "bar_quantity_observed": 22.26,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 1800,
+        "observed_min_price": 931.87,
+        "observed_max_price": 942.85
+      }
+    ],
+    "SNDKUSDT": [
+      {
+        "ledger_index": 0,
+        "kind": "entry",
+        "bar_start_utc": "2026-06-09T12:00:00+00:00",
+        "model_fill": 1705.3610039999999,
+        "model_qty": 0.2,
+        "aggregates_returned": 4,
+        "within_bar_count": 4,
+        "bar_quantity_observed": 0.6599999999999999,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 205550,
+        "observed_min_price": 1704.66,
+        "observed_max_price": 1705.02
+      },
+      {
+        "ledger_index": 0,
+        "kind": "exit",
+        "bar_start_utc": "2026-06-09T16:05:00+00:00",
+        "model_fill": 1625.794776,
+        "model_qty": 0.2,
+        "aggregates_returned": 218,
+        "within_bar_count": 218,
+        "bar_quantity_observed": 255.17,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 1550,
+        "observed_min_price": 1612.17,
+        "observed_max_price": 1642.58
+      },
+      {
+        "ledger_index": 1,
+        "kind": "entry",
+        "bar_start_utc": "2026-08-12T00:00:00+00:00",
+        "model_fill": 1278.425634,
+        "model_qty": 0.26,
+        "aggregates_returned": 26,
+        "within_bar_count": 26,
+        "bar_quantity_observed": 10.1,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 1600,
+        "observed_min_price": 1273.91,
+        "observed_max_price": 1278.17
+      },
+      {
+        "ledger_index": 1,
+        "kind": "exit",
+        "bar_start_utc": "2026-08-13T15:05:00+00:00",
+        "model_fill": 1434.553032,
+        "model_qty": 0.26,
+        "aggregates_returned": 358,
+        "within_bar_count": 358,
+        "bar_quantity_observed": 453.84,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 350,
+        "observed_min_price": 1429.74,
+        "observed_max_price": 1467.3
+      },
+      {
+        "ledger_index": 2,
+        "kind": "entry",
+        "bar_start_utc": "2026-08-24T04:00:00+00:00",
+        "model_fill": 1532.303478,
+        "model_qty": 0.24,
+        "aggregates_returned": 14,
+        "within_bar_count": 14,
+        "bar_quantity_observed": 25.21,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 7050,
+        "observed_min_price": 1531.51,
+        "observed_max_price": 1536.22
+      },
+      {
+        "ledger_index": 2,
+        "kind": "exit",
+        "bar_start_utc": "2026-09-01T15:45:00+00:00",
+        "model_fill": 1598.349606,
+        "model_qty": 0.24,
+        "aggregates_returned": 114,
+        "within_bar_count": 114,
+        "bar_quantity_observed": 167.47,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 12550,
+        "observed_min_price": 1597.96,
+        "observed_max_price": 1609.12
+      },
+      {
+        "ledger_index": 3,
+        "kind": "entry",
+        "bar_start_utc": "2026-09-11T04:00:00+00:00",
+        "model_fill": 1669.1261080000002,
+        "model_qty": 0.14,
+        "aggregates_returned": 2,
+        "within_bar_count": 2,
+        "bar_quantity_observed": 0.48,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 93500,
+        "observed_min_price": 1669.46,
+        "observed_max_price": 1669.46
+      },
+      {
+        "ledger_index": 3,
+        "kind": "exit",
+        "bar_start_utc": "2026-09-11T13:05:00+00:00",
+        "model_fill": 1733.226576,
+        "model_qty": 0.14,
+        "aggregates_returned": 17,
+        "within_bar_count": 17,
+        "bar_quantity_observed": 5.5,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 16500,
+        "observed_min_price": 1725.3,
+        "observed_max_price": 1735.0
+      },
+      {
+        "ledger_index": 4,
+        "kind": "entry",
+        "bar_start_utc": "2026-09-27T16:00:00+00:00",
+        "model_fill": 1780.025934,
+        "model_qty": 0.04,
+        "aggregates_returned": 1,
+        "within_bar_count": 1,
+        "bar_quantity_observed": 0.87,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 35450,
+        "observed_min_price": 1779.67,
+        "observed_max_price": 1779.67
+      },
+      {
+        "ledger_index": 4,
+        "kind": "exit",
+        "bar_start_utc": "2026-09-28T01:15:00+00:00",
+        "model_fill": 1743.7911720000002,
+        "model_qty": 0.04,
+        "aggregates_returned": 49,
+        "within_bar_count": 49,
+        "bar_quantity_observed": 5.5,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 8000,
+        "observed_min_price": 1735.0,
+        "observed_max_price": 1749.68
+      },
+      {
+        "ledger_index": 5,
+        "kind": "entry",
+        "bar_start_utc": "2026-10-01T20:00:00+00:00",
+        "model_fill": 1786.9473179999998,
+        "model_qty": 0.25,
+        "aggregates_returned": 18,
+        "within_bar_count": 18,
+        "bar_quantity_observed": 7.41,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 5150,
+        "observed_min_price": 1780.0,
+        "observed_max_price": 1786.59
+      },
+      {
+        "ledger_index": 5,
+        "kind": "exit",
+        "bar_start_utc": "2026-10-02T13:30:00+00:00",
+        "model_fill": 1724.395052,
+        "model_qty": 0.25,
+        "aggregates_returned": 518,
+        "within_bar_count": 518,
+        "bar_quantity_observed": 671.01,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 250,
+        "observed_min_price": 1724.0,
+        "observed_max_price": 1774.69
+      }
+    ],
+    "SKHYNIXUSDT": [
+      {
+        "ledger_index": 0,
+        "kind": "entry",
+        "bar_start_utc": "2026-08-12T04:00:00+00:00",
+        "model_fill": 1078.135584,
+        "model_qty": 0.313,
+        "aggregates_returned": 28,
+        "within_bar_count": 28,
+        "bar_quantity_observed": 5.457,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 8350,
+        "observed_min_price": 1075.73,
+        "observed_max_price": 1078.22
+      },
+      {
+        "ledger_index": 0,
+        "kind": "exit",
+        "bar_start_utc": "2026-08-13T22:00:00+00:00",
+        "model_fill": 1213.367278,
+        "model_qty": 0.313,
+        "aggregates_returned": 72,
+        "within_bar_count": 72,
+        "bar_quantity_observed": 99.011,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 950,
+        "observed_min_price": 1206.02,
+        "observed_max_price": 1221.8
+      },
+      {
+        "ledger_index": 1,
+        "kind": "entry",
+        "bar_start_utc": "2026-08-24T16:00:00+00:00",
+        "model_fill": 1186.222708,
+        "model_qty": 0.28500000000000003,
+        "aggregates_returned": 6,
+        "within_bar_count": 6,
+        "bar_quantity_observed": 6.616,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 18950,
+        "observed_min_price": 1184.19,
+        "observed_max_price": 1186.49
+      },
+      {
+        "ledger_index": 1,
+        "kind": "exit",
+        "bar_start_utc": "2026-08-26T02:40:00+00:00",
+        "model_fill": 1242.9185340000001,
+        "model_qty": 0.28500000000000003,
+        "aggregates_returned": 14,
+        "within_bar_count": 14,
+        "bar_quantity_observed": 11.5,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 13750,
+        "observed_min_price": 1239.63,
+        "observed_max_price": 1247.11
+      },
+      {
+        "ledger_index": 2,
+        "kind": "entry",
+        "bar_start_utc": "2026-08-26T16:00:00+00:00",
+        "model_fill": 1224.3048119999999,
+        "model_qty": 0.069,
+        "aggregates_returned": 5,
+        "within_bar_count": 5,
+        "bar_quantity_observed": 7.495,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 97650,
+        "observed_min_price": 1223.86,
+        "observed_max_price": 1224.77
+      },
+      {
+        "ledger_index": 2,
+        "kind": "exit",
+        "bar_start_utc": "2026-08-30T23:45:00+00:00",
+        "model_fill": 1167.4164700000001,
+        "model_qty": 0.069,
+        "aggregates_returned": 73,
+        "within_bar_count": 73,
+        "bar_quantity_observed": 105.716,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 200,
+        "observed_min_price": 1163.34,
+        "observed_max_price": 1173.0
+      },
+      {
+        "ledger_index": 3,
+        "kind": "entry",
+        "bar_start_utc": "2026-09-01T04:00:00+00:00",
+        "model_fill": 1238.64768,
+        "model_qty": 0.34,
+        "aggregates_returned": 7,
+        "within_bar_count": 7,
+        "bar_quantity_observed": 16.646,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 70250,
+        "observed_min_price": 1237.09,
+        "observed_max_price": 1238.56
+      },
+      {
+        "ledger_index": 3,
+        "kind": "exit",
+        "bar_start_utc": "2026-09-01T08:45:00+00:00",
+        "model_fill": 1191.9115700000002,
+        "model_qty": 0.34,
+        "aggregates_returned": 90,
+        "within_bar_count": 90,
+        "bar_quantity_observed": 101.686,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 6900,
+        "observed_min_price": 1181.43,
+        "observed_max_price": 1214.73
+      },
+      {
+        "ledger_index": 4,
+        "kind": "entry",
+        "bar_start_utc": "2026-09-04T12:00:00+00:00",
+        "model_fill": 1225.024956,
+        "model_qty": 0.34800000000000003,
+        "aggregates_returned": 1,
+        "within_bar_count": 1,
+        "bar_quantity_observed": 1.666,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 194450,
+        "observed_min_price": 1224.78,
+        "observed_max_price": 1224.78
+      },
+      {
+        "ledger_index": 4,
+        "kind": "exit",
+        "bar_start_utc": "2026-09-08T00:55:00+00:00",
+        "model_fill": 1376.334678,
+        "model_qty": 0.34800000000000003,
+        "aggregates_returned": 25,
+        "within_bar_count": 25,
+        "bar_quantity_observed": 30.608999999999998,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 15950,
+        "observed_min_price": 1375.73,
+        "observed_max_price": 1383.19
+      },
+      {
+        "ledger_index": 5,
+        "kind": "entry",
+        "bar_start_utc": "2026-09-17T16:00:00+00:00",
+        "model_fill": 1306.851318,
+        "model_qty": 0.015,
+        "aggregates_returned": 0,
+        "within_bar_count": 0,
+        "bar_quantity_observed": 0,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": null,
+        "observed_min_price": null,
+        "observed_max_price": null
+      },
+      {
+        "ledger_index": 5,
+        "kind": "exit",
+        "bar_start_utc": "2026-09-23T02:05:00+00:00",
+        "model_fill": 1364.707004,
+        "model_qty": 0.015,
+        "aggregates_returned": 54,
+        "within_bar_count": 54,
+        "bar_quantity_observed": 4.017,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 242800,
+        "observed_min_price": 1364.8,
+        "observed_max_price": 1367.93
+      },
+      {
+        "ledger_index": 6,
+        "kind": "entry",
+        "bar_start_utc": "2026-09-28T04:00:00+00:00",
+        "model_fill": 1311.367674,
+        "model_qty": 0.067,
+        "aggregates_returned": 47,
+        "within_bar_count": 47,
+        "bar_quantity_observed": 59.186,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 17100,
+        "observed_min_price": 1308.8,
+        "observed_max_price": 1311.63
+      },
+      {
+        "ledger_index": 6,
+        "kind": "exit",
+        "bar_start_utc": "2026-09-30T00:25:00+00:00",
+        "model_fill": 1338.277602,
+        "model_qty": 0.067,
+        "aggregates_returned": 56,
+        "within_bar_count": 56,
+        "bar_quantity_observed": 11.939,
+        "possibly_truncated": false,
+        "first_trade_delay_ms": 94600,
+        "observed_min_price": 1334.99,
+        "observed_max_price": 1338.67
+      }
+    ]
+  },
+  "requests": [
+    {
+      "key": "server_time",
+      "endpoint": "/time",
+      "params": {},
+      "request_start_utc": "2026-10-04T16:53:02.254088+00:00",
+      "request_end_utc": "2026-10-04T16:53:04.080039+00:00",
+      "sha256": "fe6d8ea6d5ad32c87575df57b8591c964f5e27d173cd99c79484012a845b7b94"
+    },
+    {
+      "key": "MUUSDT_depth",
+      "endpoint": "/depth",
+      "params": {
+        "symbol": "MUUSDT",
+        "limit": 100
+      },
+      "request_start_utc": "2026-10-04T16:53:04.080064+00:00",
+      "request_end_utc": "2026-10-04T16:53:04.261254+00:00",
+      "sha256": "36cf298cf303f675f0703c79f0d99ded332b09053808c0e8cce25ac54014f07f"
+    },
+    {
+      "key": "MUUSDT_recent_trades",
+      "endpoint": "/trades",
+      "params": {
+        "symbol": "MUUSDT",
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:04.261281+00:00",
+      "request_end_utc": "2026-10-04T16:53:04.570661+00:00",
+      "sha256": "f29e2ff3c77c183f2f52bb66bf59b17f33b10b0ec145ff0c84c17d0a18f8ac2c"
+    },
+    {
+      "key": "MUUSDT_recent_5m",
+      "endpoint": "/klines",
+      "params": {
+        "symbol": "MUUSDT",
+        "interval": "5m",
+        "limit": 12
+      },
+      "request_start_utc": "2026-10-04T16:53:04.570744+00:00",
+      "request_end_utc": "2026-10-04T16:53:05.201874+00:00",
+      "sha256": "993ec75dbad9d5d3bf05f4f9830d768ce7ed83a2f1d40b5c7fd13998980bde83"
+    },
+    {
+      "key": "MUUSDT_0_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1779825600000,
+        "endTime": 1779825899999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:05.202873+00:00",
+      "request_end_utc": "2026-10-04T16:53:06.071356+00:00",
+      "sha256": "a04d8f5c989e0e0a7cf732d4367449358569268023ae116b03b200c79353987d"
+    },
+    {
+      "key": "MUUSDT_0_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1779888900000,
+        "endTime": 1779889199999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:06.226436+00:00",
+      "request_end_utc": "2026-10-04T16:53:06.418483+00:00",
+      "sha256": "f02e3d0e59fd7e96d94cd92e08adb72669f4df5f891eba06f6e395ceb6bbc564"
+    },
+    {
+      "key": "MUUSDT_1_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1781553600000,
+        "endTime": 1781553899999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:06.573585+00:00",
+      "request_end_utc": "2026-10-04T16:53:07.101415+00:00",
+      "sha256": "9a028452d817afa8c33214ce25daa241ba813fc55129a4117cc98bb8f93476c0"
+    },
+    {
+      "key": "MUUSDT_1_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1781623500000,
+        "endTime": 1781623799999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:07.251996+00:00",
+      "request_end_utc": "2026-10-04T16:53:07.442994+00:00",
+      "sha256": "4df93a5ee7a2d80c114641032584ba5212f200425cc12750e1e48ceeca79cd6f"
+    },
+    {
+      "key": "MUUSDT_2_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1781784000000,
+        "endTime": 1781784299999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:07.596875+00:00",
+      "request_end_utc": "2026-10-04T16:53:08.183550+00:00",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "key": "MUUSDT_2_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1782159300000,
+        "endTime": 1782159599999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:08.338610+00:00",
+      "request_end_utc": "2026-10-04T16:53:08.526897+00:00",
+      "sha256": "ce4e6d927853820783841340485639b3cc87bdedf8f773dc5a92705ba17f325a"
+    },
+    {
+      "key": "MUUSDT_3_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1783296000000,
+        "endTime": 1783296299999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:08.681982+00:00",
+      "request_end_utc": "2026-10-04T16:53:09.216325+00:00",
+      "sha256": "ce0d5e852f50da8cea950a70f171f956f89e5e79012d6037b552ccf4a59ef663"
+    },
+    {
+      "key": "MUUSDT_3_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1783400700000,
+        "endTime": 1783400999999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:09.371412+00:00",
+      "request_end_utc": "2026-10-04T16:53:10.027050+00:00",
+      "sha256": "2eaf3b37359c531e92fbaaadca68806e3311b419ab1f6d094e9437011a522f39"
+    },
+    {
+      "key": "MUUSDT_4_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1786708800000,
+        "endTime": 1786709099999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:10.182134+00:00",
+      "request_end_utc": "2026-10-04T16:53:10.371227+00:00",
+      "sha256": "e28c5b0a41f33fc8f792f353ddc6bebf5356e30c163b024c728b6f9860abb13d"
+    },
+    {
+      "key": "MUUSDT_4_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1787064900000,
+        "endTime": 1787065199999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:10.526307+00:00",
+      "request_end_utc": "2026-10-04T16:53:10.711298+00:00",
+      "sha256": "70aa0e95361d9500dfc94f0fe9e537fe228456534779b6cac8837f3cdaa6e88e"
+    },
+    {
+      "key": "MUUSDT_5_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1788408000000,
+        "endTime": 1788408299999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:10.863558+00:00",
+      "request_end_utc": "2026-10-04T16:53:11.358066+00:00",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "key": "MUUSDT_5_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1788442200000,
+        "endTime": 1788442499999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:11.509522+00:00",
+      "request_end_utc": "2026-10-04T16:53:11.703050+00:00",
+      "sha256": "b1084b9aec5e94d6e8aba17f6f60322e0f35b1262e167ecca7f72231f8776cd6"
+    },
+    {
+      "key": "MUUSDT_6_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1788508800000,
+        "endTime": 1788509099999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:11.858148+00:00",
+      "request_end_utc": "2026-10-04T16:53:12.132380+00:00",
+      "sha256": "10296d2f7ce0bb2149d62c9f6175f130470e154332152343f261bd24cd355efb"
+    },
+    {
+      "key": "MUUSDT_6_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1788847800000,
+        "endTime": 1788848099999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:12.285335+00:00",
+      "request_end_utc": "2026-10-04T16:53:12.473712+00:00",
+      "sha256": "96bf5e413153a16219b6eeab8352c96e8c47c6ed783be9adf1103827dd7ed19f"
+    },
+    {
+      "key": "MUUSDT_7_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1789387200000,
+        "endTime": 1789387499999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:12.626575+00:00",
+      "request_end_utc": "2026-10-04T16:53:12.812139+00:00",
+      "sha256": "83808d2bcb84819b0addf76d0341752a772fb8266ab55db7e59563fa9da330ea"
+    },
+    {
+      "key": "MUUSDT_7_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "MUUSDT",
+        "startTime": 1789479000000,
+        "endTime": 1789479299999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:12.967219+00:00",
+      "request_end_utc": "2026-10-04T16:53:13.265533+00:00",
+      "sha256": "6582b0b07681c8617b2334f67f033eab91ef1155e2e0e496261c491d873d68e6"
+    },
+    {
+      "key": "SNDKUSDT_depth",
+      "endpoint": "/depth",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "limit": 100
+      },
+      "request_start_utc": "2026-10-04T16:53:13.420624+00:00",
+      "request_end_utc": "2026-10-04T16:53:13.604238+00:00",
+      "sha256": "7f01c0b63455bcac33e2a49c91c46928b97da15890b0ece2f688c1450434d464"
+    },
+    {
+      "key": "SNDKUSDT_recent_trades",
+      "endpoint": "/trades",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:13.604271+00:00",
+      "request_end_utc": "2026-10-04T16:53:13.834349+00:00",
+      "sha256": "1b6f7e1fd951c7ef07d573b1b642b103b72bd64190a5ada7dd8327db34cfc53d"
+    },
+    {
+      "key": "SNDKUSDT_recent_5m",
+      "endpoint": "/klines",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "interval": "5m",
+        "limit": 12
+      },
+      "request_start_utc": "2026-10-04T16:53:13.834452+00:00",
+      "request_end_utc": "2026-10-04T16:53:14.017386+00:00",
+      "sha256": "e41bd3ebe390021c6cd140c467a567c6a9b61fc7626b81b81ca3b1ce6428cbab"
+    },
+    {
+      "key": "SNDKUSDT_0_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "startTime": 1781006400000,
+        "endTime": 1781006699999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:14.018198+00:00",
+      "request_end_utc": "2026-10-04T16:53:14.205256+00:00",
+      "sha256": "26e5b094a00e914b9958c8cddc61c8a45d1a7694d6208fffba8314e3f29902b8"
+    },
+    {
+      "key": "SNDKUSDT_0_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "startTime": 1781021100000,
+        "endTime": 1781021399999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:14.360323+00:00",
+      "request_end_utc": "2026-10-04T16:53:14.893611+00:00",
+      "sha256": "6be0d8e835d76b65a0ba33217a30bf453246400ebf1f27a1b7a81fdf8854b1da"
+    },
+    {
+      "key": "SNDKUSDT_1_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "startTime": 1786492800000,
+        "endTime": 1786493099999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:15.048763+00:00",
+      "request_end_utc": "2026-10-04T16:53:15.581847+00:00",
+      "sha256": "c5eede5c0191b2edad4198e466c80811c6fa0be19f0fa32843f0e65c32f84100"
+    },
+    {
+      "key": "SNDKUSDT_1_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "startTime": 1786633500000,
+        "endTime": 1786633799999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:15.736943+00:00",
+      "request_end_utc": "2026-10-04T16:53:16.566699+00:00",
+      "sha256": "2d36a3568faae77d3963b4326787522daf57ab93b313050dc2a0432c9827d526"
+    },
+    {
+      "key": "SNDKUSDT_2_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "startTime": 1787544000000,
+        "endTime": 1787544299999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:16.720432+00:00",
+      "request_end_utc": "2026-10-04T16:53:17.252121+00:00",
+      "sha256": "84bc19d32a0e54668858ddcacb11b972eade74000a3aa2516c60f05015314d07"
+    },
+    {
+      "key": "SNDKUSDT_2_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "startTime": 1788277500000,
+        "endTime": 1788277799999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:17.406191+00:00",
+      "request_end_utc": "2026-10-04T16:53:17.692341+00:00",
+      "sha256": "de5256219e9a5bc035aa27e322a2f4ef94702703aef5311879e98e9f6c8970be"
+    },
+    {
+      "key": "SNDKUSDT_3_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "startTime": 1789099200000,
+        "endTime": 1789099499999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:17.843672+00:00",
+      "request_end_utc": "2026-10-04T16:53:18.114382+00:00",
+      "sha256": "db246601e612caf2683c0d34af2ee18062c325297c3afdfe8be6908831c60cf7"
+    },
+    {
+      "key": "SNDKUSDT_3_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "startTime": 1789131900000,
+        "endTime": 1789132199999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:18.267787+00:00",
+      "request_end_utc": "2026-10-04T16:53:18.811343+00:00",
+      "sha256": "f7312e1b1d458878d318abac161abd9f0c6e7704b0572d6b1d91ff7f9a9c6d43"
+    },
+    {
+      "key": "SNDKUSDT_4_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "startTime": 1790524800000,
+        "endTime": 1790525099999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:18.966426+00:00",
+      "request_end_utc": "2026-10-04T16:53:19.491303+00:00",
+      "sha256": "de2d5f93bb4e4c84208bfa08765ecb42eb39a8b8fe52da679549723d024e976b"
+    },
+    {
+      "key": "SNDKUSDT_4_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "startTime": 1790558100000,
+        "endTime": 1790558399999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:19.646373+00:00",
+      "request_end_utc": "2026-10-04T16:53:19.823602+00:00",
+      "sha256": "52004ba1aa9f0bdeff1f6b58cdabc99858e09179404d4d57107d58ecaee28b67"
+    },
+    {
+      "key": "SNDKUSDT_5_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "startTime": 1790884800000,
+        "endTime": 1790885099999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:19.976983+00:00",
+      "request_end_utc": "2026-10-04T16:53:20.170439+00:00",
+      "sha256": "12c26339ff7949884fac0efd5ad50a1cecc87356f48fac0e256eb910557dc43e"
+    },
+    {
+      "key": "SNDKUSDT_5_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SNDKUSDT",
+        "startTime": 1790947800000,
+        "endTime": 1790948099999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:20.325555+00:00",
+      "request_end_utc": "2026-10-04T16:53:20.862850+00:00",
+      "sha256": "e80f72edc09e2e1e35ba7787e412a5cf0ac7f09bb03d38fbeda849989a4c2f12"
+    },
+    {
+      "key": "SKHYNIXUSDT_depth",
+      "endpoint": "/depth",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "limit": 100
+      },
+      "request_start_utc": "2026-10-04T16:53:21.018078+00:00",
+      "request_end_utc": "2026-10-04T16:53:21.198068+00:00",
+      "sha256": "bc1587832cbce9fd0b9a4030e12601a53deb2ac36209c6d5eac176c6188f197c"
+    },
+    {
+      "key": "SKHYNIXUSDT_recent_trades",
+      "endpoint": "/trades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:21.198099+00:00",
+      "request_end_utc": "2026-10-04T16:53:21.755174+00:00",
+      "sha256": "c69465371a1cc8f23a65a391e8823377926ae2f738b0ed5f1d52f389525f4825"
+    },
+    {
+      "key": "SKHYNIXUSDT_recent_5m",
+      "endpoint": "/klines",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "interval": "5m",
+        "limit": 12
+      },
+      "request_start_utc": "2026-10-04T16:53:21.755303+00:00",
+      "request_end_utc": "2026-10-04T16:53:22.315208+00:00",
+      "sha256": "eed1d085e4fa23a58daacb38fbdd79a27bdaebeefd01166329bc33e4853d030a"
+    },
+    {
+      "key": "SKHYNIXUSDT_0_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1786507200000,
+        "endTime": 1786507499999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:22.315773+00:00",
+      "request_end_utc": "2026-10-04T16:53:22.602286+00:00",
+      "sha256": "2d68f93d98e1fb4c83cf209cad737935ebcd05a7884f61f8993c7248d0b09b26"
+    },
+    {
+      "key": "SKHYNIXUSDT_0_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1786658400000,
+        "endTime": 1786658699999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:22.757402+00:00",
+      "request_end_utc": "2026-10-04T16:53:23.291450+00:00",
+      "sha256": "af738f1b2f1d5b9c08094495799dde2c1b80b01d38a66a11b8276ba3a6dd694c"
+    },
+    {
+      "key": "SKHYNIXUSDT_1_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1787587200000,
+        "endTime": 1787587499999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:23.443132+00:00",
+      "request_end_utc": "2026-10-04T16:53:23.632346+00:00",
+      "sha256": "7d9b5b98a33e4a55bc48c4696803bde8fa9ad72189c7f4f76dc6a2bac63981a4"
+    },
+    {
+      "key": "SKHYNIXUSDT_1_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1787712000000,
+        "endTime": 1787712299999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:23.785346+00:00",
+      "request_end_utc": "2026-10-04T16:53:23.968502+00:00",
+      "sha256": "ed759c83ce137d548b72e369bbef2de8f85297eca0c9aa1d24f3664c3c341fb6"
+    },
+    {
+      "key": "SKHYNIXUSDT_2_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1787760000000,
+        "endTime": 1787760299999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:24.118692+00:00",
+      "request_end_utc": "2026-10-04T16:53:24.772360+00:00",
+      "sha256": "c921f8d90faa1300940973e7d1d0f28fbf72562282f4835c779a69bf21ab346e"
+    },
+    {
+      "key": "SKHYNIXUSDT_2_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1788133500000,
+        "endTime": 1788133799999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:24.927426+00:00",
+      "request_end_utc": "2026-10-04T16:53:25.123310+00:00",
+      "sha256": "aa3f7850cccaadbbc41b9eb34e9e4d719a220283e219be597ad772505c002f45"
+    },
+    {
+      "key": "SKHYNIXUSDT_3_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1788235200000,
+        "endTime": 1788235499999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:25.276079+00:00",
+      "request_end_utc": "2026-10-04T16:53:25.694717+00:00",
+      "sha256": "fb9a1615fa178b326a2d0df459c01abe4a723ae23209558f9589787e9f51191b"
+    },
+    {
+      "key": "SKHYNIXUSDT_3_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1788252300000,
+        "endTime": 1788252599999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:25.849808+00:00",
+      "request_end_utc": "2026-10-04T16:53:26.243757+00:00",
+      "sha256": "a65664531bfe18203ac31453f345ca2387b3f9bbd646c56d1352ecb63da69b67"
+    },
+    {
+      "key": "SKHYNIXUSDT_4_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1788523200000,
+        "endTime": 1788523499999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:26.398869+00:00",
+      "request_end_utc": "2026-10-04T16:53:26.930566+00:00",
+      "sha256": "2bdbdc715e6fd0795c695f2215d7db3dca6e29b8056a1be0803d4b65b90431ae"
+    },
+    {
+      "key": "SKHYNIXUSDT_4_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1788828900000,
+        "endTime": 1788829199999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:27.085648+00:00",
+      "request_end_utc": "2026-10-04T16:53:27.520473+00:00",
+      "sha256": "9a744b3e606db68f1c507a2fe05b01710a25cb184b3a50fd96bc8324854fb7e8"
+    },
+    {
+      "key": "SKHYNIXUSDT_5_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1789660800000,
+        "endTime": 1789661099999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:27.671903+00:00",
+      "request_end_utc": "2026-10-04T16:53:27.855080+00:00",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "key": "SKHYNIXUSDT_5_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1790129100000,
+        "endTime": 1790129399999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:28.010158+00:00",
+      "request_end_utc": "2026-10-04T16:53:28.810677+00:00",
+      "sha256": "34cdd1227ff78bbd819b80d332829554d82a3edebd9d0a328b77c8bb45cbac5b"
+    },
+    {
+      "key": "SKHYNIXUSDT_6_entry",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1790568000000,
+        "endTime": 1790568299999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:28.965766+00:00",
+      "request_end_utc": "2026-10-04T16:53:30.209700+00:00",
+      "sha256": "c8024237989d0021dfce94ec022bb720487ad64000af88fab951dc84a37e7968"
+    },
+    {
+      "key": "SKHYNIXUSDT_6_exit",
+      "endpoint": "/aggTrades",
+      "params": {
+        "symbol": "SKHYNIXUSDT",
+        "startTime": 1790727900000,
+        "endTime": 1790728199999,
+        "limit": 1000
+      },
+      "request_start_utc": "2026-10-04T16:53:30.362689+00:00",
+      "request_end_utc": "2026-10-04T16:53:30.543506+00:00",
+      "sha256": "7e2752fe8c04bcd95b90f2c2ec92294256ea566f8338757f6dc8921957ba2b75"
+    }
+  ],
+  "errors": [],
+  "limitations": [
+    "One public observation batch, not a forward paper service or a fill demonstration.",
+    "Empty historical response may mean expired/unavailable history; cannot alone prove no trade.",
+    "Trade history does not reconstruct historical resting depth or hypothetical order impact.",
+    "No live account endpoints, API keys, or orders used."
+  ]
+}

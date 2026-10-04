@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "plan_id": "btc_memory_stocks_1000_each_10x_20261005",
+  "status": "prepared_waiting_for_stock_strategy_selection",
+  "execution_mode": "simulation",
+  "live_orders_allowed": false,
+  "user_authorized_start_condition": "Stock research completed and stock rules selected, then run BTC and stocks concurrently on real market data.",
+  "initial_balance_usdt_per_account": 1000,
+  "max_leverage": 10,
+  "total_initial_balance_usdt": 4000,
+  "capital_transfers_between_accounts": false,
+  "start_policy": "Create a new comparison generation with a common prospective start timestamp; preserve existing accounts and histories.",
+  "prospective_start_utc": null,
+  "historical_warmup_counts_as_forward_performance": false,
+  "stock_research_profile": "config/stock_swing_per_symbol_120_candidate_20261004.json",
+  "accounts": [
+    {
+      "account_id": "btc",
+      "symbol": "BTCUSDT",
+      "venue": "binance_usdm",
+      "initial_balance_usdt": 1000,
+      "max_leverage": 10,
+      "strategy_selection_status": "selected",
+      "strategy_path": "config/multifactor_regular_10x_20261004.json",
+      "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/btc/state.json"
+    },
+    {
+      "account_id": "mu",
+      "symbol": "MUUSDT",
+      "venue": "aster",
+      "initial_balance_usdt": 1000,
+      "max_leverage": 10,
+      "strategy_selection_status": "pending_research",
+      "strategy_path": null,
+      "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/mu/state.json"
+    },
+    {
+      "account_id": "sndk",
+      "symbol": "SNDKUSDT",
+      "venue": "aster",
+      "initial_balance_usdt": 1000,
+      "max_leverage": 10,
+      "strategy_selection_status": "pending_research",
+      "strategy_path": null,
+      "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/sndk/state.json"
+    },
+    {
+      "account_id": "skhynix",
+      "symbol": "SKHYNIXUSDT",
+      "venue": "aster",
+      "initial_balance_usdt": 1000,
+      "max_leverage": 10,
+      "strategy_selection_status": "pending_research",
+      "strategy_path": null,
+      "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/skhynix/state.json"
+    }
+  ],
+  "market_data_policy": {
+    "source": "real_public_venue_market_data",
+    "required_inputs": ["completed_candles", "observed_bid_ask_and_depth", "mark_price", "index_price", "funding_events", "contract_filters"],
+    "missing_or_stale_inputs": "pause_new_entries_and_record_degraded_status",
+    "fees_funding_and_slippage_included": true,
+    "price_changes_without_supported_fills_are_not_executed_trades": true,
+    "partial_fills_and_protective_stop_latency_required_for_stock_paper": true
+  },
+  "launch_readiness": {
+    "stock_strategy_selection_complete": false,
+    "four_account_forward_runner_verified": false,
+    "common_start_timestamp_set": false,
+    "all_accounts_started": false
+  }
+}

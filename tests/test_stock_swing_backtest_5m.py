@@ -118,6 +118,47 @@ def first_closed_bar_signal(monkeypatch):
     )
 
 
+def deferred_snapshot(monkeypatch):
+    hourly = [candle_row(bar(t)) for t in range(0, 8 * HOUR, HOUR)]
+    snapshot = real_snapshot(hourly)
+    for row in snapshot["symbols"]["MUUSDT"]["trade_5m"]:
+        if ENTRY - 6 * STEP <= row[0] <= ENTRY:
+            row[5] = 0
+        if row[0] >= ENTRY + 7 * STEP:
+            row[2] = 115
+    first_closed_bar_signal(monkeypatch)
+    return snapshot
+
+
+def test_deferred_signal_waits_for_six_completed_active_bars_and_fills_only_once(monkeypatch):
+    snapshot = deferred_snapshot(monkeypatch)
+    cfg = config() | {"entry_max_previous_bar_participation_fraction": .1,
+                      "entry_volume_lookback_bars": 6, "entry_signal_validity_minutes": 240,
+                      "cooldown_4h_bars": 0}
+    result = replay.simulate(snapshot, cfg, ENTRY, ENTRY + 10 * STEP)
+    assert len(result["trades"]) == 1
+    trade = result["trades"][0]
+    assert trade["signal_utc"] == replay.iso(ENTRY)
+    assert trade["entry_utc"] == replay.iso(ENTRY + 7 * STEP)
+    assert trade["qty"] == pytest.approx(1)
+    assert trade["exit_reason"] == "target"
+
+
+def test_expired_signal_is_not_carried_into_later_liquidity(monkeypatch):
+    snapshot = deferred_snapshot(monkeypatch)
+    cfg = config() | {"entry_max_previous_bar_participation_fraction": .1,
+                      "entry_volume_lookback_bars": 6, "entry_signal_validity_minutes": 30}
+    result = replay.simulate(snapshot, cfg, ENTRY, ENTRY + 10 * STEP)
+    assert not result["trades"] and not result["summary"]["open_positions"]
+
+
+def test_long_only_filters_short_signal_before_any_fill(monkeypatch):
+    prepared = source([bar(ENTRY, low=85)], direction=-1)
+    result = run(monkeypatch, {"MUUSDT": prepared}, config() | {"entry_direction": "long"})
+    assert not result["trades"] and not result["summary"]["open_positions"]
+    assert result["summary"]["skipped_signals"]["research_direction"] == 1
+
+
 def test_uniform_five_minute_path_stops_before_later_same_hour_liquidation(monkeypatch):
     entry = replay.parse_time("2026-06-09T12:00:00Z")
     stop_time = replay.parse_time("2026-06-09T16:05:00Z")

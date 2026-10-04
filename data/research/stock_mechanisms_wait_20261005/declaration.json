@@ -1,0 +1,56 @@
+{
+  "declared_at_utc": "2026-10-04T16:55:43.790767+00:00",
+  "places_orders": false,
+  "already_inspected_history": true,
+  "independent_holdout": false,
+  "signal_parameters_refit": false,
+  "phase": "deferred",
+  "variant_count": 3,
+  "variants": {
+    "wait4h_active30m": {
+      "entry_signal_validity_minutes": 240,
+      "entry_volume_lookback_bars": 6
+    },
+    "wait4h_active30m_regular": {
+      "entry_signal_validity_minutes": 240,
+      "entry_volume_lookback_bars": 6,
+      "entry_session": "weekday_regular_clock"
+    },
+    "wait4h_active30m_regular_long": {
+      "entry_signal_validity_minutes": 240,
+      "entry_volume_lookback_bars": 6,
+      "entry_session": "weekday_regular_clock",
+      "entry_direction": "long"
+    }
+  },
+  "snapshot_sha256": "fe7ab9ba4d2597f88584a3d4f582468e3ec97d2a59eee0c87136d9c595c5a369",
+  "previous_results_sha256": "f816c5c4a4ebe6344559fc1f9a3e5337076063ef1e8f8ede2050a02e2790dc9f",
+  "participation_fraction": 0.1,
+  "hypotheses": [
+    "Adaptive follow-up AFTER reviewing five fixed variants; not a new holdout.",
+    "Signal remains eligible for <4h after close; retry each 5m, at most one fill per signal.",
+    "Wait for six contiguous positive prior volumes, cap at 10% of minimum; prices rechecked at entry.",
+    "Compare all clocks, weekday regular clocks, and weekday regular long-only; no expiry/grid search.",
+    "Basis filter uses currently observable hour-opening index as approximation, not current-tick oracle."
+  ],
+  "retrospective_screen": {
+    "positive_closed_pnl_both_costs_windows": [
+      "full",
+      "development",
+      "validation",
+      "recent30d"
+    ],
+    "minimum_closed_trades": {
+      "full": 10,
+      "development": 3,
+      "validation": 3,
+      "recent30d": 3
+    },
+    "full_pnl_without_best_trade_positive_both_costs": true,
+    "max_drawdown_pct": 8,
+    "full_net120_targets_both_costs_min": 1,
+    "zero_reported_volume_assumed_entry_or_exit": 0,
+    "stress_positive_closed_pnl_no_liquidation_dd_at_most8": true
+  },
+  "warning": "Retrospective engineering screen, stricter than prior screen; no auto-promotion. Live fills remain unverified."
+}

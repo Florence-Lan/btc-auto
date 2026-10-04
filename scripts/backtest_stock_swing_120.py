@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from decimal import Decimal, ROUND_DOWN, ROUND_UP
 from pathlib import Path
 
+import stock_research_entry_policy as entry_policy
+
 from stock_swing_signals import (
     Candle, compute_indicators, entry_gap_allowed, initial_stop,
     per_unit_stop_risk, position_size, signal_at, target_exit_price,
@@ -108,7 +110,9 @@ def prepare(snapshot: dict, config: dict) -> dict:
             else:
                 signal = signal_at(four, indicators, index, config)
             if signal is not None:
-                signals[end] = signal
+                validity = config.get("entry_signal_validity_minutes", 0)
+                for attempt in range(end, end + max(step, validity * 60_000), step):
+                    signals[attempt] = signal
         events = source["funding"]
         times = [int(event["fundingTime"]) for event in events]
         if times != sorted(times) or not times:
@@ -134,8 +138,9 @@ def prepare(snapshot: dict, config: dict) -> dict:
 
 def simulate(snapshot: dict, config: dict, start_ms: int, end_ms: int,
              cost_multiplier: float = 1.0) -> dict:
-    data = prepare(snapshot, config)
     step = int(snapshot.get("execution_step_ms", HOUR))
+    entry_policy.validate(config, step)
+    data = prepare(snapshot, config)
     participation = config.get("entry_max_previous_bar_participation_fraction")
     if participation is not None and (
         isinstance(participation, bool) or not isinstance(participation, (int, float))
@@ -152,6 +157,7 @@ def simulate(snapshot: dict, config: dict, start_ms: int, end_ms: int,
     equity_path = []
     skipped = Counter()
     cooldown = {}
+    consumed_signals = set()
     halted = False
     halt_time = None
 
@@ -247,6 +253,13 @@ def simulate(snapshot: dict, config: dict, start_ms: int, end_ms: int,
         for _, symbol, signal in ranked:
             source = data[symbol]
             profile = source.get("profile_config", config)
+            signal_key = (symbol, signal.time_ms)
+            if signal_key in consumed_signals:
+                continue
+            rejected = entry_policy.rejection(config, symbol, timestamp, signal.direction)
+            if rejected:
+                skipped[rejected] += 1
+                continue
             if symbol in positions:
                 skipped["already_open"] += 1
                 continue
@@ -267,7 +280,13 @@ def simulate(snapshot: dict, config: dict, start_ms: int, end_ms: int,
             if signal.direction * rate > config["entry_max_adverse_funding_rate"]:
                 skipped["funding_rate"] += 1
                 continue
-            bar, mark, index = source["trade"][timestamp], source["mark"][timestamp], source["index"][timestamp]
+            bar, mark = source["trade"][timestamp], source["mark"][timestamp]
+            # Deferred research uses the current hour's opening index, already
+            # observable at t; never its future close/high/low.
+            index = source["index"].get(timestamp // HOUR * HOUR)
+            if index is None:
+                skipped["missing_index_open"] += 1
+                continue
             if abs(mark.open / index.open - 1) > config["max_mark_index_basis_fraction"] or abs(bar.open / mark.open - 1) > config["max_contract_mark_basis_fraction"]:
                 skipped["basis"] += 1
                 continue
@@ -297,11 +316,12 @@ def simulate(snapshot: dict, config: dict, start_ms: int, end_ms: int,
             if participation is not None:
                 # Only the bar CLOSED before this opening is observable. The
                 # current execution bar's final volume cannot authorize entry.
-                previous_bar = source["trade"].get(timestamp - step)
-                if previous_bar is None or previous_bar.volume <= 0:
+                volume = entry_policy.preceding_volume(
+                    source, timestamp, step, config.get("entry_volume_lookback_bars", 1))
+                if volume is None:
                     skipped["previous_bar_liquidity"] += 1
                     continue
-                qty = min(qty, previous_bar.volume * participation)
+                qty = min(qty, volume * participation)
                 if qty < source["min_qty"] or qty * entry < source["min_notional"]:
                     skipped["previous_bar_liquidity"] += 1
                     continue
@@ -323,6 +343,7 @@ def simulate(snapshot: dict, config: dict, start_ms: int, end_ms: int,
                 continue
             cash -= position["entry_fee"]
             positions[symbol] = position
+            consumed_signals.add(signal_key)
             equity = current_equity(timestamp)
 
         for symbol, position in list(positions.items()):

@@ -1,0 +1,652 @@
+{
+  "status": "research_only",
+  "places_orders": false,
+  "forward_validated": false,
+  "reviewed_at_utc": "2026-10-04T17:06:57.951804+00:00",
+  "stocks": {
+    "MUUSDT": {
+      "trial_count": 8,
+      "passed_count": 0,
+      "finding": "本轮比较 8 套规则，0 套通过回顾性筛查；当前股票方案继续不具备执行资格。",
+      "variants": {
+        "prior5m": {
+          "full_cost1_return_pct": 0.7329800973268092,
+          "full_cost2_return_pct": 0.6823960859499872,
+          "full_cost2_closed_trades": 8,
+          "recent30d_cost2_closed_return_pct": -0.016827071807468286,
+          "failure_reasons": [
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost1: zero-volume assumed entry or exit",
+            "full_cost2: fewer than 10 closed trades",
+            "full_cost2: zero-volume assumed entry or exit",
+            "development_cost1: zero-volume assumed entry or exit",
+            "development_cost2: zero-volume assumed entry or exit",
+            "validation_cost1: zero-volume assumed entry or exit",
+            "validation_cost2: zero-volume assumed entry or exit",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "active30m": {
+          "full_cost1_return_pct": 0.01339374789847392,
+          "full_cost2_return_pct": 0.009452149510873994,
+          "full_cost2_closed_trades": 3,
+          "recent30d_cost2_closed_return_pct": -0.05420997008658622,
+          "failure_reasons": [
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "regular_clock": {
+          "full_cost1_return_pct": 0.0,
+          "full_cost2_return_pct": 0.0,
+          "full_cost2_closed_trades": 0,
+          "recent30d_cost2_closed_return_pct": 0.0,
+          "failure_reasons": [
+            "full_cost1: nonpositive closed PnL",
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: nonpositive closed PnL",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: nonpositive closed PnL",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: nonpositive closed PnL",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: no net120 trade",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: no net120 trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_slippage50bps: PnL/liquidation/drawdown stress failed",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "long_only": {
+          "full_cost1_return_pct": 0.44173597253944774,
+          "full_cost2_return_pct": 0.3918255856494259,
+          "full_cost2_closed_trades": 6,
+          "recent30d_cost2_closed_return_pct": -0.009770788963946174,
+          "failure_reasons": [
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost1: zero-volume assumed entry or exit",
+            "full_cost2: fewer than 10 closed trades",
+            "full_cost2: zero-volume assumed entry or exit",
+            "development_cost1: zero-volume assumed entry or exit",
+            "development_cost2: zero-volume assumed entry or exit",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost1: zero-volume assumed entry or exit",
+            "validation_cost2: fewer than 3 closed trades",
+            "validation_cost2: zero-volume assumed entry or exit",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "active30m_regular_long": {
+          "full_cost1_return_pct": 0.0,
+          "full_cost2_return_pct": 0.0,
+          "full_cost2_closed_trades": 0,
+          "recent30d_cost2_closed_return_pct": 0.0,
+          "failure_reasons": [
+            "full_cost1: nonpositive closed PnL",
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: nonpositive closed PnL",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: nonpositive closed PnL",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: nonpositive closed PnL",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: no net120 trade",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: no net120 trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_slippage50bps: PnL/liquidation/drawdown stress failed",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "wait4h_active30m": {
+          "full_cost1_return_pct": -0.45528882452079933,
+          "full_cost2_return_pct": -0.4706592926415983,
+          "full_cost2_closed_trades": 9,
+          "recent30d_cost2_closed_return_pct": -0.5141385772543453,
+          "failure_reasons": [
+            "full_cost1: nonpositive closed PnL",
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost1: zero-volume assumed entry or exit",
+            "full_cost2: nonpositive closed PnL",
+            "full_cost2: fewer than 10 closed trades",
+            "full_cost2: zero-volume assumed entry or exit",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost1: zero-volume assumed entry or exit",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "validation_cost2: zero-volume assumed entry or exit",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost1: zero-volume assumed entry or exit",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "recent30d_cost2: zero-volume assumed entry or exit",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_slippage50bps: PnL/liquidation/drawdown stress failed",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "wait4h_active30m_regular": {
+          "full_cost1_return_pct": -1.0828010629925993,
+          "full_cost2_return_pct": -1.099768101944398,
+          "full_cost2_closed_trades": 3,
+          "recent30d_cost2_closed_return_pct": -0.5042324641823991,
+          "failure_reasons": [
+            "full_cost1: nonpositive closed PnL",
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: nonpositive closed PnL",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: nonpositive closed PnL",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: nonpositive closed PnL",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: no net120 trade",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: no net120 trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_slippage50bps: PnL/liquidation/drawdown stress failed",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "wait4h_active30m_regular_long": {
+          "full_cost1_return_pct": -1.0828010629925993,
+          "full_cost2_return_pct": -1.099768101944398,
+          "full_cost2_closed_trades": 3,
+          "recent30d_cost2_closed_return_pct": -0.5042324641823991,
+          "failure_reasons": [
+            "full_cost1: nonpositive closed PnL",
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: nonpositive closed PnL",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: nonpositive closed PnL",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: nonpositive closed PnL",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: no net120 trade",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: no net120 trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_slippage50bps: PnL/liquidation/drawdown stress failed",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        }
+      }
+    },
+    "SNDKUSDT": {
+      "trial_count": 8,
+      "passed_count": 0,
+      "finding": "本轮比较 8 套规则，0 套通过回顾性筛查；当前股票方案继续不具备执行资格。",
+      "variants": {
+        "prior5m": {
+          "full_cost1_return_pct": -0.6108915980039148,
+          "full_cost2_return_pct": -0.6650080338430943,
+          "full_cost2_closed_trades": 6,
+          "recent30d_cost2_closed_return_pct": -0.8354483694791985,
+          "failure_reasons": [
+            "full_cost1: nonpositive closed PnL",
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: nonpositive closed PnL",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost2: nonpositive closed PnL",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_slippage50bps: PnL/liquidation/drawdown stress failed",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "active30m": {
+          "full_cost1_return_pct": -0.20266141002171734,
+          "full_cost2_return_pct": -0.22472337542869644,
+          "full_cost2_closed_trades": 4,
+          "recent30d_cost2_closed_return_pct": -0.33610717338479945,
+          "failure_reasons": [
+            "full_cost1: nonpositive closed PnL",
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: nonpositive closed PnL",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_slippage50bps: PnL/liquidation/drawdown stress failed",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "regular_clock": {
+          "full_cost1_return_pct": 0.0,
+          "full_cost2_return_pct": 0.0,
+          "full_cost2_closed_trades": 0,
+          "recent30d_cost2_closed_return_pct": 0.0,
+          "failure_reasons": [
+            "full_cost1: nonpositive closed PnL",
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: nonpositive closed PnL",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: nonpositive closed PnL",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: nonpositive closed PnL",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: no net120 trade",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: no net120 trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_slippage50bps: PnL/liquidation/drawdown stress failed",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "long_only": {
+          "full_cost1_return_pct": 1.495518928456572,
+          "full_cost2_return_pct": 1.3856839133005063,
+          "full_cost2_closed_trades": 5,
+          "recent30d_cost2_closed_return_pct": -0.5347885691879992,
+          "failure_reasons": [
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "active30m_regular_long": {
+          "full_cost1_return_pct": 0.0,
+          "full_cost2_return_pct": 0.0,
+          "full_cost2_closed_trades": 0,
+          "recent30d_cost2_closed_return_pct": 0.0,
+          "failure_reasons": [
+            "full_cost1: nonpositive closed PnL",
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: nonpositive closed PnL",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: nonpositive closed PnL",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: nonpositive closed PnL",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: no net120 trade",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: no net120 trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_slippage50bps: PnL/liquidation/drawdown stress failed",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "wait4h_active30m": {
+          "full_cost1_return_pct": 0.6030526369351893,
+          "full_cost2_return_pct": 0.5201006968913262,
+          "full_cost2_closed_trades": 8,
+          "recent30d_cost2_closed_return_pct": -0.31626972852891394,
+          "failure_reasons": [
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: nonpositive closed PnL",
+            "development_cost2: nonpositive closed PnL",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost2: nonpositive closed PnL",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "wait4h_active30m_regular": {
+          "full_cost1_return_pct": -0.49748798267999955,
+          "full_cost2_return_pct": -0.4935071333879997,
+          "full_cost2_closed_trades": 1,
+          "recent30d_cost2_closed_return_pct": 0.0,
+          "failure_reasons": [
+            "full_cost1: nonpositive closed PnL",
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: nonpositive closed PnL",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: nonpositive closed PnL",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: nonpositive closed PnL",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: no net120 trade",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: no net120 trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_slippage50bps: PnL/liquidation/drawdown stress failed",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "wait4h_active30m_regular_long": {
+          "full_cost1_return_pct": -0.49748798267999955,
+          "full_cost2_return_pct": -0.4935071333879997,
+          "full_cost2_closed_trades": 1,
+          "recent30d_cost2_closed_return_pct": 0.0,
+          "failure_reasons": [
+            "full_cost1: nonpositive closed PnL",
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: nonpositive closed PnL",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: nonpositive closed PnL",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: nonpositive closed PnL",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: no net120 trade",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: no net120 trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_slippage50bps: PnL/liquidation/drawdown stress failed",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        }
+      }
+    },
+    "SKHYNIXUSDT": {
+      "trial_count": 8,
+      "passed_count": 0,
+      "finding": "本轮比较 8 套规则，0 套通过回顾性筛查；当前股票方案继续不具备执行资格。",
+      "variants": {
+        "prior5m": {
+          "full_cost1_return_pct": 1.5786796254297044,
+          "full_cost2_return_pct": 1.4328589733304082,
+          "full_cost2_closed_trades": 7,
+          "recent30d_cost2_closed_return_pct": 1.407469963706665,
+          "failure_reasons": [
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost1: zero-volume assumed entry or exit",
+            "full_cost2: fewer than 10 closed trades",
+            "full_cost2: zero-volume assumed entry or exit",
+            "validation_cost1: zero-volume assumed entry or exit",
+            "validation_cost2: zero-volume assumed entry or exit",
+            "recent30d_cost1: zero-volume assumed entry or exit",
+            "recent30d_cost2: zero-volume assumed entry or exit",
+            "full_cost2: nonpositive closed PnL without best trade"
+          ]
+        },
+        "active30m": {
+          "full_cost1_return_pct": 0.5833266840136391,
+          "full_cost2_return_pct": 0.5257306503038428,
+          "full_cost2_closed_trades": 4,
+          "recent30d_cost2_closed_return_pct": -0.043899630994511614,
+          "failure_reasons": [
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "regular_clock": {
+          "full_cost1_return_pct": 0.13881453717741274,
+          "full_cost2_return_pct": 0.08385282671746785,
+          "full_cost2_closed_trades": 4,
+          "recent30d_cost2_closed_return_pct": -0.06536167281405063,
+          "failure_reasons": [
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "long_only": {
+          "full_cost1_return_pct": 1.7560908548275795,
+          "full_cost2_return_pct": 1.6264571530751952,
+          "full_cost2_closed_trades": 5,
+          "recent30d_cost2_closed_return_pct": 1.4728316365207157,
+          "failure_reasons": [
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost1: zero-volume assumed entry or exit",
+            "full_cost2: fewer than 10 closed trades",
+            "full_cost2: zero-volume assumed entry or exit",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: zero-volume assumed entry or exit",
+            "validation_cost2: zero-volume assumed entry or exit",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost1: zero-volume assumed entry or exit",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "recent30d_cost2: zero-volume assumed entry or exit"
+          ]
+        },
+        "active30m_regular_long": {
+          "full_cost1_return_pct": 0.7113323900169433,
+          "full_cost2_return_pct": 0.6615950210578464,
+          "full_cost2_closed_trades": 2,
+          "recent30d_cost2_closed_return_pct": 0.0,
+          "failure_reasons": [
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "wait4h_active30m": {
+          "full_cost1_return_pct": 0.5638643440232304,
+          "full_cost2_return_pct": 0.5008316819238937,
+          "full_cost2_closed_trades": 6,
+          "recent30d_cost2_closed_return_pct": 0.06181290926983579,
+          "failure_reasons": [
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: fewer than 10 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost2: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "wait4h_active30m_regular": {
+          "full_cost1_return_pct": 0.1583580372530296,
+          "full_cost2_return_pct": 0.1053174691770058,
+          "full_cost2_closed_trades": 4,
+          "recent30d_cost2_closed_return_pct": -0.043899630994511614,
+          "failure_reasons": [
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        },
+        "wait4h_active30m_regular_long": {
+          "full_cost1_return_pct": 0.19833060517134155,
+          "full_cost2_return_pct": 0.1492171001715174,
+          "full_cost2_closed_trades": 3,
+          "recent30d_cost2_closed_return_pct": 0.0,
+          "failure_reasons": [
+            "full_cost1: fewer than 10 closed trades",
+            "full_cost2: fewer than 10 closed trades",
+            "development_cost1: fewer than 3 closed trades",
+            "development_cost2: fewer than 3 closed trades",
+            "validation_cost1: nonpositive closed PnL",
+            "validation_cost1: fewer than 3 closed trades",
+            "validation_cost2: nonpositive closed PnL",
+            "validation_cost2: fewer than 3 closed trades",
+            "recent30d_cost1: nonpositive closed PnL",
+            "recent30d_cost1: fewer than 3 closed trades",
+            "recent30d_cost2: nonpositive closed PnL",
+            "recent30d_cost2: fewer than 3 closed trades",
+            "full_cost1: nonpositive closed PnL without best trade",
+            "full_cost2: nonpositive closed PnL without best trade",
+            "full_margin5pct: PnL/liquidation/drawdown stress failed"
+          ]
+        }
+      }
+    }
+  },
+  "phases": [
+    {
+      "directory": "data/research/stock_mechanisms_20261005",
+      "scenario_ledgers_checked": 180,
+      "closed_trades_checked": 426
+    },
+    {
+      "directory": "data/research/stock_mechanisms_wait_20261005",
+      "scenario_ledgers_checked": 108,
+      "closed_trades_checked": 290
+    }
+  ],
+  "scenario_count": 288,
+  "historical_fill_bar_evidence": {
+    "MUUSDT": {
+      "bars_checked_against_raw_aggregates": 16,
+      "volume_mismatches": 0,
+      "empty_entry_bars": 2,
+      "empty_exit_bars": 0
+    },
+    "SNDKUSDT": {
+      "bars_checked_against_raw_aggregates": 12,
+      "volume_mismatches": 0,
+      "empty_entry_bars": 0,
+      "empty_exit_bars": 0
+    },
+    "SKHYNIXUSDT": {
+      "bars_checked_against_raw_aggregates": 14,
+      "volume_mismatches": 0,
+      "empty_entry_bars": 1,
+      "empty_exit_bars": 0
+    }
+  },
+  "report_path": "docs/stock_mechanism_review_20261005.md",
+  "limitations": [
+    "All inspected history is retrospective; phases are sequential and adaptive.",
+    "Overlapping windows and repeated variants are not independent trade samples.",
+    "Positive reported volume and visible current depth do not prove hypothetical fills."
+  ]
+}

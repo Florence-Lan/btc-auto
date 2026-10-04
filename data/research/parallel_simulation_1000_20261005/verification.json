@@ -1,0 +1,17 @@
+{
+  "verified_at_utc": "2026-10-04T17:16:48.710529+00:00",
+  "scenario_ledgers_checked": 288,
+  "closed_ledger_records_checked": 716,
+  "initial_equity_each_scenario_usdt": 1000,
+  "leverage": 10,
+  "retrospective_passed_variants": {
+    "MUUSDT": [],
+    "SNDKUSDT": [],
+    "SKHYNIXUSDT": []
+  },
+  "sources_archived_and_hash_verified": true,
+  "accounting_checked_from_archived_csv": true,
+  "related_tests_passed": 78,
+  "places_orders": false,
+  "new_four_account_trial_started": false
+}

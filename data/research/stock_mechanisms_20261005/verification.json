@@ -1,0 +1,21 @@
+{
+  "verified_at_utc": "2026-10-04T16:54:18.352896+00:00",
+  "scenario_ledgers_checked": 180,
+  "closed_trades_checked": 426,
+  "previous_scenarios_reproduced": 12,
+  "consistent_hourly_aggregation": true,
+  "source_hashes_match": true,
+  "accounting_and_causal_entry_checks_passed": true,
+  "btc_selection_unchanged": true,
+  "btc_selection": {
+    "candidate_path": "config/multifactor_regular_10x_20261004.json",
+    "activated_by": "user_requested_10x_leverage_ceiling",
+    "execution_mode": "simulation",
+    "activated_at_utc": "2026-10-04T09:57:36.120824+00:00",
+    "previous_candidate_path": "config/multifactor_regular_20261004.json"
+  },
+  "places_orders": false,
+  "independent_archived_csv_verification_passed": true,
+  "tests_passed": 153,
+  "independent_verified_at_utc": "2026-10-04T17:06:55.344956+00:00"
+}
