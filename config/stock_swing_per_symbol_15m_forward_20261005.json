@@ -1,0 +1,60 @@
+{
+  "candidate_id": "memory_stock_per_symbol_15m_forward_20261005",
+  "status": "forward_research_only",
+  "base_config": "config/stock_swing_120_candidate_20261004.json",
+  "execution_timeframe": "5m",
+  "capital_weights": {
+    "MUUSDT": 0.3333333333333333,
+    "SNDKUSDT": 0.3333333333333333,
+    "SKHYNIXUSDT": 0.3333333333333333
+  },
+  "max_positions_per_capital_bucket": 1,
+  "risk_fraction_per_bucket_trade": 0.005,
+  "symbol_profiles": {
+    "MUUSDT": {
+      "signal_family": "breakout",
+      "research_variant": "B1",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "breakout_bars": 6,
+      "stop_atr": 2.0
+    },
+    "SNDKUSDT": {
+      "signal_family": "ema_transition",
+      "research_variant": "transition_12_36_120_slow0",
+      "ema_fast": 12,
+      "ema_mid": 36,
+      "ema_slow": 120,
+      "warmup_bars": 120,
+      "require_price_slow": false,
+      "stop_atr": 2.0
+    },
+    "SKHYNIXUSDT": {
+      "signal_family": "ema_transition",
+      "research_variant": "transition_8_24_60_slow1",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0
+    }
+  },
+  "selection_provenance": {
+    "source_profile": "config/stock_swing_per_symbol_120_candidate_20261004.json",
+    "change_reason": "User requested a shorter stock signal cycle on 2026-10-05.",
+    "historical_results_transferable": false,
+    "independent_unseen_validation_claim": false
+  },
+  "notes": [
+    "15-minute completed candles for all three stocks; existing per-symbol EMA, breakout and ATR periods retain their bar counts.",
+    "Observe every 30 seconds. A detected signal remains eligible until the next 15-minute close; retry entry gates using current observed data, never duplicate a consumed signal.",
+    "Only signal closes after this revision activation are tradable; older 15-minute history only warms indicators.",
+    "Exit cooldown is three signal bars (45 minutes). Risk, target, leverage ceiling, funding, prior-5m volume and observed-book sizing limits are retained.",
+    "This is a new forward rule version. The original four-hour research results do not validate the 15-minute strategy."
+  ],
+  "signal_timeframe": "15m",
+  "cooldown_signal_bars": 3
+}

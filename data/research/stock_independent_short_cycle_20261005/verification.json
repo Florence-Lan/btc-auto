@@ -1,0 +1,9 @@
+{
+  "verified_at_utc": "2026-10-05T08:12:38.113360+00:00",
+  "cases_verified": 300,
+  "repeated_scenario_closed_records_verified": 13991,
+  "counts_and_net_pnl_match": true,
+  "each_closed_trade_cash_identity_matches": true,
+  "results_sha256": "9f62243854a9595e9e5ab48bf8d7c0e6c97cb95d397dcbab75a1730a4f6e34b6",
+  "forward_validated": false
+}

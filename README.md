@@ -73,6 +73,17 @@ started a new four-account forward trial on October 5 at 04:42:03 UTC.
 The three stock accounts are recording public Aster observations; BTC waits for
 the shared Binance public-data cooldown to expire before evaluating new entries.
 Open `/terminal/parallel.html` for current per-account health and equity.
+The stock signal cycle was changed to completed 15-minute bars at 07:58:07 UTC
+on October 5, with 30-second entry retries until the next signal close and a
+three-bar (45-minute) exit cooldown. Ledgers and prior observations were preserved;
+the original four-hour research results do not validate this revision. See
+[the rule change and checks](docs/stock_signal_15m_activation_20261005.md).
+Following the user's authorization for independent account strategies, MU now
+uses a 15m long-only EMA transition and SNDK a 5m long-only breakout. SKHYNIX
+retains its 15m two-sided EMA rule; BTC retains its own multifactor profile.
+The per-stock comparison ranked development data separately and rejected the
+new SKHYNIX winner after a losing later audit. See [the choices, net-cost results
+and activation evidence](docs/stock_independent_strategies_20261005.md).
 
 The October 5 mechanism review compares eight declared rules across 288 replay
 scenarios and audits 42 historical fill bars against public aggregate trades.

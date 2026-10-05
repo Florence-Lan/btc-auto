@@ -135,7 +135,7 @@ def test_source_before_common_start_is_only_warmup(tmp_path, monkeypatch):
         {'filterType':'PRICE_FILTER', 'tickSize':'0.01'}]}
     account.rules_at_ms = runner.now_ms()
     boundary = runner.now_ms() // runner.FOUR_HOURS * runner.FOUR_HOURS
-    account.four = [[boundary-runner.FOUR_HOURS,100,101,99,100,1000,boundary-1]]
+    account.signal_bars = [[boundary-runner.FOUR_HOURS,100,101,99,100,1000,boundary-1]]
     account.five = [[boundary-runner.FIVE_MINUTES,100,101,99,100,1000,boundary-1]]
     original = account.venue.get.side_effect
     account.venue.get.side_effect = lambda e,p=None: [] if e == 'fundingRate' else original(e,p)
@@ -144,3 +144,171 @@ def test_source_before_common_start_is_only_warmup(tmp_path, monkeypatch):
     result = account.step()
     assert result['wallet_balance'] == 1000
     signal_method.assert_not_called()
+
+
+def fast_stock_fixture(tmp_path, monkeypatch):
+    interval = runner.SIGNAL_INTERVALS['15m']
+    boundary = 200 * interval
+    clock = {'now': boundary + 60_000, 'volume': 0, 'funding_error': False, 'stale_signal': False}
+    monkeypatch.setattr(runner, 'now_ms', lambda: clock['now'])
+    plan = json.loads(runner.PLAN.read_text())
+    cfg = runner.stock_config(plan, 'MUUSDT')
+    path = tmp_path / 'state.json'
+    runner.write_json(path, runner.initial_stock('MUUSDT', boundary - 10_000, cfg))
+    rules = {'symbol': 'MUUSDT', 'status': 'TRADING', 'filters': [
+        {'filterType': 'LOT_SIZE', 'stepSize': '0.01', 'minQty': '0.01', 'maxQty': '100'},
+        {'filterType': 'PRICE_FILTER', 'tickSize': '0.01'},
+        {'filterType': 'MIN_NOTIONAL', 'notional': '5'}]}
+    def get(endpoint, params=None):
+        now = clock['now']
+        if endpoint == 'time': return {'serverTime': now}
+        if endpoint == 'premiumIndex': return {'time': now, 'markPrice': '100', 'indexPrice': '100',
+            'lastFundingRate': '0', 'nextFundingTime': now + interval}
+        if endpoint == 'depth': return {'T': now, 'bids': [['99.99', '100']], 'asks': [['100.01', '100']]}
+        if endpoint == 'exchangeInfo': return {'symbols': [rules]}
+        if endpoint == 'fundingRate':
+            if clock['funding_error']: raise RuntimeError('Funding source unavailable')
+            return []
+        if endpoint == 'klines':
+            span = runner.SIGNAL_INTERVALS[params['interval']]
+            end = now // span * span
+            if params['interval'] == '15m' and clock['stale_signal']: end -= span
+            volume = clock['volume'] if params['interval'] == '5m' else 1000
+            # Include the open candle; it must never reach the signal function.
+            return [[end - i * span, 100, 101, 99, 100, volume, end - (i-1) * span - 1]
+                    for i in range(150, 0 if params['interval'] == '15m' and clock['stale_signal'] else -1, -1)]
+        raise AssertionError(endpoint)
+    venue = Mock()
+    venue.get.side_effect = get
+    observed = Mock(return_value=runner.signals.Signal(1, 1, 100, 1, boundary - interval))
+    monkeypatch.setattr(runner.stock_swing_profiles, 'signal_at', observed)
+    return runner.StockAccount(path, venue, 'MUUSDT', cfg), path, clock, observed
+
+
+def test_15m_closed_signal_retries_after_five_minutes_and_survives_restart(tmp_path, monkeypatch):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    first = account.step()
+    assert first['pending_signal'] and first['fill_count_total'] == 0
+    assert observed.call_args[0][0][-1].time_ms == 199 * 900_000
+    assert all(call.args[1]['interval'] in ('15m', '5m')
+               for call in account.venue.get.call_args_list if call.args[0] == 'klines')
+    clock['now'] += 9 * 60_000
+    clock['volume'] = 1000
+    # A process restart preserves the eligible signal instead of consuming it twice.
+    restarted = runner.StockAccount(path, account.venue, 'MUUSDT', account.config)
+    result = restarted.step()
+    assert result['position'] and result['fill_count_total'] == 1
+    assert result['fills'][0]['reason'] == 'fresh_closed_15m_signal'
+    assert result['pending_signal'] is None
+    assert result['wallet_balance'] == pytest.approx(1000 - result['fees_paid'])
+    clock['now'] += 30_000
+    again = restarted.step()
+    assert again['fill_count_total'] == 1
+    assert observed.call_count == 1
+
+
+def test_expired_signal_cannot_enter_using_stale_candles(tmp_path, monkeypatch):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    first = account.step()
+    clock['now'] = first['pending_signal']['expires_at_ms']
+    clock['volume'] = 1000
+    clock['stale_signal'] = True
+    result = account.step()
+    assert result['pending_signal'] is None
+    assert result['position'] is None
+    assert result['fill_count_total'] == 0
+    assert observed.call_count == 1
+
+
+def test_new_bar_without_signal_cancels_prior_pending_entry(tmp_path, monkeypatch):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    first = account.step()
+    clock['now'] = first['pending_signal']['expires_at_ms'] + 1000
+    clock['volume'] = 1000
+    observed.return_value = None
+    result = account.step()
+    assert result['signal_status'] == 'no_signal'
+    assert result['pending_signal'] is None
+    assert result['fill_count_total'] == 0
+    assert observed.call_count == 2
+    clock['now'] += 30_000
+    assert account.step()['signal_status'] == 'no_signal'
+    assert observed.call_count == 2
+
+
+def test_signal_expiring_during_entry_calculation_never_fills(tmp_path, monkeypatch):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    first = account.step()
+    clock.update(now=first['pending_signal']['expires_at_ms'] - 1000, volume=1000)
+    original = runner.book_fill
+    def delayed_fill(*args, **kwargs):
+        result = original(*args, **kwargs)
+        clock['now'] += 1000
+        return result
+    monkeypatch.setattr(runner, 'book_fill', delayed_fill)
+    result = account.step()
+    assert result['fill_count_total'] == 0
+    assert result['position'] is None
+    assert result['pending_signal'] is None
+    assert result['signal_status'] == 'signal_expired'
+
+
+def test_funding_outage_does_not_consume_15m_signal(tmp_path, monkeypatch):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    clock.update(volume=1000, funding_error=True)
+    first = account.step()
+    assert first['status'] == 'degraded'
+    assert first['pending_signal'] and first['fill_count_total'] == 0
+    clock.update(now=clock['now'] + 30_000, funding_error=False)
+    result = account.step()
+    assert result['fill_count_total'] == 1
+    assert observed.call_count == 1
+
+
+def test_15m_revision_never_trades_pre_activation_candle(tmp_path, monkeypatch):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    state = json.loads(path.read_text())
+    state['signal_active_after_ms'] = clock['now'] - 10_000
+    runner.write_json(path, state)
+    clock['volume'] = 1000
+    result = account.step()
+    assert result['signal_status'] == 'waiting_for_first_forward_candle'
+    assert result['fill_count_total'] == 0
+    observed.assert_not_called()
+
+
+def test_cooldown_tracks_three_15m_bars_after_exit(tmp_path, monkeypatch):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    clock['volume'] = 1000
+    state = account.step()
+    state['position']['stop'] = 101  # Current observed bid triggers the protective exit.
+    runner.write_json(path, state)
+    clock['now'] += 30_000
+    result = account.step()
+    assert result['position'] is None
+    assert result['cooldown_until_ms'] == clock['now'] + 45 * 60_000
+    assert result['fill_count_total'] == 2
+    assert result['wallet_balance'] == pytest.approx(1000 + result['realized_pnl'] - result['fees_paid'])
+
+
+def test_rule_migration_preserves_ledger_and_records_revision_once(tmp_path, monkeypatch):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    state = json.loads(path.read_text())
+    state.update(wallet_balance=1005, equity=1005, funding_pnl=5, observations=300)
+    state['rule']['signal_timeframe'] = '4h'
+    runner.write_json(path, state)
+    cfg = account.config
+    monkeypatch.setattr(runner, 'stock_config', lambda plan, symbol: cfg)
+    plan = {'accounts': [{'account_id': 'mu', 'symbol': 'MUUSDT', 'state_path': str(path)}]}
+    manifest = {'start_ms': state['start_ms']}
+    runner.synchronize_stock_rules(plan, tmp_path, manifest)
+    after = json.loads(path.read_text())
+    for key in ('wallet_balance', 'equity', 'funding_pnl', 'observations', 'start_ms', 'created_at_utc', 'fills'):
+        assert after[key] == state[key]
+    assert after['rule']['signal_timeframe'] == '15m'
+    assert after['signal_active_after_ms'] == clock['now']
+    backup = tmp_path / 'rule_revisions' / str(clock['now']) / 'mu' / 'previous_state.json'
+    assert json.loads(backup.read_text()) == state
+    runner.synchronize_stock_rules(plan, tmp_path, manifest)
+    assert len(json.loads(path.read_text())['rule_history']) == 1
+    assert len(manifest['rule_revisions']) == 1

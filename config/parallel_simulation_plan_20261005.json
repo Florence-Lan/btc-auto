@@ -12,7 +12,7 @@
   "start_policy": "Create a new comparison generation with a common prospective start timestamp; preserve existing accounts and histories.",
   "prospective_start_utc": "2026-10-05T04:42:03.609000+00:00",
   "historical_warmup_counts_as_forward_performance": false,
-  "stock_research_profile": "config/stock_swing_per_symbol_120_candidate_20261004.json",
+  "stock_research_profile": "config/stock_independent_shortcycle_forward_20261005.json",
   "accounts": [
     {
       "account_id": "btc",
@@ -31,7 +31,7 @@
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
       "strategy_selection_status": "selected_for_forward_research",
-      "strategy_path": "config/stock_swing_per_symbol_120_candidate_20261004.json",
+      "strategy_path": "config/stock_independent_shortcycle_forward_20261005.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/mu/state.json"
     },
     {
@@ -41,7 +41,7 @@
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
       "strategy_selection_status": "selected_for_forward_research",
-      "strategy_path": "config/stock_swing_per_symbol_120_candidate_20261004.json",
+      "strategy_path": "config/stock_independent_shortcycle_forward_20261005.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/sndk/state.json"
     },
     {
@@ -51,7 +51,7 @@
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
       "strategy_selection_status": "selected_for_forward_research",
-      "strategy_path": "config/stock_swing_per_symbol_120_candidate_20261004.json",
+      "strategy_path": "config/stock_independent_shortcycle_forward_20261005.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/skhynix/state.json"
     }
   ],
@@ -76,7 +76,7 @@
     "common_start_timestamp_set": true,
     "all_accounts_started": true
   },
-  "stock_rule_selection": "Existing per-symbol baseline, both directions, previous completed 5m volume participation <=10%; parameters frozen without refitting.",
+  "stock_rule_selection": "Independent per-account short-cycle strategy selection: MU 15m EMA transition long-only, SNDK 5m breakout long-only, SKHYNIX keeps existing 15m EMA transition both directions. BTC keeps its own multifactor strategy. Closed net returns after fees/slippage/funding rank each account separately.",
   "runner_script": "scripts/run_parallel_simulation.py",
   "status_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/status.json",
   "activation": {
@@ -86,5 +86,52 @@
     "btc_retry_at_utc": "2026-10-05T08:35:04.858000+00:00",
     "related_tests_passed": 155,
     "places_orders": false
-  }
+  },
+  "stock_rule_revision": {
+    "candidate_id": "independent_stock_shortcycle_forward_20261005",
+    "signal_timeframes": {
+      "MUUSDT": "15m",
+      "SNDKUSDT": "5m",
+      "SKHYNIXUSDT": "15m"
+    },
+    "entry_retry_seconds": 30,
+    "entry_signal_validity": "until_next_close_of_own_signal_timeframe",
+    "cooldown_signal_bars": 3,
+    "activated_at_utc": "2026-10-05T08:15:02.019000+00:00",
+    "runner_pid": 19390,
+    "related_tests_passed": 157,
+    "independent_unseen_validation_claim": false,
+    "account_ledgers_preserved": true,
+    "research_path": "data/research/stock_independent_short_cycle_20261005/results.json",
+    "report_path": "docs/stock_independent_strategies_20261005.md",
+    "runner_source_hash": "a6fee36015f933661ac6573cc4e90de4d45aa9a656293a3d40180688801f7e2f"
+  },
+  "account_strategy_policy": {
+    "user_authorization": "User allows distinct strategies for each account; objective is net profitability.",
+    "strategy_family_must_match": false,
+    "signal_timeframe_must_match": false,
+    "entry_direction_must_match": false,
+    "exit_model_must_match": false,
+    "profit_assessed_per_account": true,
+    "allow_cross_account_loss_offset": false,
+    "rank_by": "closed net PnL after fees, slippage and funding with drawdown and execution checks",
+    "requires_fixed_net120_target_count": false,
+    "do_not_guarantee_future_profit": true,
+    "live_orders_allowed": false
+  },
+  "previous_stock_rule_revisions": [
+    {
+      "candidate_id": "memory_stock_per_symbol_15m_forward_20261005",
+      "signal_timeframe": "15m",
+      "entry_retry_seconds": 30,
+      "entry_signal_validity": "until_next_15m_close",
+      "cooldown_signal_bars": 3,
+      "activated_at_utc": "2026-10-05T07:58:07.497000+00:00",
+      "runner_pid": 12835,
+      "related_tests_passed": 124,
+      "prior_4h_results_transferable": false,
+      "account_ledgers_preserved": true,
+      "runner_source_hash": "4329976afc5dde91a601c0fa69410c5648c4d112884eec0d7c70f7814d25519b"
+    }
+  ]
 }

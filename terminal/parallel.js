@@ -3,6 +3,17 @@ const names = {btc: 'BTC', mu: '美光 · MU', sndk: '闪迪 · SNDK', skhynix: 
 const money = n => n == null ? '—' : Number(n).toLocaleString('en-US', {minimumFractionDigits: 4, maximumFractionDigits: 4});
 const escape = s => String(s ?? '').replace(/[&<>"']/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const localTime = s => s ? new Date(s).toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai', hour12: false}) : '—';
+const signalNames = {holding:'持仓保护中', waiting_for_new_closed_bar:'等待下一根收盘线',
+  waiting_for_first_forward_candle:'等待新规则首根收盘线', no_signal:'本根未触发信号',
+  signal_expired:'上次信号已过期', entry_data_unavailable:'等待完整入场数据',
+  risk_halted:'回撤限制新增', cooldown:'退出后冷却中',
+  entry_data_gap_basis_funding_or_volume_blocked:'信号有效 · 等待成交量、价差或资金费条件',
+  insufficient_observed_liquidity_or_minimum_quantity:'信号有效 · 等待足够可成交数量',
+  risk_or_liquidation_buffer_blocked:'信号有效 · 风险或保证金条件未通过',
+  stop_distance_blocked:'信号有效 · 止损距离未通过', entered:'已入场',
+  entered_partial_ioc_remainder_cancelled:'已部分入场', signal_observed:'新信号已观察',
+  no_new_signal:'等待新信号'};
+signalNames.direction_filtered = '本根信号不符合账户的方向规则';
 async function refresh() {
   try {
     const response = await fetch('/data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/status.json?v=' + Date.now(), {cache:'no-store'});
@@ -21,7 +32,10 @@ async function refresh() {
       const healthy = active && accountAge >= -5 && accountAge < 120 && a.status === 'healthy';
       const status = !active || accountAge > 120 ? '心跳过期' : a.status === 'healthy' ? '运行正常' : a.status === 'waiting_for_first_forward_candle' ? '等待首根前瞻K线' : a.status === 'degraded' ? '数据降级 · 暂停新增' : '初始化中';
       const error = Object.entries(a.errors || {}).map(([k,v]) => `${escape(k)}: ${escape(v)}`).join('<br>');
-      return `<article class="panel parallel-card"><h2>${name}</h2><span class="parallel-state ${healthy ? '' : 'parallel-warning'}">${status}</span><div class="parallel-equity">${money(a.equity)}</div><small>USDT · 收益 ${a.return_pct == null ? '—' : Number(a.return_pct).toFixed(4)+'%'}</small><dl><div><dt>仓位</dt><dd>${a.position_qty == null ? '—' : a.position_qty === 0 ? '空仓' : escape(a.position_qty)}</dd></div><div><dt>模拟成交次数</dt><dd>${a.fill_count_total ?? '—'}</dd></div><div><dt>累计手续费</dt><dd>${money(a.fees_paid)}</dd></div><div><dt>累计资金费损益</dt><dd>${money(a.funding_pnl)}</dd></div><div><dt>最大回撤</dt><dd>${a.max_drawdown_pct == null ? '—' : Number(a.max_drawdown_pct).toFixed(4)+'%'}</dd></div><div><dt>标记价</dt><dd>${money(a.last_mark_price)}</dd></div></dl><p class="parallel-age">检查 ${localTime(a.checked_at_utc)}</p>${error ? `<p class="parallel-error">${error}</p>` : ''}</article>`;
+      const family = {breakout:'趋势突破', ema_transition:'均线交叉'}[a.signal_family] || '策略更新中';
+      const direction = {both:'双向', long:'只做多', short:'只做空'}[a.entry_direction] || '—';
+      const signal = id !== 'btc' ? `<p class="parallel-age">${escape(family)} · ${escape(direction)} · ${escape(a.signal_timeframe || '—')}<br>${escape(signalNames[a.signal_status] || '等待状态更新')}<br>下一根收盘 ${localTime(a.next_signal_time_ms)}</p>` : '';
+      return `<article class="panel parallel-card"><h2>${name}</h2><span class="parallel-state ${healthy ? '' : 'parallel-warning'}">${status}</span><div class="parallel-equity">${money(a.equity)}</div><small>USDT · 收益 ${a.return_pct == null ? '—' : Number(a.return_pct).toFixed(4)+'%'}</small><dl><div><dt>仓位</dt><dd>${a.position_qty == null ? '—' : a.position_qty === 0 ? '空仓' : escape(a.position_qty)}</dd></div><div><dt>模拟成交次数</dt><dd>${a.fill_count_total ?? '—'}</dd></div><div><dt>累计手续费</dt><dd>${money(a.fees_paid)}</dd></div><div><dt>累计资金费损益</dt><dd>${money(a.funding_pnl)}</dd></div><div><dt>最大回撤</dt><dd>${a.max_drawdown_pct == null ? '—' : Number(a.max_drawdown_pct).toFixed(4)+'%'}</dd></div><div><dt>标记价</dt><dd>${money(a.last_mark_price)}</dd></div></dl>${signal}<p class="parallel-age">检查 ${localTime(a.checked_at_utc)}</p>${error ? `<p class="parallel-error">${error}</p>` : ''}</article>`;
     }).join('');
   } catch (error) {
     $('#heartbeat').textContent = error.message;

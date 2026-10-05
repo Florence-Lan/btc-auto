@@ -29,6 +29,7 @@ from stock_swing_signals import (
 HOUR = 3_600_000
 FOUR_HOURS = 4 * HOUR
 DAY = 24 * HOUR
+SIGNAL_INTERVALS = {'5m': 300_000, '15m': 900_000, '30m': 1_800_000, '1h': HOUR, '4h': FOUR_HOURS}
 
 
 def iso(time_ms: int) -> str:
@@ -56,6 +57,23 @@ def aggregate_4h(rows: list[Candle]) -> list[Candle]:
                              sum(row.volume for row in group)))
     if any(right.time_ms - left.time_ms != FOUR_HOURS for left, right in zip(result, result[1:])):
         raise ValueError("Missing complete 4h signal candles")
+    return result
+
+
+def aggregate_signal_bars(rows: list[Candle], interval: int, source_step: int) -> list[Candle]:
+    if interval < source_step or interval % source_step:
+        raise ValueError('Signal interval must be a multiple of available history resolution')
+    groups = {}
+    for row in rows:
+        groups.setdefault(row.time_ms // interval * interval, []).append(row)
+    result = []
+    for start, group in sorted(groups.items()):
+        if [row.time_ms for row in group] != list(range(start, start + interval, source_step)):
+            continue
+        result.append(Candle(start, group[0].open, max(row.high for row in group),
+            min(row.low for row in group), group[-1].close, sum(row.volume for row in group)))
+    if any(b.time_ms - a.time_ms != interval for a, b in zip(result, result[1:])):
+        raise ValueError('Missing complete signal candles')
     return result
 
 
@@ -96,13 +114,16 @@ def prepare(snapshot: dict, config: dict) -> dict:
             raise ValueError(f"Incomplete trade/mark/index alignment for {symbol}")
         if any(right.time_ms - left.time_ms != step for left, right in zip(trades, trades[1:])):
             raise ValueError(f"Missing execution candles for {symbol}")
-        four = aggregate_4h(hourly_trades)
+        signal_interval = SIGNAL_INTERVALS[profile.get('signal_timeframe', '4h')]
+        four = (aggregate_4h(hourly_trades) if signal_interval == FOUR_HOURS
+                else aggregate_signal_bars(trades if signal_interval < HOUR else hourly_trades,
+                    signal_interval, step if signal_interval < HOUR else HOUR))
         indicators = compute_indicators(four, profile)
         # All arrays are causal. An entry at t uses only the bar ending at t.
         signals = {}
         closed_updates = {}
         for index, row in enumerate(four):
-            end = row.time_ms + FOUR_HOURS
+            end = row.time_ms + signal_interval
             closed_updates[end] = (row.close, indicators["atr"][index])
             if "symbol_profiles" in config:
                 from stock_swing_profiles import signal_at as profile_signal_at
@@ -110,7 +131,7 @@ def prepare(snapshot: dict, config: dict) -> dict:
             else:
                 signal = signal_at(four, indicators, index, config)
             if signal is not None:
-                validity = config.get("entry_signal_validity_minutes", 0)
+                validity = profile.get("entry_signal_validity_minutes", 0)
                 for attempt in range(end, end + max(step, validity * 60_000), step):
                     signals[attempt] = signal
         events = source["funding"]
@@ -130,6 +151,7 @@ def prepare(snapshot: dict, config: dict) -> dict:
             "min_notional": float(filters.get("MIN_NOTIONAL", {}).get("notional", 5)),
             "first_signal_time": min(signals, default=None),
             "profile_config": profile,
+            "signal_interval_ms": signal_interval,
         }
         for event in events:
             prepared[symbol]["funding_by_hour"].setdefault(int(event["fundingTime"]) // step * step, []).append(event)
@@ -137,10 +159,10 @@ def prepare(snapshot: dict, config: dict) -> dict:
 
 
 def simulate(snapshot: dict, config: dict, start_ms: int, end_ms: int,
-             cost_multiplier: float = 1.0) -> dict:
+             cost_multiplier: float = 1.0, *, prepared_data: dict | None = None) -> dict:
     step = int(snapshot.get("execution_step_ms", HOUR))
     entry_policy.validate(config, step)
-    data = prepare(snapshot, config)
+    data = prepare(snapshot, config) if prepared_data is None else prepared_data
     participation = config.get("entry_max_previous_bar_participation_fraction")
     if participation is not None and (
         isinstance(participation, bool) or not isinstance(participation, (int, float))
@@ -198,7 +220,9 @@ def simulate(snapshot: dict, config: dict, start_ms: int, end_ms: int,
             "net_return_initial_margin_pct": net / pos["margin"] * 100,
             "hours_held": (timestamp - pos["entry_time"]) / HOUR,
         })
-        cooldown[symbol] = timestamp + config["cooldown_4h_bars"] * FOUR_HOURS
+        profile = data[symbol].get('profile_config', config)
+        cooldown[symbol] = timestamp + (profile['cooldown_signal_bars'] * data[symbol]['signal_interval_ms']
+            if 'cooldown_signal_bars' in profile else config['cooldown_4h_bars'] * FOUR_HOURS)
 
     all_times = sorted({time for source in data.values() for time in source["trade"]
                         if start_ms <= time < end_ms})
@@ -331,7 +355,7 @@ def simulate(snapshot: dict, config: dict, start_ms: int, end_ms: int,
                 continue
             position = {
                 "entry": entry, "direction": signal.direction, "qty": qty,
-                "entry_time": timestamp, "signal_time": signal.time_ms + FOUR_HOURS,
+                "entry_time": timestamp, "signal_time": signal.time_ms + source.get('signal_interval_ms', FOUR_HOURS),
                 "stop": stop, "initial_stop": stop, "atr": signal.atr,
                 "margin": qty * entry / config["leverage"], "entry_fee": qty * entry * fee,
                 "funding": 0.0, "planned_loss": qty * risk_per_unit, "best_close_return": 0.0,

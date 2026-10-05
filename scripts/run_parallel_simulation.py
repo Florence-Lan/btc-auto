@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal, ROUND_DOWN
 import fcntl
@@ -25,12 +26,15 @@ import decision_runtime
 import simulation_risk_monitor
 import stock_swing_profiles
 import stock_swing_signals as signals
+import stock_research_entry_policy as entry_policy
 from trading_execution import SimulationAccount, execute_report, read_json, write_json
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN = ROOT / 'config/parallel_simulation_plan_20261005.json'
 FOUR_HOURS = 14_400_000
 FIVE_MINUTES = 300_000
+SIGNAL_INTERVALS = {'5m': FIVE_MINUTES, '15m': 900_000, '30m': 1_800_000,
+                    '1h': 3_600_000, '4h': FOUR_HOURS}
 STOP = threading.Event()
 
 
@@ -133,7 +137,10 @@ class StockAccount:
         self.path, self.venue, self.symbol, self.config = path, venue, symbol, config
         self.rules = None
         self.rules_at_ms = 0
-        self.four = []
+        self.signal_timeframe = config.get('signal_timeframe', '4h')
+        self.signal_interval_ms = SIGNAL_INTERVALS[self.signal_timeframe]
+        entry_policy.validate({**config, 'symbols': [symbol]}, FIVE_MINUTES)
+        self.signal_bars = []
         self.five = []
         self.candle_bucket = None
 
@@ -202,7 +209,7 @@ class StockAccount:
         if self.rules is None or now_ms() - self.rules_at_ms >= 3_600_000:
             requests_to_make.append(('rules', 'exchangeInfo', {}))
         if self.candle_bucket != now_ms() // FIVE_MINUTES:
-            requests_to_make += [('four', 'klines', {'symbol': self.symbol, 'interval': '4h', 'limit': 500}),
+            requests_to_make += [('signal', 'klines', {'symbol': self.symbol, 'interval': self.signal_timeframe, 'limit': 500}),
                                  ('five', 'klines', {'symbol': self.symbol, 'interval': '5m', 'limit': 12})]
         with ThreadPoolExecutor(max_workers=7) as pool:
             responses = list(pool.map(lambda args: fetch(*args), requests_to_make))
@@ -226,17 +233,17 @@ class StockAccount:
                 errors['rules'] = 'Contract is not trading'
             self.rules_at_ms = now_ms()
             write_json(self.path.with_name('contract_rules.json'), self.rules)
-        for key in ('four', 'five'):
+        for key in ('signal', 'five'):
             if data.get(key):
                 closed = [row for row in data[key] if int(row[6]) < timestamp]
-                if any(int(b[0]) - int(a[0]) != (FOUR_HOURS if key == 'four' else FIVE_MINUTES)
+                if any(int(b[0]) - int(a[0]) != (self.signal_interval_ms if key == 'signal' else FIVE_MINUTES)
                        for a, b in zip(closed, closed[1:])):
                     errors[key] = 'Nonconsecutive completed candles'
-                elif key == 'four':
-                    self.four = closed
+                elif key == 'signal':
+                    self.signal_bars = closed
                 else:
                     self.five = closed
-        if 'four' in data and not errors.get('four') and not errors.get('five'):
+        if 'signal' in data and not errors.get('signal') and not errors.get('five'):
             self.candle_bucket = now_ms() // FIVE_MINUTES
         if not mark:
             state['status'] = 'degraded'
@@ -323,13 +330,15 @@ class StockAccount:
                         pos[key] *= 1 - fraction
                     if pos['qty'] <= 0:
                         state['position'] = pos = None
-                        state['cooldown_until_ms'] = timestamp + cfg['cooldown_4h_bars'] * FOUR_HOURS
+                        state['cooldown_until_ms'] = timestamp + (
+                            cfg['cooldown_signal_bars'] * self.signal_interval_ms
+                            if 'cooldown_signal_bars' in cfg else cfg['cooldown_4h_bars'] * FOUR_HOURS)
                     state['position_history'].append({'time_ms': record['time_ms'], 'signed_qty': side * pos['qty'] if pos else 0})
             # Trailing update only from a newly closed signal bar and AFTER current-stop checks.
-            if pos and self.four and not errors.get('four'):
-                latest = self.four[-1]
+            if pos and self.signal_bars and not errors.get('signal'):
+                latest = self.signal_bars[-1]
                 if int(latest[6]) > pos.get('last_trail_bar_ms', 0):
-                    bars = [arithmetic.candle(row) for row in self.four]
+                    bars = [arithmetic.candle(row) for row in self.signal_bars]
                     atr = signals.compute_indicators(bars, cfg)['atr'][-1]
                     gain = side * (bars[-1].close / pos['entry'] - 1)
                     pos['best_close_return'] = max(pos.get('best_close_return', 0), gain)
@@ -340,17 +349,49 @@ class StockAccount:
                         if side * (candidate - pos['stop']) > 0:
                             pos['stop'] = arithmetic.round_tick(candidate, tick, side == 1)
                     pos['last_trail_bar_ms'] = int(latest[6])
-        state['signal_status'] = 'no_new_signal'
-        if not pos and self.four and self.five and lot and fresh_book and not errors and clock:
-            boundary = int(self.four[-1][0]) + FOUR_HOURS
-            if (boundary >= state['start_ms'] and 0 <= timestamp - boundary < FIVE_MINUTES
+        state['signal_timeframe'] = self.signal_timeframe
+        state['signal_family'] = cfg.get('signal_family', 'breakout')
+        state['entry_direction'] = cfg.get('entry_direction', 'both')
+        state['next_signal_time_ms'] = (timestamp // self.signal_interval_ms + 1) * self.signal_interval_ms
+        state['signal_status'] = 'holding' if pos else 'waiting_for_new_closed_bar'
+        pending = state.get('pending_signal')
+        if pending and timestamp >= pending['expires_at_ms']:
+            state['pending_signal'] = pending = None
+            state['signal_status'] = 'signal_expired'
+        if not pos and self.signal_bars and clock and not errors.get('signal'):
+            boundary = int(self.signal_bars[-1][0]) + self.signal_interval_ms
+            active_after = state.get('signal_active_after_ms', state['start_ms'])
+            if (boundary >= active_after and boundary == timestamp // self.signal_interval_ms * self.signal_interval_ms
                     and state['last_signal_time_ms'] != boundary):
-                bars = [arithmetic.candle(row) for row in self.four]
+                bars = [arithmetic.candle(row) for row in self.signal_bars]
                 indicators = signals.compute_indicators(bars, cfg)
                 sig = stock_swing_profiles.signal_at(bars, indicators, len(bars) - 1, cfg)
+                rejected = entry_policy.rejection(cfg, self.symbol, timestamp, sig.direction) if sig else None
+                raw_signal = asdict(sig) if sig else None
+                if rejected:
+                    sig = None
                 state['last_signal_time_ms'] = boundary
-                state['signal_status'] = 'no_signal' if sig is None else 'signal_observed'
-                if sig and not state['risk_halted'] and dd < cfg['account_soft_drawdown_fraction'] and timestamp >= state['cooldown_until_ms']:
+                state['last_signal_result'] = rejected or ('signal' if sig else 'none')
+                state['pending_signal'] = pending = ({'signal': asdict(sig), 'boundary_ms': boundary,
+                    'expires_at_ms': boundary + self.signal_interval_ms} if sig else None)
+                state['signal_status'] = 'direction_filtered' if rejected else 'no_signal' if sig is None else 'signal_observed'
+                journal(self.path.with_name('signals.jsonl'), {'time_utc': arithmetic.iso(timestamp),
+                    'signal_timeframe': self.signal_timeframe, 'boundary_ms': boundary,
+                    'pending_signal': pending, 'raw_signal': raw_signal, 'rejection': rejected,
+                    'rule_candidate_id': cfg.get('candidate_id')})
+            elif boundary < active_after:
+                state['signal_status'] = 'waiting_for_first_forward_candle'
+            elif state['last_signal_time_ms'] == boundary and state.get('last_signal_result') == 'none':
+                state['signal_status'] = 'no_signal'
+            elif state['last_signal_time_ms'] == boundary and state.get('last_signal_result') in ('research_direction', 'research_session_clock'):
+                state['signal_status'] = 'direction_filtered'
+        if not pos and pending:
+            state['signal_status'] = 'entry_data_unavailable'
+            if self.five and lot and fresh_book and not errors and clock:
+                sig = signals.Signal(**pending['signal'])
+                boundary = pending['boundary_ms']
+                state['signal_status'] = 'risk_halted' if state['risk_halted'] or dd >= cfg['account_soft_drawdown_fraction'] else 'cooldown'
+                if not state['risk_halted'] and dd < cfg['account_soft_drawdown_fraction'] and timestamp >= state['cooldown_until_ms']:
                     expected_bar = timestamp // FIVE_MINUTES * FIVE_MINUTES - FIVE_MINUTES
                     volume = float(self.five[-1][5]) if int(self.five[-1][0]) == expected_bar else 0
                     reference = ask if sig.direction == 1 else bid
@@ -361,6 +402,7 @@ class StockAccount:
                         entry_estimate = reference * (1 + sig.direction * cfg['adverse_slippage_fraction_assumption'])
                         stop = signals.initial_stop(entry_estimate, sig.direction, sig.atr, cfg)
                         if stop:
+                            stop = arithmetic.round_tick(stop, tick, sig.direction == -1)
                             qty = signals.position_size(equity, entry_estimate, stop, step,
                                 cfg['risk_fraction_per_trade'], cfg['taker_fee_rate_assumption'], cfg['adverse_slippage_fraction_assumption'])
                             qty = min(qty, equity * cfg['portfolio_gross_notional_fraction'] / entry_estimate,
@@ -377,19 +419,29 @@ class StockAccount:
                                         'entry_fee': result['qty'] * result['price'] * cfg['taker_fee_rate_assumption'],
                                         'margin': result['qty'] * result['price'] / 10, 'funding': 0.0, 'atr': sig.atr}
                                     liq = arithmetic.liquidation_price(candidate, cfg['maintenance_margin_fraction_assumption'])
-                                    if (actual_risk <= equity * cfg['risk_fraction_per_trade'] + 1e-9
+                                    if (now_ms() < pending['expires_at_ms']
+                                            and actual_risk <= equity * cfg['risk_fraction_per_trade'] + 1e-9
                                             and abs(stop / result['price'] - 1) <= cfg['max_stop_fraction'] + 1e-12
                                             and sig.direction * (stop - liq) / result['price'] >= cfg['minimum_liquidation_distance_buffer']):
                                         fresh(book.get('T') or book.get('E'), now_ms())
                                         fresh(mark['time'], now_ms())
-                                        record = self.fill(state, result, now_ms(), sig.direction, 'fresh_closed_4h_signal')
+                                        record = self.fill(state, result, now_ms(), sig.direction,
+                                            'fresh_closed_' + self.signal_timeframe + '_signal')
                                         state['position'] = pos = candidate
+                                        state['pending_signal'] = None
                                         state['position_history'].append({'time_ms': record['time_ms'], 'signed_qty': sig.direction * result['qty']})
                                         state['signal_status'] = 'entered' if not result['partial'] else 'entered_partial_ioc_remainder_cancelled'
                                     else:
                                         state['signal_status'] = 'risk_or_liquidation_buffer_blocked'
+                                        if now_ms() >= pending['expires_at_ms']:
+                                            state['pending_signal'] = None
+                                            state['signal_status'] = 'signal_expired'
+                                else:
+                                    state['signal_status'] = 'stop_distance_blocked'
                             else:
                                 state['signal_status'] = 'insufficient_observed_liquidity_or_minimum_quantity'
+                        else:
+                            state['signal_status'] = 'stop_distance_blocked'
                     else:
                         state['signal_status'] = 'entry_data_gap_basis_funding_or_volume_blocked'
         state['equity'] = state['wallet_balance'] + (pos['direction'] * pos['qty'] * (price - pos['entry']) if pos else 0)
@@ -406,12 +458,59 @@ class StockAccount:
         observation = {'time_utc': state['updated_at_utc'], 'symbol': self.symbol, 'mark': mark,
             'book': book, 'errors': errors, 'equity': state['equity'], 'position_qty': state['position_qty'],
             'signal_status': state['signal_status'], 'funding_events': data.get('funding')}
-        if 'four' in data:
-            observation['signal_candles_4h'] = self.four
+        observation['signal_timeframe'] = self.signal_timeframe
+        observation['last_signal_time_ms'] = state['last_signal_time_ms']
+        observation['pending_signal'] = state.get('pending_signal')
+        if 'signal' in data:
+            observation['signal_candles'] = self.signal_bars
             observation['preceding_candles_5m'] = self.five
         journal(self.path.with_name('observations.jsonl'), observation)
         write_json(self.path, state)
         return state
+
+
+def stock_config(plan, symbol):
+    profile = json.loads((ROOT / plan['stock_research_profile']).read_text())
+    base = json.loads((ROOT / profile['base_config']).read_text())
+    common = {key: profile[key] for key in ('signal_timeframe', 'execution_timeframe', 'cooldown_signal_bars') if key in profile}
+    cfg = {**base, **common, **profile['symbol_profiles'][symbol],
+        'candidate_id': profile['symbol_profiles'][symbol].get('candidate_id', profile['candidate_id']),
+        'risk_fraction_per_trade': profile['risk_fraction_per_bucket_trade'],
+        'initial_equity_usdt': 1000, 'leverage': 10}
+    SIGNAL_INTERVALS[cfg['signal_timeframe']]  # Validate before changing any account.
+    return cfg
+
+
+def synchronize_stock_rules(plan, root, manifest):
+    """Apply an authorized paper-rule revision under the runner lock, without resetting cash."""
+    configs = {a['account_id']: stock_config(plan, a['symbol']) for a in plan['accounts']
+               if a['account_id'] != 'btc'}
+    activated = now_ms()
+    revisions = []
+    for account in plan['accounts']:
+        account_id = account['account_id']
+        if account_id == 'btc':
+            continue
+        path = ROOT / account['state_path']
+        state = json.loads(path.read_text())
+        cfg = configs[account_id]
+        if state['rule'] == cfg:
+            continue
+        write_json(root / 'rule_revisions' / str(activated) / account_id / 'previous_state.json', state)
+        revision = {'activated_at_ms': activated, 'activated_at_utc': arithmetic.iso(activated),
+            'previous_rule': state['rule'], 'new_rule': cfg,
+            'source_hash': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            'reason': 'User authorized independent per-account strategies and shorter stock signal cycles; closed-bar signals with 30s entry retries.'}
+        state.setdefault('rule_history', []).append(revision)
+        state.update(rule=cfg, signal_timeframe=cfg['signal_timeframe'], signal_active_after_ms=activated,
+            last_signal_time_ms=None, last_signal_result=None, pending_signal=None,
+            signal_status='waiting_for_first_forward_candle')
+        write_json(path, state)
+        journal(path.with_name('rule_revisions.jsonl'), revision)
+        revisions.append({'account_id': account_id, **revision})
+    if revisions:
+        manifest.setdefault('rule_revisions', []).extend(revisions)
+        write_json(root / 'manifest.json', manifest)
 
 
 def bootstrap(plan):
@@ -443,11 +542,7 @@ def bootstrap(plan):
         if account['account_id'] == 'btc':
             SimulationAccount(path).reset(1000, now_ms=start)
         else:
-            profile = json.loads((ROOT / plan['stock_research_profile']).read_text())
-            base = json.loads((ROOT / profile['base_config']).read_text())
-            cfg = {**base, **profile['symbol_profiles'][account['symbol']],
-                'risk_fraction_per_trade': profile['risk_fraction_per_bucket_trade'],
-                'initial_equity_usdt': 1000, 'leverage': 10}
+            cfg = stock_config(plan, account['symbol'])
             write_json(path, initial_stock(account['symbol'], start, cfg))
     write_json(manifest_path, manifest)
     return root, manifest
@@ -507,6 +602,7 @@ def main():
     lock = (root / 'runner.lock').open('a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     root, manifest = bootstrap(plan)
+    synchronize_stock_rules(plan, root, manifest)
     status_path = root / 'status.json'
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: STOP.set())
@@ -533,7 +629,8 @@ def main():
                 result = btc_step(account, root, manifest, client) if account_id == 'btc' else workers[account_id].step()
                 view = {k: result.get(k) for k in ('symbol', 'status', 'checked_at_utc', 'equity', 'wallet_balance',
                     'return_pct', 'position_qty', 'fill_count_total', 'fees_paid', 'funding_pnl', 'max_drawdown_pct',
-                    'last_mark_price', 'signal_status', 'errors', 'observations')}
+                    'last_mark_price', 'signal_status', 'signal_timeframe', 'signal_family', 'entry_direction', 'next_signal_time_ms',
+                    'last_signal_time_ms', 'signal_active_after_ms', 'errors', 'observations')}
                 with mutex:
                     shared[account_id] = view
             except Exception as exc:

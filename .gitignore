@@ -29,6 +29,11 @@ data/research/parallel_simulation_1000_20261005/*
 !data/research/parallel_simulation_1000_20261005/declaration.json
 !data/research/parallel_simulation_1000_20261005/results.json
 !data/research/parallel_simulation_1000_20261005/verification.json
+!data/research/stock_independent_short_cycle_20261005/
+data/research/stock_independent_short_cycle_20261005/*
+!data/research/stock_independent_short_cycle_20261005/declaration.json
+!data/research/stock_independent_short_cycle_20261005/results.json
+!data/research/stock_independent_short_cycle_20261005/verification.json
 !data/validation/
 data/validation/*
 !data/validation/carry_trend_portfolio_85_15_20260801.json
