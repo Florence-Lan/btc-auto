@@ -1,0 +1,11 @@
+{
+  "verified_at_utc": "2026-10-05T12:45:50.418784+00:00",
+  "csv_scenarios": 72,
+  "overlapping_ledger_records": 776,
+  "unique_closed_signal_checkpoints": 621,
+  "source_and_snapshot_hashes_match": true,
+  "net_accounting_and_user_metrics_match": true,
+  "multi_timeframe_closure_and_one_retest_per_setup_checked": true,
+  "records_are_not_independent_trades": true,
+  "places_orders": false
+}

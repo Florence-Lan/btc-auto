@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SNDK 独立模拟验证</title><link rel="stylesheet" href="./styles.css"><style>
+main{max-width:1000px;margin:auto;padding:28px 20px}h1{font-size:28px}p{line-height:1.8;color:#a7afbd}a{color:#69dac4}.shadow-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px}.shadow-card{padding:24px}.shadow-value{font-size:30px;margin:16px 0}dl{display:grid;grid-template-columns:1fr 1fr;gap:16px}dt{color:#919aaa;font-size:12px}dd{margin:6px 0}.shadow-note{padding:20px;margin-top:20px}.shadow-error{color:#edb975}@media(max-width:600px){.shadow-cards{grid-template-columns:1fr}}
+</style></head><body><header class="topbar"><div class="brand"><strong>SNDK 独立验证</strong></div><span class="mode-badge">SIMULATION · 未经前瞻验证</span></header><main>
+<a href="./parallel.html">← 四账户模拟</a><h1>让新数据检验盈利期望</h1><p>趋势与纳指同向，等待已收盘的1小时突破及成交量确认。只接受启用后的新信号；数据缺失或过期时等待。</p><p id="heartbeat" role="status">读取状态…</p><div id="cards" class="shadow-cards" aria-live="polite"></div>
+<section class="panel shadow-note"><strong>冻结规则 · 30天记录</strong><p>每账户初始1000 USDT，单笔计划风险0.25%，杠杆上限10×，名义仓位上限账户权益1×；净止盈目标为本单初始保证金60%。正常成本计入盘口价差、手续费、滑点和资金费；另一账户将手续费和滑点加倍。3%回撤暂停新增，6%触发保护退出。</p><p>历史正常成本平均每笔约+0.71 USDT，双倍成本约+0.65 USDT，但仅15笔，后段只有1笔，无法证明未来盈利。止损和其他保护退出可能亏损或盈利低于60%。本页记录两个独立研究账户；达到样本与收益要求后仍须复核。</p></section>
+</main><script type="module" src="./stock-shadow.js"></script></body></html>

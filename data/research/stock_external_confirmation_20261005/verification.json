@@ -1,0 +1,12 @@
+{
+  "verified_at_utc": "2026-10-05T13:05:06.554079+00:00",
+  "csv_scenarios": 216,
+  "overlapping_ledger_records": 1448,
+  "accepted_entry_retries_rechecked": 12259,
+  "all_closed_entries_pass_asof_external_gate": true,
+  "source_and_data_hashes_match": true,
+  "prior_price_only_controls_reproduced": true,
+  "net_accounting_and_user_metrics_match": true,
+  "records_are_not_independent_trades": true,
+  "places_orders": false
+}

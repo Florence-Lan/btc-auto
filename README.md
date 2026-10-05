@@ -67,7 +67,49 @@ risk context. See [sources and limitations](docs/information_activation_20261002
 
 ## Memory-stock swing research
 
-The user's latest admission requirements are a net profit target of at least
+The user has requested an overnight test of all three stocks. A new frozen
+experiment gives MU the hourly trend-pullback arm, SNDK the hourly trend/volume
+breakout, and SKHYNIX the compression-breakout arm, all with NQ confirmation
+and a60% net initial-margin target. These are unvalidated hypotheses: MU and
+SKHYNIX have weak or negative later-window results. Three1000USDT normal-cost
+accounts each have a separate double-cost control. The original ledgers stay
+under their existing protective rules. The new runner stops entries at
+2026-10-06 10:00 Beijing, exits simulated inventory, and writes an automatic
+report. See [the overnight protocol](docs/stock_overnight_validation_20261005.md)
+and `http://127.0.0.1:8766/terminal/stock-overnight.html`.
+
+A further fixed revision tested tighter stops, hourly trend pullbacks and
+compression breakouts with NQ confirmation. None passes the existing expectancy
+screen. SNDK pullbacks gain 15.21 USDT over the full double-cost path but lose
+11.71 USDT under monthly admission using only earlier data. The original SNDK
+trend/volume/NQ net60 rule is therefore frozen in a **separate** two-account
+forward experiment, leaving the existing four-account admission unchanged.
+See [the rules, results and forward protocol](docs/stock_profit_candidate_20261005.md).
+Run `python scripts/run_stock_expectancy_shadow.py --once` for one observation,
+or omit `--once` to keep running. Source/config hashes prevent silent changes;
+new signals must close after activation. The normal/double-cost views are at
+`http://127.0.0.1:8766/terminal/stock-shadow.html`.
+
+The user has waived the 70% winning-trade requirement. Admission review now
+uses net expectancy, sample size, costs and risk, retaining the 60% initial-margin
+profit-target requirement. SNDK trend/volume plus NQ has a historical mean net
+profit of 0.653 USDT/trade at double costs over 15 closed trades; future positive
+expectancy is not established. See [the expectancy review](docs/stock_expectancy_20261005.md).
+
+Stock research now includes timestamped NQ/ES futures, SOX, VIX, dollar and
+10-year yield-index context. The fixed 216-scenario comparison reproduces the
+prior price controls and checks external admission at every entry retry.
+NQ confirmation improves one SNDK rule's historical win rate to 53.3% over
+15 closed trades, but no declared stock/rule passes the outcome and sample
+requirements. Read [the data assumptions and results](docs/stock_external_context_20261005.md).
+
+The declared selective-entry replay now tests 1h breakouts, completed 4h trend
+and volume confirmation, and subsequent retest confirmation, all with a 60%
+net initial-margin profit target. Across 72 scenarios no stock/rule passes the
+joint outcome and sample requirements. The paper admission configuration stays
+paused. See [the actual verification results](docs/stock_selective_entries_20261005.md).
+
+The user's earlier admission requirements were a net profit target of at least
 60% of each trade's initial margin and a net winning-trade rate of at least 70%.
 No previously declared candidate meets both development thresholds. All three
 stock accounts now pause new simulated entries, while protecting existing

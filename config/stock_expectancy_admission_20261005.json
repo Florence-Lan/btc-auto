@@ -1,0 +1,180 @@
+{
+  "candidate_id": "stock_expectancy_admission_20261005",
+  "status": "observation_only_expectancy_validation_pending",
+  "base_config": "config/stock_swing_120_candidate_20261004.json",
+  "execution_timeframe": "5m",
+  "capital_weights": {
+    "MUUSDT": 0.3333333333333333,
+    "SNDKUSDT": 0.3333333333333333,
+    "SKHYNIXUSDT": 0.3333333333333333
+  },
+  "max_positions_per_capital_bucket": 1,
+  "risk_fraction_per_bucket_trade": 0.0025,
+  "symbol_profiles": {
+    "MUUSDT": {
+      "signal_family": "ema_transition",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0,
+      "target_margin_return": 1.2,
+      "max_holding_calendar_days": 15,
+      "trail_activation_underlying_return": 0.08,
+      "trail_locked_underlying_return": 0.03,
+      "trail_atr": 2.0,
+      "signal_timeframe": "15m",
+      "entry_direction": "both",
+      "entry_signal_validity_minutes": 15,
+      "cooldown_signal_bars": 3,
+      "research_variant": "cross_8_24_60_15m_both_swing_net120",
+      "candidate_id": "muusdt_expectancy_admission_20261005",
+      "entry_enabled": false,
+      "taker_fee_rate_assumption": 0.000125,
+      "entry_qualification": {
+        "approved_for_forward_simulation": false,
+        "reason": "用户取消70%胜率硬门槛，改按扣费净期望、样本量与风险筛查。已研究的新候选仍缺足够后续样本或存在负期望，继续观察并保留保护退出。",
+        "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+        "minimum_closed_net_win_rate": null,
+        "minimum_net60_success_rate": null,
+        "minimum_target_net_return_on_initial_margin": 0.6,
+        "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+        "known_retrospective_history": true,
+        "forward_validated": false
+      }
+    },
+    "SNDKUSDT": {
+      "signal_family": "breakout",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "breakout_bars": 6,
+      "stop_atr": 2.0,
+      "target_margin_return": 1.2,
+      "max_holding_calendar_days": 15,
+      "trail_activation_underlying_return": 0.08,
+      "trail_locked_underlying_return": 0.03,
+      "trail_atr": 2.0,
+      "signal_timeframe": "5m",
+      "entry_direction": "both",
+      "entry_signal_validity_minutes": 5,
+      "cooldown_signal_bars": 3,
+      "research_variant": "breakout_8_24_60_5m_both_swing_net120",
+      "candidate_id": "sndkusdt_expectancy_admission_20261005",
+      "entry_enabled": false,
+      "taker_fee_rate_assumption": 0.000125,
+      "entry_qualification": {
+        "approved_for_forward_simulation": false,
+        "reason": "用户取消70%胜率硬门槛，改按扣费净期望、样本量与风险筛查。已研究的新候选仍缺足够后续样本或存在负期望，继续观察并保留保护退出。",
+        "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+        "minimum_closed_net_win_rate": null,
+        "minimum_net60_success_rate": null,
+        "minimum_target_net_return_on_initial_margin": 0.6,
+        "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+        "known_retrospective_history": true,
+        "forward_validated": false
+      }
+    },
+    "SKHYNIXUSDT": {
+      "signal_family": "ema_transition",
+      "research_variant": "transition_8_24_60_slow1",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0,
+      "candidate_id": "skhynixusdt_expectancy_admission_20261005",
+      "entry_direction": "both",
+      "entry_enabled": false,
+      "taker_fee_rate_assumption": 0.001,
+      "entry_qualification": {
+        "approved_for_forward_simulation": false,
+        "reason": "用户取消70%胜率硬门槛，改按扣费净期望、样本量与风险筛查。已研究的新候选仍缺足够后续样本或存在负期望，继续观察并保留保护退出。",
+        "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+        "minimum_closed_net_win_rate": null,
+        "minimum_net60_success_rate": null,
+        "minimum_target_net_return_on_initial_margin": 0.6,
+        "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+        "known_retrospective_history": true,
+        "forward_validated": false
+      }
+    }
+  },
+  "selection_provenance": {
+    "known_history_previously_reviewed": true,
+    "independent_unseen_validation": false,
+    "results_path": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+    "previous_selection_preserved_in_profile": "config/stock_bidirectional_forward_20261005.json",
+    "development_selected": {
+      "MUUSDT": null,
+      "SNDKUSDT": "current_control",
+      "SKHYNIXUSDT": "current_control"
+    },
+    "audit_passed": {
+      "MUUSDT": false,
+      "SNDKUSDT": true,
+      "SKHYNIXUSDT": false
+    },
+    "new_user_screen_passed": {
+      "MUUSDT": false,
+      "SNDKUSDT": false,
+      "SKHYNIXUSDT": false
+    },
+    "expectancy_review_passed": {
+      "MUUSDT": false,
+      "SNDKUSDT": false,
+      "SKHYNIXUSDT": false
+    }
+  },
+  "notes": [
+    "User waives the70% winning-trade threshold. Both ordinary win-rate and net60 hit-rate thresholds are removed; evaluate net expectancy after all execution costs, sample size and risk.",
+    "Retain at least60% initial-margin net profit target requirement. Existing position target and risk-exit parameters are preserved; protective exits may realize less than this target or losses.",
+    "Positive sample means do not prove positive future expectancy. Previously fixed external-context candidates still lack sufficient later-window samples or positive net results under the revised gate. No new entries are approved from this post-hoc review.",
+    "Observe existing signal rules while research admission is pending. No new external overlay is activated in the paper execution runner.",
+    "No live orders, loss doubling, leverage increase, cross-account transfers or ledger reset."
+  ],
+  "signal_timeframe": "15m",
+  "cooldown_signal_bars": 3,
+  "user_revision": {
+    "reason": "User explicitly waives70% win rate and asks about expectancy; remove win/hit-rate gates, record positive-net-expectancy review, retain60% target and risk constraints.",
+    "previous_profile": "config/stock_high_winrate_admission_20261005.json",
+    "research_paths": [
+      "data/research/stock_expectancy_review_20261005/results.json"
+    ],
+    "requested_at_utc": "2026-10-05T14:03:17.757716+00:00"
+  },
+  "fee_assumption_source": "https://docs.asterdex.com/trading/perpetuals/fees-and-specs/fees",
+  "max_entry_spread_fraction": 0.001,
+  "admission_requirements": {
+    "minimum_target_net_return_on_initial_margin": 0.6,
+    "minimum_closed_net_win_rate": null,
+    "return_denominator": "initial_margin_of_this_trade",
+    "net_pnl_includes": [
+      "entry_and_exit_fees",
+      "adverse_execution_slippage",
+      "funding"
+    ],
+    "win_definition": "closed_net_pnl > 0",
+    "every_trade_profit_guaranteed": false,
+    "future_win_rate_guaranteed": false,
+    "known_history_is_independent_validation": false,
+    "new_entries_allowed_before_qualification": false,
+    "minimum_net60_success_rate": null,
+    "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+    "minimum_closed_trades_by_window": {
+      "development": 30,
+      "validation": 10,
+      "recent": 10,
+      "full": 50
+    },
+    "both_normal_and_double_cost_required": true,
+    "positive_net_with_estimated_open_close_required": true,
+    "positive_full_net_without_best_winner_required": true,
+    "maximum_sampled_drawdown_pct": 6,
+    "no_modeled_liquidation": true,
+    "future_positive_expectancy_guaranteed": false
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "start_seconds": 1769904000,
+  "end_seconds": 1791115200,
+  "sources": [
+    {
+      "name": "nq",
+      "symbol": "NQ=F",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/NQ%3DF",
+      "status": 200,
+      "sha256": "e40a27fbb39f9faef5540b6008470e81e2ceb583076e237df42a8e606aa24f3f",
+      "fetched_at_utc": "2026-10-05T12:55:51.454012+00:00",
+      "rows": 3868,
+      "first_utc": "2026-02-02T18:00:00+00:00",
+      "last_utc": "2026-10-02T20:00:00+00:00",
+      "meta": {
+        "instrumentType": "FUTURE",
+        "exchangeName": "CME",
+        "dataGranularity": "1h",
+        "exchangeTimezoneName": "America/New_York"
+      }
+    },
+    {
+      "name": "es",
+      "symbol": "ES=F",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/ES%3DF",
+      "status": 200,
+      "sha256": "6ca8de720bd855d2c05075ece9e0687d9a470bd7172b8fc1eda0bd78d1c0352b",
+      "fetched_at_utc": "2026-10-05T12:55:51.790897+00:00",
+      "rows": 3868,
+      "first_utc": "2026-02-02T18:00:00+00:00",
+      "last_utc": "2026-10-02T21:00:00+00:00",
+      "meta": {
+        "instrumentType": "FUTURE",
+        "exchangeName": "CME",
+        "dataGranularity": "1h",
+        "exchangeTimezoneName": "America/New_York"
+      }
+    },
+    {
+      "name": "sox",
+      "symbol": "^SOX",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5ESOX",
+      "status": 200,
+      "sha256": "55916503587f49ac9c2e0fb408684595c8bc082d79fdcbe65dc2e6c065c1af69",
+      "fetched_at_utc": "2026-10-05T12:55:51.413325+00:00",
+      "rows": 1180,
+      "first_utc": "2026-02-02T18:30:00+00:00",
+      "last_utc": "2026-10-02T20:00:00+00:00",
+      "meta": {
+        "instrumentType": "INDEX",
+        "exchangeName": "NIM",
+        "dataGranularity": "1h",
+        "exchangeTimezoneName": "America/New_York"
+      }
+    },
+    {
+      "name": "vix",
+      "symbol": "^VIX",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX",
+      "status": 200,
+      "sha256": "06bc5ee73459200b40821e7655b665e7ebe81a7f2b03b4b721131c67d77d3557",
+      "fetched_at_utc": "2026-10-05T12:55:51.939417+00:00",
+      "rows": 2399,
+      "first_utc": "2026-02-02T18:00:00+00:00",
+      "last_utc": "2026-10-02T20:00:00+00:00",
+      "meta": {
+        "instrumentType": "INDEX",
+        "exchangeName": "CXI",
+        "dataGranularity": "1h",
+        "exchangeTimezoneName": "America/Chicago"
+      }
+    },
+    {
+      "name": "dollar",
+      "symbol": "DX-Y.NYB",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB",
+      "status": 200,
+      "sha256": "afd342ba14dcf6889f8ed3ecc25c77550a79a0af35d601e716b5eee7e6fb788b",
+      "fetched_at_utc": "2026-10-05T12:55:51.945759+00:00",
+      "rows": 4016,
+      "first_utc": "2026-02-02T18:00:00+00:00",
+      "last_utc": "2026-10-02T20:00:00+00:00",
+      "meta": {
+        "instrumentType": "INDEX",
+        "exchangeName": "NYB",
+        "dataGranularity": "1h",
+        "exchangeTimezoneName": "America/New_York"
+      }
+    },
+    {
+      "name": "yield10",
+      "symbol": "^TNX",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5ETNX",
+      "status": 200,
+      "sha256": "0f36118cbedf01f14096388f9af216737e63e5c0ab2d63ab82f57f6a196c181e",
+      "fetched_at_utc": "2026-10-05T12:55:52.349060+00:00",
+      "rows": 1178,
+      "first_utc": "2026-02-02T18:20:00+00:00",
+      "last_utc": "2026-10-02T18:20:00+00:00",
+      "meta": {
+        "instrumentType": "INDEX",
+        "exchangeName": "CGI",
+        "dataGranularity": "1h",
+        "exchangeTimezoneName": "America/Chicago"
+      }
+    }
+  ]
+}

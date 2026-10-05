@@ -12,7 +12,7 @@
   "start_policy": "Create a new comparison generation with a common prospective start timestamp; preserve existing accounts and histories.",
   "prospective_start_utc": "2026-10-05T04:42:03.609000+00:00",
   "historical_warmup_counts_as_forward_performance": false,
-  "stock_research_profile": "config/stock_high_winrate_admission_20261005.json",
+  "stock_research_profile": "config/stock_expectancy_admission_20261005.json",
   "accounts": [
     {
       "account_id": "btc",
@@ -37,8 +37,8 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_selection_status": "observation_only_user_win_rate_unqualified",
-      "strategy_path": "config/stock_high_winrate_admission_20261005.json",
+      "strategy_selection_status": "observation_only_expectancy_validation_pending",
+      "strategy_path": "config/stock_expectancy_admission_20261005.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/mu/state.json"
     },
     {
@@ -47,8 +47,8 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_selection_status": "observation_only_user_win_rate_unqualified",
-      "strategy_path": "config/stock_high_winrate_admission_20261005.json",
+      "strategy_selection_status": "observation_only_expectancy_validation_pending",
+      "strategy_path": "config/stock_expectancy_admission_20261005.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/sndk/state.json"
     },
     {
@@ -57,8 +57,8 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_selection_status": "observation_only_user_win_rate_unqualified",
-      "strategy_path": "config/stock_high_winrate_admission_20261005.json",
+      "strategy_selection_status": "observation_only_expectancy_validation_pending",
+      "strategy_path": "config/stock_expectancy_admission_20261005.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/skhynix/state.json"
     }
   ],
@@ -84,7 +84,7 @@
     "all_accounts_started": true,
     "all_accounts_approved_for_new_exposure": false
   },
-  "stock_rule_selection": "All three stock accounts pause new simulated exposure: previously declared candidates fail the user >=70% net winning-trade rate requirement. >=60% net initial-margin return remains a target requirement, not a guaranteed outcome. Observe markets and preserve risk-reducing exits.",
+  "stock_rule_selection": "User waives70% net winning-trade and net60 hit-rate gates. Evaluate positive cost-adjusted net expectancy, adequate chronological samples and risk. Existing external candidates still fail sample/net gates; no new stock entry approved, protective exits continue.",
   "runner_script": "scripts/run_parallel_simulation.py",
   "status_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/status.json",
   "activation": {
@@ -96,26 +96,27 @@
     "places_orders": false
   },
   "stock_rule_revision": {
-    "candidate_id": "stock_high_winrate_admission_20261005",
-    "report_path": "docs/stock_user_requirements_20261005.md",
+    "candidate_id": "stock_expectancy_admission_20261005",
+    "report_path": "docs/stock_expectancy_20261005.md",
     "research_paths": [
-      "data/research/stock_user_requirements_20261005/evaluation.json"
+      "data/research/stock_expectancy_review_20261005/results.json"
     ],
+    "account_ledgers_preserved": true,
+    "forward_profitability_verified": false,
+    "minimum_closed_net_win_rate": null,
+    "minimum_net60_success_rate": null,
+    "minimum_target_net_return_on_initial_margin": 0.6,
+    "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
     "new_entry_enabled": {
       "btc": false,
       "mu": false,
       "sndk": false,
       "skhynix": false
     },
-    "account_ledgers_preserved": true,
-    "forward_profitability_verified": false,
-    "return_denominator": "initial_margin_of_this_trade",
-    "minimum_target_net_return_on_initial_margin": 0.6,
-    "minimum_closed_net_win_rate": 0.7,
     "runner_source_hash": "c9dc454c923973ddfca9cea80b63e793b4515bd86f1366acbbd62fe76b79770d",
-    "activated_at_utc": "2026-10-05T11:31:26.037000+00:00",
-    "runner_pid": 22542,
-    "activation_verification_path": "data/runtime/stock_user_requirements_verification.json"
+    "runner_pid": 99771,
+    "activated_at_utc": "2026-10-05T14:06:14.803000+00:00",
+    "activation_verification_path": "data/runtime/stock_expectancy_activation.json"
   },
   "account_strategy_policy": {
     "user_authorization": "User permits distinct account strategies and explicitly requires both long and short stock entries; objective is net profitability.",
@@ -134,7 +135,7 @@
     "profit_guaranteed": false,
     "stock_user_admission_requirements": {
       "minimum_target_net_return_on_initial_margin": 0.6,
-      "minimum_closed_net_win_rate": 0.7,
+      "minimum_closed_net_win_rate": null,
       "return_denominator": "initial_margin_of_this_trade",
       "net_pnl_includes": [
         "entry_and_exit_fees",
@@ -145,7 +146,21 @@
       "every_trade_profit_guaranteed": false,
       "future_win_rate_guaranteed": false,
       "known_history_is_independent_validation": false,
-      "new_entries_allowed_before_qualification": false
+      "new_entries_allowed_before_qualification": false,
+      "minimum_net60_success_rate": null,
+      "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+      "minimum_closed_trades_by_window": {
+        "development": 30,
+        "validation": 10,
+        "recent": 10,
+        "full": 50
+      },
+      "both_normal_and_double_cost_required": true,
+      "positive_net_with_estimated_open_close_required": true,
+      "positive_full_net_without_best_winner_required": true,
+      "maximum_sampled_drawdown_pct": 6,
+      "no_modeled_liquidation": true,
+      "future_positive_expectancy_guaranteed": false
     }
   },
   "previous_stock_rule_revisions": [
@@ -248,7 +263,29 @@
       "activated_at_utc": "2026-10-05T10:57:43.090000+00:00",
       "runner_pid": 5159,
       "runner_source_hash": "c9dc454c923973ddfca9cea80b63e793b4515bd86f1366acbbd62fe76b79770d"
+    },
+    {
+      "candidate_id": "stock_high_winrate_admission_20261005",
+      "report_path": "docs/stock_user_requirements_20261005.md",
+      "research_paths": [
+        "data/research/stock_user_requirements_20261005/evaluation.json"
+      ],
+      "new_entry_enabled": {
+        "btc": false,
+        "mu": false,
+        "sndk": false,
+        "skhynix": false
+      },
+      "account_ledgers_preserved": true,
+      "forward_profitability_verified": false,
+      "return_denominator": "initial_margin_of_this_trade",
+      "minimum_target_net_return_on_initial_margin": 0.6,
+      "minimum_closed_net_win_rate": 0.7,
+      "runner_source_hash": "c9dc454c923973ddfca9cea80b63e793b4515bd86f1366acbbd62fe76b79770d",
+      "activated_at_utc": "2026-10-05T11:31:26.037000+00:00",
+      "runner_pid": 22542,
+      "activation_verification_path": "data/runtime/stock_user_requirements_verification.json"
     }
   ],
-  "stock_rule_revision_reason": "User requires >=70% net win rate and >=60% net profit target on initial margin. Prior candidate records fail the new screen; disable all stock additions while preserving every existing exit parameter and ledger."
+  "stock_rule_revision_reason": "User waives70% winning-trade requirement and asks about expectancy. Remove win/hit-rate gates; preserve60% profit target minimum and risk exits, keep additions disabled pending sufficient positive-expectancy validation."
 }
