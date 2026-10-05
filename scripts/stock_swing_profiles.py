@@ -13,6 +13,26 @@ import stock_swing_signals as baseline
 from stock_swing_signals import Candle, Signal
 
 
+def signal_activity(candles: Sequence[Candle], index: int, config: Mapping[str, Any]) -> dict:
+    """Optional closed-prefix activity gate; zero-volume bars are never interpolated."""
+    lookback = config.get('signal_activity_lookback_bars', 0)
+    minimum = config.get('signal_min_active_fraction', 0.5)
+    if isinstance(lookback, bool) or not isinstance(lookback, int) or not 0 <= lookback <= 120:
+        raise ValueError('Signal activity lookback must be an integer in [0, 120]')
+    if isinstance(minimum, bool) or not isinstance(minimum, (int, float)) or not 0 < minimum <= 1:
+        raise ValueError('Signal active fraction must be in (0, 1]')
+    if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < len(candles):
+        raise IndexError('Signal index is outside the candle history')
+    if not lookback:
+        return {'enabled': False, 'allowed': True}
+    prefix = candles[max(0, index + 1 - lookback):index + 1]
+    active = sum(bar.volume > 0 for bar in prefix)
+    return {'enabled': True, 'allowed': len(prefix) == lookback and active / lookback >= minimum,
+            'lookback_bars': lookback, 'observed_bars': len(prefix), 'active_bars': active,
+            'active_fraction': active / lookback, 'minimum_active_fraction': minimum,
+            'last_bar_time_ms': candles[index].time_ms}
+
+
 def signal_at(
     candles: Sequence[Candle], indicators: Mapping[str, Sequence[float | None]],
     index: int, config: Mapping[str, Any] | None = None,
@@ -24,6 +44,8 @@ def signal_at(
     ordering or slope. All inputs used belong to the completed-bar prefix.
     """
     config = config or {}
+    if not signal_activity(candles, index, config)['allowed']:
+        return None
     family = config.get("signal_family", "breakout")
     if family == "breakout":
         return baseline.signal_at(candles, indicators, index, config)

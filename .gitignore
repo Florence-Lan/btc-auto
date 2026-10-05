@@ -49,6 +49,14 @@ data/research/btc_bidirectional_regimes_20261005/*
 !data/research/btc_bidirectional_regimes_20261005/declaration.json
 !data/research/btc_bidirectional_regimes_20261005/results.json
 !data/research/btc_bidirectional_regimes_20261005/verification.json
+!data/research/stock_execution_refinement_verified_20261005/
+data/research/stock_execution_refinement_verified_20261005/*
+!data/research/stock_execution_refinement_verified_20261005/declaration.json
+!data/research/stock_execution_refinement_verified_20261005/results.json
+!data/research/stock_execution_refinement_verified_20261005/verification.json
+!data/research/stock_user_requirements_20261005/
+data/research/stock_user_requirements_20261005/*
+!data/research/stock_user_requirements_20261005/evaluation.json
 !data/validation/
 data/validation/*
 !data/validation/carry_trend_portfolio_85_15_20260801.json

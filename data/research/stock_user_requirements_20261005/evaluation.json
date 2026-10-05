@@ -1,0 +1,837 @@
+{
+  "evaluated_at_utc": "2026-10-05T11:30:36.046005+00:00",
+  "places_orders": false,
+  "requirements": {
+    "minimum_target_net_return_on_initial_margin": 0.6,
+    "minimum_closed_net_win_rate": 0.7,
+    "return_denominator": "initial_margin_of_this_trade",
+    "net_pnl_includes": [
+      "entry_and_exit_fees",
+      "adverse_execution_slippage",
+      "funding"
+    ],
+    "win_definition": "closed_net_pnl > 0",
+    "every_trade_profit_guaranteed": false,
+    "future_win_rate_guaranteed": false,
+    "known_history_is_independent_validation": false,
+    "new_entries_allowed_before_qualification": false
+  },
+  "source_sha256": {
+    "data/research/bidirectional_regimes_current_fees_20261005/results.json": "8428e93192c801e22427d3eb2e10b196fca7865f4ce6d91365866f505769d3f7",
+    "data/research/stock_execution_refinement_verified_20261005/results.json": "d76497605a9d1296933ddcee8a30abe405a33e5e2138eb1f9e746213c98f2c69"
+  },
+  "candidate_records": [
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "MUUSDT",
+      "candidate": "trend_pullback_15m",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 79,
+          "win_rate_pct": 43.037974683544306
+        },
+        "development_cost2": {
+          "closed_trades": 78,
+          "win_rate_pct": 41.02564102564102
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "MUUSDT",
+      "candidate": "trend_pullback_1h",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 30,
+          "win_rate_pct": 46.666666666666664
+        },
+        "development_cost2": {
+          "closed_trades": 30,
+          "win_rate_pct": 46.666666666666664
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "MUUSDT",
+      "candidate": "breakout_15m",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 111,
+          "win_rate_pct": 32.432432432432435
+        },
+        "development_cost2": {
+          "closed_trades": 111,
+          "win_rate_pct": 32.432432432432435
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "MUUSDT",
+      "candidate": "breakout_1h",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 53,
+          "win_rate_pct": 43.39622641509434
+        },
+        "development_cost2": {
+          "closed_trades": 53,
+          "win_rate_pct": 43.39622641509434
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "MUUSDT",
+      "candidate": "range_reversion_15m",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 41,
+          "win_rate_pct": 39.02439024390244
+        },
+        "development_cost2": {
+          "closed_trades": 42,
+          "win_rate_pct": 38.095238095238095
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "MUUSDT",
+      "candidate": "range_reversion_1h",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 12,
+          "win_rate_pct": 33.33333333333333
+        },
+        "development_cost2": {
+          "closed_trades": 12,
+          "win_rate_pct": 33.33333333333333
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "MUUSDT",
+      "candidate": "current_control",
+      "declared_target_margin_return": 1.2,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 74,
+          "win_rate_pct": 21.62162162162162
+        },
+        "development_cost2": {
+          "closed_trades": 74,
+          "win_rate_pct": 21.62162162162162
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SNDKUSDT",
+      "candidate": "trend_pullback_15m",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 86,
+          "win_rate_pct": 43.02325581395349
+        },
+        "development_cost2": {
+          "closed_trades": 86,
+          "win_rate_pct": 43.02325581395349
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SNDKUSDT",
+      "candidate": "trend_pullback_1h",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 30,
+          "win_rate_pct": 30.0
+        },
+        "development_cost2": {
+          "closed_trades": 30,
+          "win_rate_pct": 30.0
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SNDKUSDT",
+      "candidate": "breakout_15m",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 120,
+          "win_rate_pct": 39.166666666666664
+        },
+        "development_cost2": {
+          "closed_trades": 118,
+          "win_rate_pct": 38.983050847457626
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SNDKUSDT",
+      "candidate": "breakout_1h",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 43,
+          "win_rate_pct": 55.81395348837209
+        },
+        "development_cost2": {
+          "closed_trades": 43,
+          "win_rate_pct": 53.48837209302325
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SNDKUSDT",
+      "candidate": "range_reversion_15m",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 39,
+          "win_rate_pct": 30.76923076923077
+        },
+        "development_cost2": {
+          "closed_trades": 39,
+          "win_rate_pct": 33.33333333333333
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SNDKUSDT",
+      "candidate": "range_reversion_1h",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 6,
+          "win_rate_pct": 66.66666666666666
+        },
+        "development_cost2": {
+          "closed_trades": 6,
+          "win_rate_pct": 66.66666666666666
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SNDKUSDT",
+      "candidate": "current_control",
+      "declared_target_margin_return": 1.2,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 122,
+          "win_rate_pct": 24.59016393442623
+        },
+        "development_cost2": {
+          "closed_trades": 122,
+          "win_rate_pct": 24.59016393442623
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SKHYNIXUSDT",
+      "candidate": "trend_pullback_15m",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 59,
+          "win_rate_pct": 50.847457627118644
+        },
+        "development_cost2": {
+          "closed_trades": 59,
+          "win_rate_pct": 49.152542372881356
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SKHYNIXUSDT",
+      "candidate": "trend_pullback_1h",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 20,
+          "win_rate_pct": 50.0
+        },
+        "development_cost2": {
+          "closed_trades": 20,
+          "win_rate_pct": 45.0
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SKHYNIXUSDT",
+      "candidate": "breakout_15m",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 54,
+          "win_rate_pct": 35.18518518518518
+        },
+        "development_cost2": {
+          "closed_trades": 54,
+          "win_rate_pct": 31.48148148148148
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SKHYNIXUSDT",
+      "candidate": "breakout_1h",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 17,
+          "win_rate_pct": 70.58823529411765
+        },
+        "development_cost2": {
+          "closed_trades": 17,
+          "win_rate_pct": 58.82352941176471
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SKHYNIXUSDT",
+      "candidate": "range_reversion_15m",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 39,
+          "win_rate_pct": 35.8974358974359
+        },
+        "development_cost2": {
+          "closed_trades": 39,
+          "win_rate_pct": 33.33333333333333
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SKHYNIXUSDT",
+      "candidate": "range_reversion_1h",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 4,
+          "win_rate_pct": 25.0
+        },
+        "development_cost2": {
+          "closed_trades": 4,
+          "win_rate_pct": 25.0
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+      "symbol": "SKHYNIXUSDT",
+      "candidate": "current_control",
+      "declared_target_margin_return": 1.2,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 25,
+          "win_rate_pct": 24.0
+        },
+        "development_cost2": {
+          "closed_trades": 25,
+          "win_rate_pct": 24.0
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "MUUSDT",
+      "candidate": "current_control",
+      "declared_target_margin_return": 1.2,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 74,
+          "win_rate_pct": 21.62162162162162
+        },
+        "development_cost2": {
+          "closed_trades": 74,
+          "win_rate_pct": 21.62162162162162
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "MUUSDT",
+      "candidate": "activity_only",
+      "declared_target_margin_return": 1.2,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 61,
+          "win_rate_pct": 18.0327868852459
+        },
+        "development_cost2": {
+          "closed_trades": 61,
+          "win_rate_pct": 18.0327868852459
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "MUUSDT",
+      "candidate": "tactical_exit",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 109,
+          "win_rate_pct": 32.11009174311927
+        },
+        "development_cost2": {
+          "closed_trades": 108,
+          "win_rate_pct": 30.555555555555557
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "MUUSDT",
+      "candidate": "tactical_active",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 93,
+          "win_rate_pct": 36.55913978494624
+        },
+        "development_cost2": {
+          "closed_trades": 92,
+          "win_rate_pct": 34.78260869565217
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "MUUSDT",
+      "candidate": "balanced_exit",
+      "declared_target_margin_return": 0.6,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 95,
+          "win_rate_pct": 22.105263157894736
+        },
+        "development_cost2": {
+          "closed_trades": 95,
+          "win_rate_pct": 21.052631578947366
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "MUUSDT",
+      "candidate": "balanced_active",
+      "declared_target_margin_return": 0.6,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 81,
+          "win_rate_pct": 22.22222222222222
+        },
+        "development_cost2": {
+          "closed_trades": 81,
+          "win_rate_pct": 20.98765432098765
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "SNDKUSDT",
+      "candidate": "current_control",
+      "declared_target_margin_return": 1.2,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 122,
+          "win_rate_pct": 24.59016393442623
+        },
+        "development_cost2": {
+          "closed_trades": 122,
+          "win_rate_pct": 24.59016393442623
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "SNDKUSDT",
+      "candidate": "activity_only",
+      "declared_target_margin_return": 1.2,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 115,
+          "win_rate_pct": 20.869565217391305
+        },
+        "development_cost2": {
+          "closed_trades": 115,
+          "win_rate_pct": 20.869565217391305
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "SNDKUSDT",
+      "candidate": "tactical_exit",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 301,
+          "win_rate_pct": 31.22923588039867
+        },
+        "development_cost2": {
+          "closed_trades": 303,
+          "win_rate_pct": 30.693069306930692
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "SNDKUSDT",
+      "candidate": "tactical_active",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 266,
+          "win_rate_pct": 31.57894736842105
+        },
+        "development_cost2": {
+          "closed_trades": 268,
+          "win_rate_pct": 30.970149253731343
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "SNDKUSDT",
+      "candidate": "balanced_exit",
+      "declared_target_margin_return": 0.6,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 223,
+          "win_rate_pct": 22.869955156950674
+        },
+        "development_cost2": {
+          "closed_trades": 223,
+          "win_rate_pct": 22.869955156950674
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "SNDKUSDT",
+      "candidate": "balanced_active",
+      "declared_target_margin_return": 0.6,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 199,
+          "win_rate_pct": 21.608040201005025
+        },
+        "development_cost2": {
+          "closed_trades": 199,
+          "win_rate_pct": 21.608040201005025
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "SKHYNIXUSDT",
+      "candidate": "current_control",
+      "declared_target_margin_return": 1.2,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 25,
+          "win_rate_pct": 24.0
+        },
+        "development_cost2": {
+          "closed_trades": 25,
+          "win_rate_pct": 24.0
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "SKHYNIXUSDT",
+      "candidate": "activity_only",
+      "declared_target_margin_return": 1.2,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 25,
+          "win_rate_pct": 20.0
+        },
+        "development_cost2": {
+          "closed_trades": 25,
+          "win_rate_pct": 20.0
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "SKHYNIXUSDT",
+      "candidate": "tactical_exit",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 41,
+          "win_rate_pct": 36.58536585365854
+        },
+        "development_cost2": {
+          "closed_trades": 41,
+          "win_rate_pct": 36.58536585365854
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "SKHYNIXUSDT",
+      "candidate": "tactical_active",
+      "declared_target_margin_return": 0.3,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 39,
+          "win_rate_pct": 35.8974358974359
+        },
+        "development_cost2": {
+          "closed_trades": 39,
+          "win_rate_pct": 35.8974358974359
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "declared_net_profit_target_below_60pct_initial_margin",
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "SKHYNIXUSDT",
+      "candidate": "balanced_exit",
+      "declared_target_margin_return": 0.6,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 37,
+          "win_rate_pct": 24.324324324324326
+        },
+        "development_cost2": {
+          "closed_trades": 37,
+          "win_rate_pct": 21.62162162162162
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    },
+    {
+      "source": "data/research/stock_execution_refinement_verified_20261005/results.json",
+      "symbol": "SKHYNIXUSDT",
+      "candidate": "balanced_active",
+      "declared_target_margin_return": 0.6,
+      "development": {
+        "development_cost1": {
+          "closed_trades": 35,
+          "win_rate_pct": 22.857142857142858
+        },
+        "development_cost2": {
+          "closed_trades": 35,
+          "win_rate_pct": 20.0
+        }
+      },
+      "fails_user_screen": true,
+      "failures": [
+        "development_net_win_rate_below_70pct"
+      ]
+    }
+  ],
+  "candidate_record_count": 39,
+  "passes_both_user_thresholds_on_development": 0,
+  "limitations": [
+    "Reuses previously reviewed retrospective development results; not independent validation.",
+    "Profit target settings do not establish actual per-trade net returns; protective exits can realize lower returns or losses.",
+    "No candidate qualifies at development, so no later-window fallback selection is performed.",
+    "Historical depth, fills and exact intrabar price paths are unavailable."
+  ]
+}

@@ -253,6 +253,41 @@ def test_zero_volume_remains_blocked_and_open_candle_is_not_liquidity(tmp_path, 
         clock['now'] += 30_000
 
 
+@pytest.mark.parametrize('direction', [1, -1])
+def test_wide_spread_blocks_both_entries_and_pending_signal_can_retry(tmp_path, monkeypatch, direction):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    account.config['max_entry_spread_fraction'] = .001
+    clock['volume'] = 1000
+    observed.return_value = runner.signals.Signal(direction, 1, 100, 1, 199 * 900_000)
+    original = account.venue.get.side_effect
+    wide = {'enabled': True}
+    def quotes(endpoint, params=None):
+        if endpoint == 'depth' and wide['enabled']:
+            return {'T': clock['now'], 'bids': [['99.8', '100']], 'asks': [['100.2', '100']]}
+        return original(endpoint, params)
+    account.venue.get.side_effect = quotes
+    blocked = account.step()
+    assert blocked['entry_blockers'] == ['bid_ask_spread']
+    assert blocked['entry_checks']['spread_fraction'] == pytest.approx(.004)
+    assert blocked['fill_count_total'] == 0
+    assert blocked['wallet_balance'] == 1000
+    assert blocked['pending_signal'] is not None
+    wide['enabled'] = False
+    clock['now'] += 30_000
+    entered = account.step()
+    assert entered['fill_count_total'] == 1
+    assert entered['position']['direction'] == direction
+
+
+def test_entry_spread_guard_never_prevents_protective_exit(tmp_path, monkeypatch):
+    account, path = stock_fixture(tmp_path, monkeypatch, opened=True)
+    account.config['max_entry_spread_fraction'] = .0001
+    # Existing fixture bid 94 / ask 94.1 is wider than this entry limit.
+    result = account.step()
+    assert result['position'] is None
+    assert result['fills'][-1]['reason'] == 'protective_stop'
+
+
 @pytest.mark.parametrize('failure', ['outage', 'empty'])
 def test_failed_liquidity_refresh_never_uses_cached_positive_volume(tmp_path, monkeypatch, failure):
     account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)

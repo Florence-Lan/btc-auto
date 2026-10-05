@@ -18,6 +18,39 @@ TRANSITION = {
 
 
 @pytest.mark.parametrize('direction', [1, -1])
+def test_activity_filter_blocks_sparse_signal_and_ignores_future_volume(direction):
+    bars, indicators = crossing_case(direction)
+    cfg = {**TRANSITION, 'signal_activity_lookback_bars': 12, 'signal_min_active_fraction': .5}
+    assert profiles.signal_at(bars, indicators, 59, TRANSITION) is not None
+    assert profiles.signal_at(bars, indicators, 59, cfg) is None
+    # Filling future data must never rescue the closed-prefix signal.
+    bars[60] = baseline.Candle(bars[60].time_ms, 100, 100.2, 99.8, 100, 10000)
+    assert profiles.signal_at(bars, indicators, 59, cfg) is None
+    for i in range(54, 60):
+        bar = bars[i]
+        bars[i] = baseline.Candle(bar.time_ms, bar.open, bar.high, bar.low, bar.close, 1)
+    assert profiles.signal_at(bars, indicators, 59, cfg).direction == direction
+    assert profiles.signal_activity(bars, 59, cfg)['active_fraction'] == .5
+
+
+def test_activity_filter_requires_full_closed_history():
+    bars, _ = crossing_case(1)
+    assert not profiles.signal_activity(bars, 5, {'signal_activity_lookback_bars': 12})['allowed']
+
+
+@pytest.mark.parametrize('settings', [
+    {'signal_activity_lookback_bars': True}, {'signal_activity_lookback_bars': -1},
+    {'signal_activity_lookback_bars': 1.5}, {'signal_activity_lookback_bars': 121},
+    {'signal_min_active_fraction': float('nan')}, {'signal_min_active_fraction': 0},
+    {'signal_min_active_fraction': 1.01}, {'signal_min_active_fraction': True},
+])
+def test_activity_filter_rejects_invalid_configuration(settings):
+    bars, _ = crossing_case(1)
+    with pytest.raises(ValueError):
+        profiles.signal_activity(bars, 59, settings)
+
+
+@pytest.mark.parametrize('direction', [1, -1])
 def test_trend_pullback_is_symmetric_and_requires_a_fresh_reclaim(direction):
     cfg = {'signal_family':'trend_pullback','ema_fast':20,'ema_mid':50,
            'ema_slow':200,'warmup_bars':200}

@@ -1,0 +1,11 @@
+{
+  "verified_at_utc": "2026-10-05T10:56:53.714342+00:00",
+  "csv_scenarios": 36,
+  "cross_scenario_ledger_records": 3884,
+  "records_are_not_independent_trades": true,
+  "source_hashes_match": true,
+  "original_control_reproduced": true,
+  "net_accounting_and_direction_totals_match": true,
+  "development_only_selection_matches": true,
+  "places_orders": false
+}

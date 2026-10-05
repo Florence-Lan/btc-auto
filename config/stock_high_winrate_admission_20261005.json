@@ -1,0 +1,158 @@
+{
+  "candidate_id": "stock_high_winrate_admission_20261005",
+  "status": "observation_only_user_requirements_unqualified",
+  "base_config": "config/stock_swing_120_candidate_20261004.json",
+  "execution_timeframe": "5m",
+  "capital_weights": {
+    "MUUSDT": 0.3333333333333333,
+    "SNDKUSDT": 0.3333333333333333,
+    "SKHYNIXUSDT": 0.3333333333333333
+  },
+  "max_positions_per_capital_bucket": 1,
+  "risk_fraction_per_bucket_trade": 0.0025,
+  "symbol_profiles": {
+    "MUUSDT": {
+      "signal_family": "ema_transition",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0,
+      "target_margin_return": 1.2,
+      "max_holding_calendar_days": 15,
+      "trail_activation_underlying_return": 0.08,
+      "trail_locked_underlying_return": 0.03,
+      "trail_atr": 2.0,
+      "signal_timeframe": "15m",
+      "entry_direction": "both",
+      "entry_signal_validity_minutes": 15,
+      "cooldown_signal_bars": 3,
+      "research_variant": "cross_8_24_60_15m_both_swing_net120",
+      "candidate_id": "muusdt_high_winrate_admission_20261005",
+      "entry_enabled": false,
+      "taker_fee_rate_assumption": 0.000125,
+      "entry_qualification": {
+        "approved_for_forward_simulation": false,
+        "reason": "用户要求净盈利胜率至少70%；当前规则开发期双倍成本胜率21.62%，未达标，暂停新增模拟开仓，保留保护退出。",
+        "results_path": "data/research/stock_user_requirements_20261005/evaluation.json",
+        "minimum_closed_net_win_rate": 0.7,
+        "minimum_target_net_return_on_initial_margin": 0.6,
+        "observed_development_cost2_win_rate": 0.2162162162162162,
+        "known_retrospective_history": true,
+        "forward_validated": false
+      }
+    },
+    "SNDKUSDT": {
+      "signal_family": "breakout",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "breakout_bars": 6,
+      "stop_atr": 2.0,
+      "target_margin_return": 1.2,
+      "max_holding_calendar_days": 15,
+      "trail_activation_underlying_return": 0.08,
+      "trail_locked_underlying_return": 0.03,
+      "trail_atr": 2.0,
+      "signal_timeframe": "5m",
+      "entry_direction": "both",
+      "entry_signal_validity_minutes": 5,
+      "cooldown_signal_bars": 3,
+      "research_variant": "breakout_8_24_60_5m_both_swing_net120",
+      "candidate_id": "sndkusdt_high_winrate_admission_20261005",
+      "entry_enabled": false,
+      "taker_fee_rate_assumption": 0.000125,
+      "entry_qualification": {
+        "approved_for_forward_simulation": false,
+        "reason": "用户要求净盈利胜率至少70%；当前规则开发期双倍成本胜率24.59%，未达标，暂停新增模拟开仓，保留保护退出。",
+        "results_path": "data/research/stock_user_requirements_20261005/evaluation.json",
+        "minimum_closed_net_win_rate": 0.7,
+        "minimum_target_net_return_on_initial_margin": 0.6,
+        "observed_development_cost2_win_rate": 0.2459016393442623,
+        "known_retrospective_history": true,
+        "forward_validated": false
+      }
+    },
+    "SKHYNIXUSDT": {
+      "signal_family": "ema_transition",
+      "research_variant": "transition_8_24_60_slow1",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0,
+      "candidate_id": "skhynixusdt_high_winrate_admission_20261005",
+      "entry_direction": "both",
+      "entry_enabled": false,
+      "taker_fee_rate_assumption": 0.001,
+      "entry_qualification": {
+        "approved_for_forward_simulation": false,
+        "reason": "用户要求净盈利胜率至少70%；当前规则开发期双倍成本胜率24.00%，未达标，暂停新增模拟开仓，保留保护退出。",
+        "results_path": "data/research/stock_user_requirements_20261005/evaluation.json",
+        "minimum_closed_net_win_rate": 0.7,
+        "minimum_target_net_return_on_initial_margin": 0.6,
+        "observed_development_cost2_win_rate": 0.24,
+        "known_retrospective_history": true,
+        "forward_validated": false
+      }
+    }
+  },
+  "selection_provenance": {
+    "known_history_previously_reviewed": true,
+    "independent_unseen_validation": false,
+    "results_path": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+    "previous_selection_preserved_in_profile": "config/stock_bidirectional_forward_20261005.json",
+    "development_selected": {
+      "MUUSDT": null,
+      "SNDKUSDT": "current_control",
+      "SKHYNIXUSDT": "current_control"
+    },
+    "audit_passed": {
+      "MUUSDT": false,
+      "SNDKUSDT": true,
+      "SKHYNIXUSDT": false
+    },
+    "new_user_screen_passed": {
+      "MUUSDT": false,
+      "SNDKUSDT": false,
+      "SKHYNIXUSDT": false
+    }
+  },
+  "notes": [
+    "User requires a net profit target of at least 60% of each trade initial margin and a strategy net winning-trade rate of at least 70%. These are admission objectives, not guaranteed outcomes.",
+    "All previously declared candidates fail the new development screen. Pause all three stock new entries. Existing holdings keep protective exits, targets and risk limits.",
+    "Fee, slippage and funding are included in net outcomes. Stop, trailing, time, funding and risk exits may realize less than 60% or losses. Never disable risk exits to manufacture the objective.",
+    "No live orders, cross-account subsidy, loss doubling or increased leverage. Preserve account balances, fills and existing position economics.",
+    "Known reviewed historical results do not constitute unseen or prospective validation. A future qualifying candidate must be declared and evaluated without selecting on later outcomes."
+  ],
+  "signal_timeframe": "15m",
+  "cooldown_signal_bars": 3,
+  "user_revision": {
+    "reason": "User explicitly requires >=70% net winning-trade rate and >=60% net profit target measured against initial margin. No existing candidate meets the new screen; all stock additions disabled.",
+    "previous_profile": "config/stock_spread_guarded_forward_20261005.json",
+    "research_paths": [
+      "data/research/stock_user_requirements_20261005/evaluation.json"
+    ],
+    "requested_at_utc": "2026-10-05T11:30:36.046005+00:00"
+  },
+  "fee_assumption_source": "https://docs.asterdex.com/trading/perpetuals/fees-and-specs/fees",
+  "max_entry_spread_fraction": 0.001,
+  "admission_requirements": {
+    "minimum_target_net_return_on_initial_margin": 0.6,
+    "minimum_closed_net_win_rate": 0.7,
+    "return_denominator": "initial_margin_of_this_trade",
+    "net_pnl_includes": [
+      "entry_and_exit_fees",
+      "adverse_execution_slippage",
+      "funding"
+    ],
+    "win_definition": "closed_net_pnl > 0",
+    "every_trade_profit_guaranteed": false,
+    "future_win_rate_guaranteed": false,
+    "known_history_is_independent_validation": false,
+    "new_entries_allowed_before_qualification": false
+  }
+}

@@ -12,7 +12,7 @@
   "start_policy": "Create a new comparison generation with a common prospective start timestamp; preserve existing accounts and histories.",
   "prospective_start_utc": "2026-10-05T04:42:03.609000+00:00",
   "historical_warmup_counts_as_forward_performance": false,
-  "stock_research_profile": "config/stock_screened_bidirectional_forward_20261005.json",
+  "stock_research_profile": "config/stock_high_winrate_admission_20261005.json",
   "accounts": [
     {
       "account_id": "btc",
@@ -37,8 +37,8 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_selection_status": "observation_only_unqualified",
-      "strategy_path": "config/stock_screened_bidirectional_forward_20261005.json",
+      "strategy_selection_status": "observation_only_user_win_rate_unqualified",
+      "strategy_path": "config/stock_high_winrate_admission_20261005.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/mu/state.json"
     },
     {
@@ -47,8 +47,8 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_selection_status": "screened_forward_candidate",
-      "strategy_path": "config/stock_screened_bidirectional_forward_20261005.json",
+      "strategy_selection_status": "observation_only_user_win_rate_unqualified",
+      "strategy_path": "config/stock_high_winrate_admission_20261005.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/sndk/state.json"
     },
     {
@@ -57,8 +57,8 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_selection_status": "observation_only_unqualified",
-      "strategy_path": "config/stock_screened_bidirectional_forward_20261005.json",
+      "strategy_selection_status": "observation_only_user_win_rate_unqualified",
+      "strategy_path": "config/stock_high_winrate_admission_20261005.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/skhynix/state.json"
     }
   ],
@@ -84,7 +84,7 @@
     "all_accounts_started": true,
     "all_accounts_approved_for_new_exposure": false
   },
-  "stock_rule_selection": "SNDK current 5m bidirectional breakout qualifies under the documented-current-fee retrospective scenario at 0.25% risk/trade. MU/SKHYNIX and joint BTC account pause new exposure after failed qualification; observation and risk reduction continue.",
+  "stock_rule_selection": "All three stock accounts pause new simulated exposure: previously declared candidates fail the user >=70% net winning-trade rate requirement. >=60% net initial-margin return remains a target requirement, not a guaranteed outcome. Observe markets and preserve risk-reducing exits.",
   "runner_script": "scripts/run_parallel_simulation.py",
   "status_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/status.json",
   "activation": {
@@ -96,33 +96,26 @@
     "places_orders": false
   },
   "stock_rule_revision": {
-    "candidate_id": "stock_screened_bidirectional_forward_20261005",
-    "activated_at_utc": "2026-10-05T09:34:56.278000+00:00",
-    "runner_pid": 61363,
-    "related_tests_passed": 300,
-    "entry_directions": {
-      "MUUSDT": "both",
-      "SNDKUSDT": "both",
-      "SKHYNIXUSDT": "both"
-    },
+    "candidate_id": "stock_high_winrate_admission_20261005",
+    "report_path": "docs/stock_user_requirements_20261005.md",
+    "research_paths": [
+      "data/research/stock_user_requirements_20261005/evaluation.json"
+    ],
     "new_entry_enabled": {
       "btc": false,
       "mu": false,
-      "sndk": true,
+      "sndk": false,
       "skhynix": false
     },
-    "stock_risk_fraction_per_new_trade": 0.0025,
-    "entry_retry_seconds": 30,
-    "execution_volume_refresh_seconds": 30,
     "account_ledgers_preserved": true,
-    "report_path": "docs/strategy_screen_20261005.md",
-    "research_paths": [
-      "data/research/bidirectional_regimes_20261005/results.json",
-      "data/research/bidirectional_regimes_current_fees_20261005/results.json",
-      "data/research/btc_bidirectional_regimes_20261005/results.json"
-    ],
-    "runner_source_hash": "03034b639dfc8715f5f9302f9e1cfd029b76898a59a6d18167c4d0c530df402d",
-    "forward_profitability_verified": false
+    "forward_profitability_verified": false,
+    "return_denominator": "initial_margin_of_this_trade",
+    "minimum_target_net_return_on_initial_margin": 0.6,
+    "minimum_closed_net_win_rate": 0.7,
+    "runner_source_hash": "c9dc454c923973ddfca9cea80b63e793b4515bd86f1366acbbd62fe76b79770d",
+    "activated_at_utc": "2026-10-05T11:31:26.037000+00:00",
+    "runner_pid": 22542,
+    "activation_verification_path": "data/runtime/stock_user_requirements_verification.json"
   },
   "account_strategy_policy": {
     "user_authorization": "User permits distinct account strategies and explicitly requires both long and short stock entries; objective is net profitability.",
@@ -138,7 +131,22 @@
     "live_orders_allowed": false,
     "stock_entry_direction": "both",
     "new_entry_requires_declared_screen_pass": true,
-    "profit_guaranteed": false
+    "profit_guaranteed": false,
+    "stock_user_admission_requirements": {
+      "minimum_target_net_return_on_initial_margin": 0.6,
+      "minimum_closed_net_win_rate": 0.7,
+      "return_denominator": "initial_margin_of_this_trade",
+      "net_pnl_includes": [
+        "entry_and_exit_fees",
+        "adverse_execution_slippage",
+        "funding"
+      ],
+      "win_definition": "closed_net_pnl > 0",
+      "every_trade_profit_guaranteed": false,
+      "future_win_rate_guaranteed": false,
+      "known_history_is_independent_validation": false,
+      "new_entries_allowed_before_qualification": false
+    }
   },
   "previous_stock_rule_revisions": [
     {
@@ -197,7 +205,50 @@
       "report_path": "docs/stock_entry_fix_20261005.md",
       "runner_source_hash": "c456c0c5ff159b177c4b7152797703eb5f4259e78125a1173821e91a2c13b689",
       "historical_long_only_results_validate_bidirectional_revision": false
+    },
+    {
+      "candidate_id": "stock_screened_bidirectional_forward_20261005",
+      "activated_at_utc": "2026-10-05T09:34:56.278000+00:00",
+      "runner_pid": 61363,
+      "related_tests_passed": 300,
+      "entry_directions": {
+        "MUUSDT": "both",
+        "SNDKUSDT": "both",
+        "SKHYNIXUSDT": "both"
+      },
+      "new_entry_enabled": {
+        "btc": false,
+        "mu": false,
+        "sndk": true,
+        "skhynix": false
+      },
+      "stock_risk_fraction_per_new_trade": 0.0025,
+      "entry_retry_seconds": 30,
+      "execution_volume_refresh_seconds": 30,
+      "account_ledgers_preserved": true,
+      "report_path": "docs/strategy_screen_20261005.md",
+      "research_paths": [
+        "data/research/bidirectional_regimes_20261005/results.json",
+        "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+        "data/research/btc_bidirectional_regimes_20261005/results.json"
+      ],
+      "runner_source_hash": "03034b639dfc8715f5f9302f9e1cfd029b76898a59a6d18167c4d0c530df402d",
+      "forward_profitability_verified": false
+    },
+    {
+      "candidate_id": "stock_spread_guarded_forward_20261005",
+      "report_path": "docs/stock_execution_refinement_20261005.md",
+      "research_paths": [
+        "data/research/stock_execution_refinement_verified_20261005/results.json"
+      ],
+      "max_entry_spread_fraction": 0.001,
+      "account_ledgers_preserved": true,
+      "forward_profitability_verified": false,
+      "related_tests_passed": 723,
+      "activated_at_utc": "2026-10-05T10:57:43.090000+00:00",
+      "runner_pid": 5159,
+      "runner_source_hash": "c9dc454c923973ddfca9cea80b63e793b4515bd86f1366acbbd62fe76b79770d"
     }
   ],
-  "stock_rule_revision_reason": "User requests more defensible bidirectional profit-oriented strategies. Apply declared screening, actual-cost scenario and lower risk; unqualified accounts pause new entries, while exits and observation continue."
+  "stock_rule_revision_reason": "User requires >=70% net win rate and >=60% net profit target on initial margin. Prior candidate records fail the new screen; disable all stock additions while preserving every existing exit parameter and ledger."
 }

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import backtest_stock_swing_120 as engine
 from replay_stock_swing_per_symbol import after_close_summary
-from research_stock_mechanisms import validate_ledger
+from research_stock_mechanisms import validate_ledger, volume_diagnostics
 from research_stock_swing_robustness import audit_snapshot, trade_diagnostics
 
 
@@ -42,6 +42,40 @@ def failures(summary, minimum, min_pf):
     return reasons
 
 
+def refinement_candidates(current):
+    """Five challengers declared before replay; identical bidirectional entries."""
+    active = {'signal_activity_lookback_bars': 12, 'signal_min_active_fraction': .5}
+    tactical = {'min_stop_fraction': .005, 'target_margin_return': .3,
+        'max_holding_calendar_days': 3, 'trail_activation_underlying_return': .02,
+        'trail_locked_underlying_return': .005}
+    balanced = {'min_stop_fraction': .01, 'target_margin_return': .6,
+        'max_holding_calendar_days': 7, 'trail_activation_underlying_return': .04,
+        'trail_locked_underlying_return': .01}
+    variants = {'current_control': {}, 'activity_only': active, 'tactical_exit': tactical,
+                'tactical_active': {**tactical, **active}, 'balanced_exit': balanced,
+                'balanced_active': {**balanced, **active}}
+    return {name: {**current, **settings, 'entry_direction': 'both', 'entry_enabled': True}
+            for name, settings in variants.items()}
+
+
+def refinement_failures(summary, minimum, min_pf, minimum_per_side, baseline=None):
+    reasons = failures(summary, minimum, min_pf)
+    diagnostics = summary['trade_diagnostics']
+    for side, item in diagnostics['by_side'].items():
+        if item['closed_trades'] < minimum_per_side:
+            reasons.append(side + '_insufficient_sample')
+        if item['net_pnl'] <= 0:
+            reasons.append(side + '_net_pnl_nonpositive')
+    if diagnostics['closed_return_without_largest_winner_pct'] <= 0:
+        reasons.append('nonpositive_without_largest_winner')
+    if baseline is not None:
+        if summary['net_closed_pnl'] <= max(0, baseline['net_closed_pnl']):
+            reasons.append('no_closed_net_improvement_over_control')
+        if summary['max_sampled_drawdown_pct'] > baseline['max_sampled_drawdown_pct'] * 1.1:
+            reasons.append('drawdown_more_than_10pct_above_control')
+    return reasons
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--snapshot', type=Path, default=Path('data/research/stock_swing_liquidity_20261004/effective_snapshot.json.gz'))
@@ -52,12 +86,20 @@ def main():
         help='Apply documented current fee assumptions to old price paths, not realized historical returns')
     parser.add_argument('--btc-snapshot', type=Path,
         help='Evaluate BTC separately with archived trade prices as mark/index proxies; no historical basis claim')
+    parser.add_argument('--execution-refinement', action='store_true',
+        help='Declared activity/exit ablations against the specified stock control; stronger replacement gate')
     args = parser.parse_args()
     if args.output_dir.exists(): raise FileExistsError('Preserve prior evidence: use a new output directory')
     profile = json.loads(args.profile.read_text())
     base = json.loads(Path(profile['base_config']).read_text())
     all_choices = {s: candidates({**{k:profile[k] for k in ('signal_timeframe','cooldown_signal_bars')},
                                   **profile['symbol_profiles'][s]}) for s in base['symbols']}
+    if args.execution_refinement:
+        if args.btc_snapshot:
+            raise ValueError('Stock execution refinement cannot use BTC proxy history')
+        common_keys = {k:profile[k] for k in ('signal_timeframe','cooldown_signal_bars') if k in profile}
+        all_choices = {s:refinement_candidates({**common_keys, **profile['symbol_profiles'][s]})
+                       for s in base['symbols']}
     if args.btc_snapshot:
         all_choices={'BTCUSDT':candidates(None)}
     args.output_dir.mkdir(parents=True)
@@ -65,8 +107,13 @@ def main():
         'known_history_previously_reviewed':True, 'independent_unseen_holdout':False,
         'snapshot_sha256':hashlib.sha256((args.btc_snapshot or args.snapshot).read_bytes()).hexdigest(),
         'control_profile_path':str(args.profile), 'control_profile_sha256':hashlib.sha256(args.profile.read_bytes()).hexdigest(),
+        'control_profile':profile, 'base_config':base,
+        'base_config_sha256':hashlib.sha256(Path(profile['base_config']).read_bytes()).hexdigest(),
         'source_sha256':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
-            [Path(__file__),Path(__file__).with_name('stock_swing_profiles.py'),Path(__file__).with_name('backtest_stock_swing_120.py')]},
+            [Path(__file__),*[Path(__file__).with_name(name) for name in (
+                'stock_swing_profiles.py','stock_swing_signals.py','stock_research_entry_policy.py',
+                'backtest_stock_swing_120.py','research_stock_mechanisms.py',
+                'research_stock_swing_robustness.py','replay_stock_swing_per_symbol.py')]]},
         'candidates':all_choices, 'risk_fraction_per_trade':.0025, 'leverage_cap':10,
         'fee_model':'current_documented_rates_on_historical_prices' if args.current_fee_scenario else 'conservative_uniform_0.10pct_each_side',
         'fee_assumptions':{'MUUSDT':.000125,'SNDKUSDT':.000125,'SKHYNIXUSDT':.001} if args.current_fee_scenario else {s:.001 for s in base['symbols']},
@@ -82,6 +129,12 @@ def main():
         declaration.update(fee_model='existing_project_binance_assumptions',fee_assumptions={'BTCUSDT':.00045},
             fee_source=None,price_model='archived_trade_prices_as_mark_and_hourly_index_proxies')
         declaration['limitations'].append('BTC mark/index historical prices are unavailable in this snapshot. Trade-price proxies disable realistic historical basis checks; this is an exploratory price-only replay, not full execution validation or a reproduction of the six-factor BTC control.')
+    if args.execution_refinement:
+        declaration.update(experiment='stock_execution_refinement',
+            selection='Five declared challengers, development before Sep 1 only: existing >=20/PF>=1.15 gate, >=5 trades and positive net per side, positive after removing best winner, positive net greater than control at EACH cost, DD <=110% of control. Rank lowest-cost-case closed net; freeze before audit. Control is not a replacement.',
+            audit='Frozen challenger only: existing >=5 validation/>=3 recent30d gate; >=3 trades per side in validation, >=1 in recent30d; positive both directions and after removing best winner at each cost. No fallback to an audit winner.',
+            deployment='Retrospective audit pass alone is insufficient: require positive full 10bp-slippage and 5% maintenance stress and zero zero-volume assumed execution bars. If unverified, save observation-only candidate, keep current admission policy.')
+        declaration['limitations'].append('Historical bid/ask spreads are unavailable. The forward-only 10bp spread guard cannot be included in these archived OHLC comparisons, and its PnL effect is not claimed.')
     (args.output_dir/'declaration.json').write_text(json.dumps(declaration,indent=2)+'\n')
     if args.btc_snapshot:
         old=json.loads(gzip.decompress(args.btc_snapshot.read_bytes()))
@@ -115,10 +168,19 @@ def main():
                 result=engine.simulate(one,cfg,source['start_ms'],split,cost,prepared_data=prepared[name])
                 validate_ledger(result,cfg,source,cost)
                 runs[f'development_cost{cost}']=after_close_summary(result)
+                if args.execution_refinement:
+                    runs[f'development_cost{cost}']['trade_diagnostics']=trade_diagnostics(result['trades'],1000,samples=500)
                 engine.write_csv(args.output_dir/f'{symbol}_{name}_development_cost{cost}_trades.csv',result['trades'])
             rejected={str(c):failures(runs[f'development_cost{c}'],20,1.15) for c in (1,2)}
             experiments[name]={'settings':settings,'runs':runs,'development_failures':rejected}
             print(symbol,name,'development',[(c,round(runs[f'development_cost{c}']['net_closed_pnl'],4),runs[f'development_cost{c}']['closed_trades']) for c in (1,2)],flush=True)
+        if args.execution_refinement:
+            control=experiments['current_control']['runs']
+            for name, item in experiments.items():
+                if name == 'current_control':
+                    item['development_failures']={'1':['control_not_replacement'],'2':['control_not_replacement']}
+                else:
+                    item['development_failures']={str(c):refinement_failures(item['runs'][f'development_cost{c}'],20,1.15,5,control[f'development_cost{c}']) for c in (1,2)}
         eligible=[(min(v['runs'][f'development_cost{c}']['net_closed_pnl'] for c in (1,2)),name)
             for name,v in experiments.items() if not any(v['development_failures'].values())]
         selected=max(eligible)[1] if eligible else None
@@ -132,10 +194,36 @@ def main():
                     validate_ledger(result,cfg,source,cost)
                     summary=after_close_summary(result)
                     summary['trade_diagnostics']=trade_diagnostics(result['trades'],1000,samples=500)
+                    if args.execution_refinement:
+                        summary['execution_volume_diagnostics']=volume_diagnostics(result,source)
                     runs[f'{window}_cost{cost}']=summary
                     engine.write_csv(args.output_dir/f'{symbol}_{selected}_{window}_cost{cost}_trades.csv',result['trades'])
-                    if window!='full':audit_errors += [f'{window}_cost{cost}: {v}' for v in failures(summary,5 if window=='validation' else 3,1.1)]
+                    if window!='full':
+                        rejected=(refinement_failures(summary,5 if window=='validation' else 3,1.1,3 if window=='validation' else 1)
+                                  if args.execution_refinement else failures(summary,5 if window=='validation' else 3,1.1))
+                        audit_errors += [f'{window}_cost{cost}: {v}' for v in rejected]
+        deployment_errors=[]
+        if args.execution_refinement and selected and not audit_errors:
+            for label,settings in [('slippage10bp',{'adverse_slippage_fraction_assumption':.001}),
+                                    ('maintenance5pct',{'maintenance_margin_fraction_assumption':.05})]:
+                stress_cfg={**configs[selected],**settings}
+                result=engine.simulate(one,stress_cfg,source['start_ms'],end,1,prepared_data=prepared[selected])
+                validate_ledger(result,stress_cfg,source,1)
+                summary=after_close_summary(result)
+                summary['trade_diagnostics']=trade_diagnostics(result['trades'],1000,samples=500)
+                summary['execution_volume_diagnostics']=volume_diagnostics(result,source)
+                experiments[selected]['runs']['full_'+label]=summary
+                engine.write_csv(args.output_dir/f'{symbol}_{selected}_full_{label}_trades.csv',result['trades'])
+                deployment_errors += [label+': '+v for v in refinement_failures(summary,20,1.1,5)]
+            for name,summary in experiments[selected]['runs'].items():
+                if 'execution_volume_diagnostics' not in summary: continue
+                volumes=summary['execution_volume_diagnostics']
+                if volumes['entry_bars_zero_reported_volume'] or volumes['exit_bars_zero_reported_volume']:
+                    deployment_errors.append(name+': zero_volume_assumed_execution_unverified')
         results[symbol]={'experiments':experiments,'development_selected':selected,'selected_passes_audit':bool(selected) and not audit_errors,'audit_failures':audit_errors,'forward_validated':False}
+        if args.execution_refinement:
+            results[symbol].update(deployment_failures=deployment_errors,
+                approved_for_forward_simulation=bool(selected) and not audit_errors and not deployment_errors)
         artifact={'declaration':declaration,'end_utc_exclusive':engine.iso(end),'results':results}
         (args.output_dir/'results.json').write_text(json.dumps(artifact,ensure_ascii=False,indent=2)+'\n')
         print('FROZEN',symbol,selected,'audit',audit_errors,flush=True)

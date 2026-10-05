@@ -67,6 +67,21 @@ risk context. See [sources and limitations](docs/information_activation_20261002
 
 ## Memory-stock swing research
 
+The user's latest admission requirements are a net profit target of at least
+60% of each trade's initial margin and a net winning-trade rate of at least 70%.
+No previously declared candidate meets both development thresholds. All three
+stock accounts now pause new simulated entries, while protecting existing
+holdings and preserving their ledgers. These objectives are not guaranteed
+outcomes. See [the requirements review and activation](docs/stock_user_requirements_20261005.md).
+
+The October 5 execution refinement compared five declared activity/exit changes
+per stock against the current bidirectional control. None met the stronger
+development replacement gate; rejected candidates were not promoted using later
+data. The active paper runner now caps new-entry bid/ask spreads at 10bp of
+midpoint, while preserving admission decisions, existing inventory and exits.
+This forward-only execution guard has no verified profitability effect.
+See [the comparison and activation](docs/stock_execution_refinement_20261005.md).
+
 The requested joint BTC/MU/SNDK/SKHYNIX simulation uses four independent
 1,000-USDT accounts and a 10x ceiling. Its [launch plan](docs/parallel_simulation_20261005.md)
 started a new four-account forward trial on October 5 at 04:42:03 UTC.

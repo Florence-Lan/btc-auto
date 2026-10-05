@@ -1,0 +1,129 @@
+{
+  "candidate_id": "stock_spread_guarded_forward_20261005",
+  "status": "forward_research_only",
+  "base_config": "config/stock_swing_120_candidate_20261004.json",
+  "execution_timeframe": "5m",
+  "capital_weights": {
+    "MUUSDT": 0.3333333333333333,
+    "SNDKUSDT": 0.3333333333333333,
+    "SKHYNIXUSDT": 0.3333333333333333
+  },
+  "max_positions_per_capital_bucket": 1,
+  "risk_fraction_per_bucket_trade": 0.0025,
+  "symbol_profiles": {
+    "MUUSDT": {
+      "signal_family": "ema_transition",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0,
+      "target_margin_return": 1.2,
+      "max_holding_calendar_days": 15,
+      "trail_activation_underlying_return": 0.08,
+      "trail_locked_underlying_return": 0.03,
+      "trail_atr": 2.0,
+      "signal_timeframe": "15m",
+      "entry_direction": "both",
+      "entry_signal_validity_minutes": 15,
+      "cooldown_signal_bars": 3,
+      "research_variant": "cross_8_24_60_15m_both_swing_net120",
+      "candidate_id": "muusdt_spread_guarded_forward_20261005",
+      "entry_enabled": false,
+      "taker_fee_rate_assumption": 0.000125,
+      "entry_qualification": {
+        "approved_for_forward_simulation": false,
+        "reason": "双向候选未通过开发期净收益与利润因子门槛，暂停新增。",
+        "results_path": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+        "known_retrospective_history": true,
+        "forward_validated": false
+      }
+    },
+    "SNDKUSDT": {
+      "signal_family": "breakout",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "breakout_bars": 6,
+      "stop_atr": 2.0,
+      "target_margin_return": 1.2,
+      "max_holding_calendar_days": 15,
+      "trail_activation_underlying_return": 0.08,
+      "trail_locked_underlying_return": 0.03,
+      "trail_atr": 2.0,
+      "signal_timeframe": "5m",
+      "entry_direction": "both",
+      "entry_signal_validity_minutes": 5,
+      "cooldown_signal_bars": 3,
+      "research_variant": "breakout_8_24_60_5m_both_swing_net120",
+      "candidate_id": "sndkusdt_spread_guarded_forward_20261005",
+      "entry_enabled": true,
+      "taker_fee_rate_assumption": 0.000125,
+      "entry_qualification": {
+        "approved_for_forward_simulation": true,
+        "reason": "双向突破通过当前费率历史情景筛查，0.25%风险前瞻模拟；未来盈利尚未验证。",
+        "results_path": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+        "known_retrospective_history": true,
+        "forward_validated": false
+      }
+    },
+    "SKHYNIXUSDT": {
+      "signal_family": "ema_transition",
+      "research_variant": "transition_8_24_60_slow1",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0,
+      "candidate_id": "skhynixusdt_spread_guarded_forward_20261005",
+      "entry_direction": "both",
+      "entry_enabled": false,
+      "taker_fee_rate_assumption": 0.001,
+      "entry_qualification": {
+        "approved_for_forward_simulation": false,
+        "reason": "开发期选定规则在近30天正常及双倍成本下净亏损，暂停新增。",
+        "results_path": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+        "known_retrospective_history": true,
+        "forward_validated": false
+      }
+    }
+  },
+  "selection_provenance": {
+    "known_history_previously_reviewed": true,
+    "independent_unseen_validation": false,
+    "results_path": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+    "previous_selection_preserved_in_profile": "config/stock_bidirectional_forward_20261005.json",
+    "development_selected": {
+      "MUUSDT": null,
+      "SNDKUSDT": "current_control",
+      "SKHYNIXUSDT": "current_control"
+    },
+    "audit_passed": {
+      "MUUSDT": false,
+      "SNDKUSDT": true,
+      "SKHYNIXUSDT": false
+    }
+  },
+  "notes": [
+    "User requested a more defensible bidirectional strategy for net profit. Alternatives selected on development only; frozen choice must pass later audit.",
+    "SNDK retains its existing 5m bidirectional breakout; new economics use 0.25% planned risk/trade and current documented 0.0125% fee/side. MU and SKHYNIX monitor signals and protect existing positions but pause new entries because they did not pass the screen.",
+    "Current documented fee rates are an assumption for prospective simulation. Retrospective price-path scenarios apply these rates to earlier data and do not reconstruct actual historical fees.",
+    "No cross-account subsidy, fixed 10x exposure, grid, loss doubling or guaranteed profitability. Keep 10x ceiling, <=1x gross notional, current depth/volume/funding and independent drawdown controls.",
+    "Both directions remain allowed in every rule. Admission to new trades is independent from direction permission. Rule activation preserves financial ledgers and requires new post-revision signals.",
+    "New entries require observed bid/ask spread <=0.10% of midpoint. This cannot be replayed on missing historical order books and is not a profitability claim. Existing positions retain exit parameters."
+  ],
+  "signal_timeframe": "15m",
+  "cooldown_signal_bars": 3,
+  "user_revision": {
+    "reason": "User authorizes continuing strategy improvements. No refinement passed the declared replacement gate; add a forward-only 10bp midpoint bid/ask entry limit, preserving existing exits and admission decisions.",
+    "previous_profile": "config/stock_screened_bidirectional_forward_20261005.json",
+    "research_paths": [
+      "data/research/stock_execution_refinement_verified_20261005/results.json"
+    ]
+  },
+  "fee_assumption_source": "https://docs.asterdex.com/trading/perpetuals/fees-and-specs/fees",
+  "max_entry_spread_fraction": 0.001
+}

@@ -7,6 +7,10 @@ from zoneinfo import ZoneInfo
 
 
 def validate(config: dict, step: int) -> None:
+    spread = config.get('max_entry_spread_fraction')
+    if spread is not None and (isinstance(spread, bool) or not isinstance(spread, (int, float))
+                              or not math.isfinite(spread) or not 0 < spread <= .01):
+        raise ValueError('Maximum entry spread must be a finite fraction in (0, 0.01]')
     validity = config.get("entry_signal_validity_minutes", 0)
     if isinstance(validity, bool) or not isinstance(validity, int) or not 0 <= validity <= 240:
         raise ValueError("Signal validity must be an integer in [0, 240] minutes")

@@ -411,11 +411,16 @@ class StockAccount:
                         'book_mark_basis': abs(reference / price - 1) <= cfg['max_contract_mark_basis_fraction'],
                         'entry_gap': signals.entry_gap_allowed(sig, reference, cfg),
                     }
+                    spread_fraction = 2 * (ask - bid) / (ask + bid)
+                    if cfg.get('max_entry_spread_fraction') is not None:
+                        checks['bid_ask_spread'] = spread_fraction <= cfg['max_entry_spread_fraction']
                     state['entry_checks'] = {'passed': checks, 'volume_bar_time_ms': int(self.five[-1][0]),
                         'expected_volume_bar_time_ms': expected_bar, 'prior_5m_volume': volume,
                         'checked_at_ms': timestamp, 'reference_price': reference,
                         'adverse_gap': sig.direction * (reference - sig.close),
-                        'max_adverse_gap': cfg['entry_gap_atr'] * sig.atr}
+                        'max_adverse_gap': cfg['entry_gap_atr'] * sig.atr,
+                        'spread_fraction': spread_fraction,
+                        'max_spread_fraction': cfg.get('max_entry_spread_fraction')}
                     state['entry_blockers'] = [key for key, passed in checks.items() if not passed]
                     if not state['entry_blockers']:
                         entry_estimate = reference * (1 + sig.direction * cfg['adverse_slippage_fraction_assumption'])
@@ -498,7 +503,8 @@ class StockAccount:
 def stock_config(plan, symbol):
     profile = json.loads((ROOT / plan['stock_research_profile']).read_text())
     base = json.loads((ROOT / profile['base_config']).read_text())
-    common = {key: profile[key] for key in ('signal_timeframe', 'execution_timeframe', 'cooldown_signal_bars') if key in profile}
+    common = {key: profile[key] for key in ('signal_timeframe', 'execution_timeframe', 'cooldown_signal_bars',
+                                          'max_entry_spread_fraction') if key in profile}
     cfg = {**base, **common, **profile['symbol_profiles'][symbol],
         'candidate_id': profile['symbol_profiles'][symbol].get('candidate_id', profile['candidate_id']),
         'risk_fraction_per_trade': profile['risk_fraction_per_bucket_trade'],
