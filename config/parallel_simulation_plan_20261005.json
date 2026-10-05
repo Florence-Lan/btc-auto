@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
   "plan_id": "btc_memory_stocks_1000_each_10x_20261005",
-  "status": "prepared_waiting_for_stock_strategy_selection",
+  "status": "running_forward_research_with_btc_market_cooldown",
   "execution_mode": "simulation",
   "live_orders_allowed": false,
-  "user_authorized_start_condition": "Stock research completed and stock rules selected, then run BTC and stocks concurrently on real market data.",
+  "user_authorized_start_condition": "User explicitly requested immediate four-account prospective simulation on 2026-10-05; historical profitability screening is not a prerequisite for paper research.",
   "initial_balance_usdt_per_account": 1000,
   "max_leverage": 10,
   "total_initial_balance_usdt": 4000,
   "capital_transfers_between_accounts": false,
   "start_policy": "Create a new comparison generation with a common prospective start timestamp; preserve existing accounts and histories.",
-  "prospective_start_utc": null,
+  "prospective_start_utc": "2026-10-05T04:42:03.609000+00:00",
   "historical_warmup_counts_as_forward_performance": false,
   "stock_research_profile": "config/stock_swing_per_symbol_120_candidate_20261004.json",
   "accounts": [
@@ -30,8 +30,8 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_selection_status": "pending_research",
-      "strategy_path": null,
+      "strategy_selection_status": "selected_for_forward_research",
+      "strategy_path": "config/stock_swing_per_symbol_120_candidate_20261004.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/mu/state.json"
     },
     {
@@ -40,8 +40,8 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_selection_status": "pending_research",
-      "strategy_path": null,
+      "strategy_selection_status": "selected_for_forward_research",
+      "strategy_path": "config/stock_swing_per_symbol_120_candidate_20261004.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/sndk/state.json"
     },
     {
@@ -50,23 +50,41 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_selection_status": "pending_research",
-      "strategy_path": null,
+      "strategy_selection_status": "selected_for_forward_research",
+      "strategy_path": "config/stock_swing_per_symbol_120_candidate_20261004.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/skhynix/state.json"
     }
   ],
   "market_data_policy": {
     "source": "real_public_venue_market_data",
-    "required_inputs": ["completed_candles", "observed_bid_ask_and_depth", "mark_price", "index_price", "funding_events", "contract_filters"],
+    "required_inputs": [
+      "completed_candles",
+      "observed_bid_ask_and_depth",
+      "mark_price",
+      "index_price",
+      "funding_events",
+      "contract_filters"
+    ],
     "missing_or_stale_inputs": "pause_new_entries_and_record_degraded_status",
     "fees_funding_and_slippage_included": true,
     "price_changes_without_supported_fills_are_not_executed_trades": true,
     "partial_fills_and_protective_stop_latency_required_for_stock_paper": true
   },
   "launch_readiness": {
-    "stock_strategy_selection_complete": false,
-    "four_account_forward_runner_verified": false,
-    "common_start_timestamp_set": false,
-    "all_accounts_started": false
+    "stock_strategy_selection_complete": true,
+    "four_account_forward_runner_verified": true,
+    "common_start_timestamp_set": true,
+    "all_accounts_started": true
+  },
+  "stock_rule_selection": "Existing per-symbol baseline, both directions, previous completed 5m volume participation <=10%; parameters frozen without refitting.",
+  "runner_script": "scripts/run_parallel_simulation.py",
+  "status_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/status.json",
+  "activation": {
+    "pid": 11500,
+    "stock_accounts_market_status": "healthy",
+    "btc_market_status": "degraded_binance_public_cooldown",
+    "btc_retry_at_utc": "2026-10-05T08:35:04.858000+00:00",
+    "related_tests_passed": 155,
+    "places_orders": false
   }
 }

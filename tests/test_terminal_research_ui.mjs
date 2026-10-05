@@ -125,8 +125,9 @@ test("deep links and tab keyboard navigation show the appropriate controls", asy
   assert.ok(page.elements.stockWorkspace.classList.contains("hidden"));
   assert.equal(page.defaultView.history.hash, "#btc");
   assert.equal(page.elements.btcViewTab.focused, true);
-  assert.equal(requests.length, 1);
+  assert.equal(requests.length, 2);
   assert.match(requests[0], /^\/api\/terminal\/research\?/);
+  assert.match(requests[1], /^\/data\/parallel_simulation\/[^/]+\/status\.json\?/);
   view.destroy();
 });
 
@@ -140,7 +141,7 @@ test("cost buttons update cards, comparisons, and fee assumptions without execut
   assert.ok(page.elements.stockRuleStrip.innerHTML.includes("0.20%"));
   assert.equal(page.costs[1].attributes["aria-pressed"], "true");
   assert.equal(page.costs[0].attributes["aria-pressed"], "false");
-  assert.equal(requests, 1);
+  assert.equal(requests, 2);
   view.destroy();
 });
 
@@ -175,5 +176,31 @@ test("network errors and absent forward metadata have explicit states", async ()
   await view.refresh();
   assert.equal(page.elements.stockForwardState.textContent, "尚未取得前瞻运行记录");
   assert.ok(page.elements.stockReportLink.classList.contains("hidden"));
+  view.destroy();
+});
+
+test("valid four-account heartbeat updates forward status without changing historical returns", async () => {
+  const page = root();
+  const forward = {mode: "SIMULATION", places_orders: false, running: true,
+    started_at_utc: "2026-10-05T04:42:03Z", updated_at_utc: new Date().toISOString(),
+    accounts: {btc: {status: "degraded"}, mu: {}, sndk: {}, skhynix: {}}};
+  const view = createResearchView(page, async url => ({ok: true,
+    json: async () => url.startsWith("/data/") ? forward : data()}));
+  await view.ready;
+  assert.match(page.elements.stockForwardState.textContent, /四账户运行中/);
+  assert.match(page.elements.stockForwardState.textContent, /12:42/);
+  assert.ok(page.elements.stockCards.innerHTML.includes("+0.73%"));
+  forward.updated_at_utc = "2026-01-01T00:00:00Z";
+  await view.refresh();
+  assert.match(page.elements.stockForwardState.textContent, /心跳停止或过期/);
+  view.destroy();
+});
+
+test("missing forward endpoint keeps historical research available", async () => {
+  const page = root();
+  const view = createResearchView(page, async url => url.startsWith("/data/") ? {ok:false} : {ok:true, json:async()=>data()});
+  await view.ready;
+  assert.match(page.elements.stockForwardState.textContent, /尚未启动/);
+  assert.ok(!page.elements.stockResearchContent.classList.contains("hidden"));
   view.destroy();
 });

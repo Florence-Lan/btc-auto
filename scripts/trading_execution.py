@@ -803,6 +803,7 @@ def execute_report(
     mode: str,
     report: dict[str, Any],
     client: BinanceTerminalClient,
+    *, account: SimulationAccount | None = None,
 ) -> dict[str, Any]:
     if mode not in {"simulation", "live"}:
         raise ValueError("Execution mode must be simulation or live")
@@ -813,7 +814,7 @@ def execute_report(
     max_age = float(os.getenv("MAX_SIGNAL_AGE_SECONDS", "900") or 900)
     if mode == "simulation":
         import decision_runtime
-        account = SimulationAccount()
+        account = account if account is not None else SimulationAccount()
         clock = decision_runtime.resolve_clock(client)
         target = target_from_report(report, now_ms=clock["time_ms"], max_age_seconds=max_age,
                                     leverage_cap=simulation_leverage_cap(report))

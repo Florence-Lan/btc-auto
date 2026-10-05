@@ -107,6 +107,23 @@ export function createResearchView(root, fetcher = globalThis.fetch) {
       $("#stockLiquidityRule").textContent = rule == null ? "此前已收盘五分钟成交量限制；比例未记录" : `仓位不超过此前已收盘五分钟成交量的 ${(rule * 100).toFixed(0)}%`;
       $("#stockForwardState").textContent = data.forward_start_utc ? `前瞻记录起于 ${beijingTime(data.forward_start_utc)}` : data.forward_status === "prepared_not_started" ? "尚未启动，历史数据不计入前瞻样本" : "尚未取得前瞻运行记录";
       $("#stockResearchContext").textContent = data.forward_start_utc ? "历史回放 · 前瞻记录需独立评估" : data.forward_status === "prepared_not_started" ? "历史回放，前瞻观察尚未启动" : "历史回放 · 前瞻状态未取得";
+      try {
+        const forwardResponse = await fetcher(`/data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/status.json?v=${Date.now()}`);
+        if (forwardResponse.ok) {
+          const forward = await forwardResponse.json();
+          if (forward?.mode !== "SIMULATION" || forward.places_orders !== false
+              || typeof forward.running !== "boolean"
+              || !["btc", "mu", "sndk", "skhynix"].every(id => forward.accounts?.[id])
+              || !Number.isFinite(Date.parse(forward.started_at_utc))
+              || !Number.isFinite(Date.parse(forward.updated_at_utc))) {
+            throw new Error("四账户状态格式无效");
+          }
+          const age = (Date.now() - new Date(forward.updated_at_utc).getTime()) / 1000;
+          const active = forward.running && age >= -5 && age < 120;
+          $("#stockForwardState").textContent = `四账户${active ? "运行中" : "心跳停止或过期"}；起于北京时间 ${beijingTime(forward.started_at_utc)}，详情见「四账户联合模拟」。`;
+          $("#stockResearchContext").textContent = "历史回放 · 已开启独立四账户前瞻模拟";
+        }
+      } catch (_) { /* Historical view stays available when forward status is unavailable. */ }
       $("#stockCoverageNote").textContent = data.coverage?.trimmed ? `因公共数据缺口，完整区间从北京时间 ${beijingTime(data.coverage.common_cutoff_utc)} 之后重新预热；较晚上市标的从自身历史起点开始。` : "各标的从其有效历史起点开始预热；以上为回顾性研究结果。";
       const link = $("#stockReportLink");
       const safeLink = typeof data.report_url === "string" && /^\/docs\/[a-zA-Z0-9_./-]+\.md$/.test(data.report_url);

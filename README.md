@@ -69,8 +69,10 @@ risk context. See [sources and limitations](docs/information_activation_20261002
 
 The requested joint BTC/MU/SNDK/SKHYNIX simulation uses four independent
 1,000-USDT accounts and a 10x ceiling. Its [launch plan](docs/parallel_simulation_20261005.md)
-is prepared pending stock-rule selection and forward-runner verification; it has
-not started a new four-account trial.
+started a new four-account forward trial on October 5 at 04:42:03 UTC.
+The three stock accounts are recording public Aster observations; BTC waits for
+the shared Binance public-data cooldown to expire before evaluating new entries.
+Open `/terminal/parallel.html` for current per-account health and equity.
 
 The October 5 mechanism review compares eight declared rules across 288 replay
 scenarios and audits 42 historical fill bars against public aggregate trades.
