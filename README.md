@@ -78,9 +78,18 @@ on October 5, with 30-second entry retries until the next signal close and a
 three-bar (45-minute) exit cooldown. Ledgers and prior observations were preserved;
 the original four-hour research results do not validate this revision. See
 [the rule change and checks](docs/stock_signal_15m_activation_20261005.md).
-Following the user's authorization for independent account strategies, MU now
-uses a 15m long-only EMA transition and SNDK a 5m long-only breakout. SKHYNIX
-retains its 15m two-sided EMA rule; BTC retains its own multifactor profile.
+Following the user's explicit direction correction, all three stocks allow both
+long and short entries: MU uses a 15m EMA transition, SNDK a 5m breakout and
+SKHYNIX a 15m EMA transition. Execution volume refreshes every 30 seconds so
+delayed revisions of closed 5m bars can be observed during signal validity.
+BTC retains its own multifactor profile. See [the fix](docs/stock_entry_fix_20261005.md).
+The subsequent profitability review applies a per-account admission gate:
+SNDK keeps its 5m bidirectional breakout at 0.25% planned trade risk and the
+documented current RWA fee assumption. MU, SKHYNIX and the joint trial's BTC
+pause new exposure after failed screening; observation and protective exits
+continue, and existing balances/positions remain recorded. This is a limited
+retrospective screen, not verified future profitability. See
+[the comparison and activation](docs/strategy_screen_20261005.md).
 The per-stock comparison ranked development data separately and rejected the
 new SKHYNIX winner after a losing later audit. See [the choices, net-cost results
 and activation evidence](docs/stock_independent_strategies_20261005.md).

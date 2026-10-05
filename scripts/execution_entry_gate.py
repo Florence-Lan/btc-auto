@@ -11,6 +11,11 @@ import public_context
 
 def decision_at(report, timestamp, side):
     report = report or {}
+    qualification = report.get('strategy_qualification')
+    if qualification is not None and (not isinstance(qualification, dict)
+            or qualification.get('approved_for_forward_simulation') is not True):
+        return {'allowed': False, 'status': 'blocked', 'checked_at_ms': timestamp,
+                'reasons': ['strategy_not_qualified'], 'strategy_qualification': qualification}
     configured = any(report.get(name) is not None for name in
                      ("event_overlay", "multifactor_overlay", "macro_overlay"))
     context = report.get("execution_entry_context")

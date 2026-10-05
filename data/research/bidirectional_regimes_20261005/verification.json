@@ -1,0 +1,7 @@
+{
+  "independently_reread_csv_runs": 48,
+  "ledger_rows_checked": 2243,
+  "counts_net_pnl_and_fee_funding_identity_verified": true,
+  "rows_across_scenarios_overlap": true,
+  "forward_validated": false
+}

@@ -17,6 +17,49 @@ TRANSITION = {
 }
 
 
+@pytest.mark.parametrize('direction', [1, -1])
+def test_trend_pullback_is_symmetric_and_requires_a_fresh_reclaim(direction):
+    cfg = {'signal_family':'trend_pullback','ema_fast':20,'ema_mid':50,
+           'ema_slow':200,'warmup_bars':200}
+    bars = [baseline.Candle(i * 900_000,100,102,98,100) for i in range(202)]
+    indicators = {'ema_fast':[100.0]*202,'ema_mid':[100-direction]*202,
+                  'ema_slow':[100-2*direction]*202,'atr':[1.0]*202}
+    indicators['ema_mid'][193]=100-2*direction
+    price=100+.5*direction
+    bars[199]=baseline.Candle(199*900_000,price,price+.2,price-.2,price)
+    signal=profiles.signal_at(bars,indicators,199,cfg)
+    assert signal and signal.direction==direction
+    assert signal.time_ms==bars[199].time_ms
+    # A trend already above/below fast on the previous close is not another reclaim.
+    bars[198]=bars[199].__class__(198*900_000,price,price+.2,price-.2,price)
+    assert profiles.signal_at(bars,indicators,199,cfg) is None
+
+
+def test_trend_pullback_prefix_is_unchanged_by_future_candles():
+    cfg={'signal_family':'trend_pullback','ema_fast':20,'ema_mid':50,'ema_slow':200,'warmup_bars':200}
+    bars=[baseline.Candle(i*900_000,100+i*.1,100+i*.1+.2,100+i*.1-.2,100+i*.1) for i in range(240)]
+    for i, price in [(209,119.5),(210,120.3)]:
+        bars[i]=baseline.Candle(i*900_000,price,price+.2,price-.2,price)
+    ind=baseline.compute_indicators(bars,cfg)
+    expected=profiles.signal_at(bars,ind,210,cfg)
+    assert expected is not None
+    bars[220]=baseline.Candle(220*900_000,1000,1001,999,1000)
+    assert profiles.signal_at(bars,baseline.compute_indicators(bars,cfg),210,cfg)==expected
+
+
+@pytest.mark.parametrize('direction', [1, -1])
+def test_range_reversion_requires_reentry_and_flat_regime(direction):
+    cfg={'signal_family':'range_reversion','ema_fast':20,'ema_mid':50,'ema_slow':200,'warmup_bars':200}
+    bars=[baseline.Candle(i*900_000,100,100.1,99.9,100) for i in range(201)]
+    for i,price in [(198,100-5*direction),(199,100-direction)]:
+        bars[i]=baseline.Candle(i*900_000,price,price+.1,price-.1,price)
+    ind={k:[100.0]*201 for k in ('ema_fast','ema_mid','ema_slow')};ind['atr']=[1.0]*201
+    signal=profiles.signal_at(bars,ind,199,cfg)
+    assert signal and signal.direction==direction
+    ind['ema_slow'][193]=99
+    assert profiles.signal_at(bars,ind,199,cfg) is None
+
+
 def crossing_case(direction: int, length: int = 61, index: int = 59):
     bars = [baseline.Candle(i * 14_400_000, 100, 100.2, 99.8, 100) for i in range(length)]
     values = {key: [100.0] * length for key in ("ema_fast", "ema_mid", "ema_slow")}

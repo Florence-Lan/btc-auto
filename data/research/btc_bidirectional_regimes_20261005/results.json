@@ -1,0 +1,1362 @@
+{
+  "declaration": {
+    "declared_at_utc": "2026-10-05T09:27:10.276917+00:00",
+    "places_orders": false,
+    "known_history_previously_reviewed": true,
+    "independent_unseen_holdout": false,
+    "snapshot_sha256": "3e8b3cf3869724f478b659a96f3588d4d31711910c416096dc3f649065fad101",
+    "source_sha256": {
+      "research_bidirectional_regimes.py": "a743b96fa22272ae93be25a912cc67b1529a8e8917dac4efd86e48d008ff29d7",
+      "stock_swing_profiles.py": "6261ccf3a4e956c5b9fc35088ea74522b580b3fed302120b9daf6acc5ee01b0a",
+      "backtest_stock_swing_120.py": "0e338a02e57d5c293e204927602ecd4024ff56b81b156de856b5b36ffd1d949e"
+    },
+    "candidates": {
+      "BTCUSDT": {
+        "trend_pullback_15m": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "trend_pullback",
+          "signal_timeframe": "15m",
+          "entry_signal_validity_minutes": 15
+        },
+        "trend_pullback_1h": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "trend_pullback",
+          "signal_timeframe": "1h",
+          "entry_signal_validity_minutes": 60
+        },
+        "breakout_15m": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "breakout",
+          "signal_timeframe": "15m",
+          "entry_signal_validity_minutes": 15
+        },
+        "breakout_1h": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "breakout",
+          "signal_timeframe": "1h",
+          "entry_signal_validity_minutes": 60
+        },
+        "range_reversion_15m": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "range_reversion",
+          "signal_timeframe": "15m",
+          "entry_signal_validity_minutes": 15
+        },
+        "range_reversion_1h": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "range_reversion",
+          "signal_timeframe": "1h",
+          "entry_signal_validity_minutes": 60
+        }
+      }
+    },
+    "risk_fraction_per_trade": 0.0025,
+    "leverage_cap": 10,
+    "fee_model": "existing_project_binance_assumptions",
+    "fee_assumptions": {
+      "BTCUSDT": 0.00045
+    },
+    "fee_source": null,
+    "selection": "Development before 2026-09-01 only. Both costs: positive closed net and estimated liquidation equity, >=20 closed trades, profit factor >=1.15, drawdown <=6%, no liquidation. Rank worst-cost closed return, freeze before audit.",
+    "audit": "Frozen winner only: validation >=5 closed trades, recent30d >=3, both costs positive closed and liquidation return, PF >=1.1, DD <=6%, no liquidation. Do not select an audit winner if frozen choice fails.",
+    "limitations": [
+      "Previously reviewed retrospective history; not independent profitability evidence.",
+      "5m OHLC execution and hourly opening index proxy; historical depth, actual fills and exact price path unavailable.",
+      "0.10% fee/side, 2bp adverse slippage, observed historical funding. Double fees/slippage at cost2.",
+      "Entry capped at 10% of previous completed 5m volume; missing and zero volumes block entry.",
+      "Forward runtime has 30s observations; these replays have 5m observations.",
+      "BTC mark/index historical prices are unavailable in this snapshot. Trade-price proxies disable realistic historical basis checks; this is an exploratory price-only replay, not full execution validation or a reproduction of the six-factor BTC control."
+    ],
+    "price_model": "archived_trade_prices_as_mark_and_hourly_index_proxies"
+  },
+  "end_utc_exclusive": "2026-10-01T12:00:00+00:00",
+  "results": {
+    "BTCUSDT": {
+      "experiments": {
+        "trend_pullback_15m": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "trend_pullback",
+            "signal_timeframe": "15m",
+            "entry_signal_validity_minutes": 15
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1012.4600904823661,
+              "account_return_pct": 1.2460090482366182,
+              "max_sampled_drawdown_pct": 2.9264294288205943,
+              "closed_trades": 91,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 38.46153846153847,
+              "profit_factor": 1.1177411901186907,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "target": 12,
+                "stop": 77,
+                "time_stop": 2
+              },
+              "fees_closed_trades": 14.697424274625,
+              "funding_debit_closed_trades": 0.409163509552,
+              "funding_mark_proxy_events_closed_trades": 233,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 25,
+                "already_open": 744,
+                "cooldown": 7
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "BTCUSDT",
+                  "entry_utc": "2026-08-31T21:30:00+00:00",
+                  "estimated_close_net_pnl": -0.9286246239929725,
+                  "estimated_net_return_initial_margin_pct": -5.882196469509859
+                }
+              ],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 91,
+                  "target_trades": 0,
+                  "net_closed_pnl": 13.302317615823435
+                }
+              },
+              "estimated_close_equity": 1012.3736929918305,
+              "estimated_close_return_pct": 1.2373692991830463,
+              "net_closed_pnl": 13.302317615823435,
+              "estimated_open_close_net_pnl": -0.9286246239929725
+            },
+            "development_cost2": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 994.6064203995774,
+              "account_return_pct": -0.5393579600422638,
+              "max_sampled_drawdown_pct": 3.7776801451578828,
+              "closed_trades": 91,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 38.46153846153847,
+              "profit_factor": 0.9623441053622532,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "target": 12,
+                "stop": 77,
+                "time_stop": 2
+              },
+              "fees_closed_trades": 28.19494353627,
+              "funding_debit_closed_trades": 0.302523370325,
+              "funding_mark_proxy_events_closed_trades": 225,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 25,
+                "already_open": 744,
+                "cooldown": 7
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "BTCUSDT",
+                  "entry_utc": "2026-08-31T21:30:00+00:00",
+                  "estimated_close_net_pnl": -1.1018493159719802,
+                  "estimated_net_return_initial_margin_pct": -6.978757604618082
+                }
+              ],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 91,
+                  "target_trades": 0,
+                  "net_closed_pnl": -4.464511126594127
+                }
+              },
+              "estimated_close_equity": 994.4336395574338,
+              "estimated_close_return_pct": -0.5566360442566108,
+              "net_closed_pnl": -4.464511126594127,
+              "estimated_open_close_net_pnl": -1.1018493159719802
+            }
+          },
+          "development_failures": {
+            "1": [
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "trend_pullback_1h": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "trend_pullback",
+            "signal_timeframe": "1h",
+            "entry_signal_validity_minutes": 60
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 961.6294565105086,
+              "account_return_pct": -3.8370543489491427,
+              "max_sampled_drawdown_pct": 4.2296125998421585,
+              "closed_trades": 43,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 23.25581395348837,
+              "profit_factor": 0.4093302570965186,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 36,
+                "time_stop": 4,
+                "target": 3
+              },
+              "fees_closed_trades": 5.9303834647919995,
+              "funding_debit_closed_trades": -0.09530265530000001,
+              "funding_mark_proxy_events_closed_trades": 113,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 744,
+                "cooldown": 12
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 43,
+                  "target_trades": 0,
+                  "net_closed_pnl": -38.37054348949184
+                }
+              },
+              "estimated_close_equity": 961.6294565105081,
+              "estimated_close_return_pct": -3.8370543489491835,
+              "net_closed_pnl": -38.37054348949184,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 957.3603360246505,
+              "account_return_pct": -4.263966397534958,
+              "max_sampled_drawdown_pct": 4.543610864112696,
+              "closed_trades": 43,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 20.930232558139537,
+              "profit_factor": 0.3568579577403204,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 36,
+                "time_stop": 4,
+                "target": 3
+              },
+              "fees_closed_trades": 11.288295982638001,
+              "funding_debit_closed_trades": -0.116241067288,
+              "funding_mark_proxy_events_closed_trades": 113,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 744,
+                "cooldown": 12
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 43,
+                  "target_trades": 0,
+                  "net_closed_pnl": -42.639663975349805
+                }
+              },
+              "estimated_close_equity": 957.3603360246502,
+              "estimated_close_return_pct": -4.26396639753498,
+              "net_closed_pnl": -42.639663975349805,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "breakout_15m": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "breakout",
+            "signal_timeframe": "15m",
+            "entry_signal_validity_minutes": 15
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 966.9387421401186,
+              "account_return_pct": -3.3061257859881343,
+              "max_sampled_drawdown_pct": 4.485166497487901,
+              "closed_trades": 106,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 31.132075471698112,
+              "profit_factor": 0.7715969337208405,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 90,
+                "target": 10,
+                "time_stop": 6
+              },
+              "fees_closed_trades": 16.8761809088145,
+              "funding_debit_closed_trades": 0.27094053194900003,
+              "funding_mark_proxy_events_closed_trades": 228,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 879,
+                "cooldown": 54,
+                "basis": 112
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "BTCUSDT",
+                  "entry_utc": "2026-08-31T17:45:00+00:00",
+                  "estimated_close_net_pnl": -0.8321715996550036,
+                  "estimated_net_return_initial_margin_pct": -5.274454138142562
+                }
+              ],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 106,
+                  "target_trades": 0,
+                  "net_closed_pnl": -32.31548375076305
+                }
+              },
+              "estimated_close_equity": 966.8523446495819,
+              "estimated_close_return_pct": -3.3147655350418055,
+              "net_closed_pnl": -32.31548375076305,
+              "estimated_open_close_net_pnl": -0.8321715996550036
+            },
+            "development_cost2": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 947.0612034311102,
+              "account_return_pct": -5.293879656888977,
+              "max_sampled_drawdown_pct": 5.662397535822976,
+              "closed_trades": 106,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 31.132075471698112,
+              "profit_factor": 0.6505944757105934,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 91,
+                "target": 9,
+                "time_stop": 6
+              },
+              "fees_closed_trades": 32.331642085422,
+              "funding_debit_closed_trades": 0.281883206994,
+              "funding_mark_proxy_events_closed_trades": 228,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 885,
+                "cooldown": 49,
+                "basis": 112
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "BTCUSDT",
+                  "entry_utc": "2026-08-31T17:45:00+00:00",
+                  "estimated_close_net_pnl": -1.0053432586199784,
+                  "estimated_net_return_initial_margin_pct": -6.37141036202203
+                }
+              ],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 106,
+                  "target_trades": 0,
+                  "net_closed_pnl": -52.10623415241505
+                }
+              },
+              "estimated_close_equity": 946.888422588965,
+              "estimated_close_return_pct": -5.311157741103503,
+              "net_closed_pnl": -52.10623415241505,
+              "estimated_open_close_net_pnl": -1.0053432586199784
+            }
+          },
+          "development_failures": {
+            "1": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "breakout_1h": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "breakout",
+            "signal_timeframe": "1h",
+            "entry_signal_validity_minutes": 60
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1016.5897675674724,
+              "account_return_pct": 1.6589767567472435,
+              "max_sampled_drawdown_pct": 1.2423709216892873,
+              "closed_trades": 35,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 42.857142857142854,
+              "profit_factor": 1.4540038885615136,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 21,
+                "target": 10,
+                "time_stop": 4
+              },
+              "fees_closed_trades": 5.079441567897,
+              "funding_debit_closed_trades": -0.08457415536900001,
+              "funding_mark_proxy_events_closed_trades": 113,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 622,
+                "cooldown": 106,
+                "basis": 5
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 35,
+                  "target_trades": 0,
+                  "net_closed_pnl": 16.58976756747219
+                }
+              },
+              "estimated_close_equity": 1016.5897675674722,
+              "estimated_close_return_pct": 1.658976756747219,
+              "net_closed_pnl": 16.58976756747219,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1007.8195379377493,
+              "account_return_pct": 0.7819537937749255,
+              "max_sampled_drawdown_pct": 1.3836154875800684,
+              "closed_trades": 35,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 42.857142857142854,
+              "profit_factor": 1.2093878332448664,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 21,
+                "target": 10,
+                "time_stop": 4
+              },
+              "fees_closed_trades": 9.275293064808,
+              "funding_debit_closed_trades": -0.071608002557,
+              "funding_mark_proxy_events_closed_trades": 113,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 630,
+                "cooldown": 102,
+                "basis": 4
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 35,
+                  "target_trades": 0,
+                  "net_closed_pnl": 7.8195379377492475
+                }
+              },
+              "estimated_close_equity": 1007.8195379377493,
+              "estimated_close_return_pct": 0.7819537937749248,
+              "net_closed_pnl": 7.8195379377492475,
+              "estimated_open_close_net_pnl": 0
+            },
+            "validation_cost1": {
+              "start_utc": "2026-09-01T00:00:00+00:00",
+              "end_utc_exclusive": "2026-10-01T12:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 994.4806096274752,
+              "account_return_pct": -0.5519390372524802,
+              "max_sampled_drawdown_pct": 1.3691774331805942,
+              "closed_trades": 10,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 20.0,
+              "profit_factor": 0.6355184288203329,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "target": 2,
+                "stop": 8
+              },
+              "fees_closed_trades": 1.377865430703,
+              "funding_debit_closed_trades": 0.04193266182200001,
+              "funding_mark_proxy_events_closed_trades": 26,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 60,
+                "cooldown": 12
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 10,
+                  "target_trades": 0,
+                  "net_closed_pnl": -5.51939037252501
+                }
+              },
+              "estimated_close_equity": 994.480609627475,
+              "estimated_close_return_pct": -0.551939037252501,
+              "net_closed_pnl": -5.51939037252501,
+              "estimated_open_close_net_pnl": 0,
+              "trade_diagnostics": {
+                "closed_pnl": -5.51939037252501,
+                "closed_return_pct_initial_capital": -0.551939037252501,
+                "closed_return_without_largest_winner_pct": -1.041438830173701,
+                "largest_winner_share_gross_profit_pct": 50.863802759127694,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 8,
+                    "net_pnl": -2.046549819178002,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 2,
+                    "net_pnl": -3.472840553347009,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 4,
+                  "trade_count": 10,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.13370699028473015,
+                  "mean_trade_pnl_pct_initial_capital_p50": -0.05519390372525011,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.07577185850750012
+                }
+              }
+            },
+            "validation_cost2": {
+              "start_utc": "2026-09-01T00:00:00+00:00",
+              "end_utc_exclusive": "2026-10-01T12:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 995.9363775548002,
+              "account_return_pct": -0.4063622445199866,
+              "max_sampled_drawdown_pct": 1.1641371943281087,
+              "closed_trades": 9,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 22.22222222222222,
+              "profit_factor": 0.7031329974920766,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "target": 2,
+                "stop": 7
+              },
+              "fees_closed_trades": 2.463979321728,
+              "funding_debit_closed_trades": 0.042492203472000015,
+              "funding_mark_proxy_events_closed_trades": 26,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "cooldown": 24,
+                "already_open": 60
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 9,
+                  "target_trades": 0,
+                  "net_closed_pnl": -4.063622445199971
+                }
+              },
+              "estimated_close_equity": 995.9363775548001,
+              "estimated_close_return_pct": -0.4063622445199971,
+              "net_closed_pnl": -4.063622445199971,
+              "estimated_open_close_net_pnl": 0,
+              "trade_diagnostics": {
+                "closed_pnl": -4.063622445199971,
+                "closed_return_pct_initial_capital": -0.4063622445199971,
+                "closed_return_without_largest_winner_pct": -0.8959157494987945,
+                "largest_winner_share_gross_profit_pct": 50.8640879677719,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 7,
+                    "net_pnl": -0.28257297313800933,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 2,
+                    "net_pnl": -3.7810494720619614,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 3,
+                  "trade_count": 9,
+                  "sample_below_10_closed_trades": true,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.12770951979619918,
+                  "mean_trade_pnl_pct_initial_capital_p50": -0.04393149915346593,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.03433879965666636
+                }
+              }
+            },
+            "recent30d_cost1": {
+              "start_utc": "2026-09-01T12:00:00+00:00",
+              "end_utc_exclusive": "2026-10-01T12:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 994.4806096274752,
+              "account_return_pct": -0.5519390372524802,
+              "max_sampled_drawdown_pct": 1.3691774331805942,
+              "closed_trades": 10,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 20.0,
+              "profit_factor": 0.6355184288203329,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "target": 2,
+                "stop": 8
+              },
+              "fees_closed_trades": 1.377865430703,
+              "funding_debit_closed_trades": 0.04193266182200001,
+              "funding_mark_proxy_events_closed_trades": 26,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 60,
+                "cooldown": 12
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 10,
+                  "target_trades": 0,
+                  "net_closed_pnl": -5.51939037252501
+                }
+              },
+              "estimated_close_equity": 994.480609627475,
+              "estimated_close_return_pct": -0.551939037252501,
+              "net_closed_pnl": -5.51939037252501,
+              "estimated_open_close_net_pnl": 0,
+              "trade_diagnostics": {
+                "closed_pnl": -5.51939037252501,
+                "closed_return_pct_initial_capital": -0.551939037252501,
+                "closed_return_without_largest_winner_pct": -1.041438830173701,
+                "largest_winner_share_gross_profit_pct": 50.863802759127694,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 8,
+                    "net_pnl": -2.046549819178002,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 2,
+                    "net_pnl": -3.472840553347009,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 4,
+                  "trade_count": 10,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.13370699028473015,
+                  "mean_trade_pnl_pct_initial_capital_p50": -0.05519390372525011,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.07577185850750012
+                }
+              }
+            },
+            "recent30d_cost2": {
+              "start_utc": "2026-09-01T12:00:00+00:00",
+              "end_utc_exclusive": "2026-10-01T12:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 995.9363775548002,
+              "account_return_pct": -0.4063622445199866,
+              "max_sampled_drawdown_pct": 1.1641371943281087,
+              "closed_trades": 9,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 22.22222222222222,
+              "profit_factor": 0.7031329974920766,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "target": 2,
+                "stop": 7
+              },
+              "fees_closed_trades": 2.463979321728,
+              "funding_debit_closed_trades": 0.042492203472000015,
+              "funding_mark_proxy_events_closed_trades": 26,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "cooldown": 24,
+                "already_open": 60
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 9,
+                  "target_trades": 0,
+                  "net_closed_pnl": -4.063622445199971
+                }
+              },
+              "estimated_close_equity": 995.9363775548001,
+              "estimated_close_return_pct": -0.4063622445199971,
+              "net_closed_pnl": -4.063622445199971,
+              "estimated_open_close_net_pnl": 0,
+              "trade_diagnostics": {
+                "closed_pnl": -4.063622445199971,
+                "closed_return_pct_initial_capital": -0.4063622445199971,
+                "closed_return_without_largest_winner_pct": -0.8959157494987945,
+                "largest_winner_share_gross_profit_pct": 50.8640879677719,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 7,
+                    "net_pnl": -0.28257297313800933,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 2,
+                    "net_pnl": -3.7810494720619614,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 3,
+                  "trade_count": 9,
+                  "sample_below_10_closed_trades": true,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.12770951979619918,
+                  "mean_trade_pnl_pct_initial_capital_p50": -0.04393149915346593,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.03433879965666636
+                }
+              }
+            },
+            "full_cost1": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-10-01T12:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1011.0703771949477,
+              "account_return_pct": 1.1070377194947634,
+              "max_sampled_drawdown_pct": 1.3469497202964502,
+              "closed_trades": 45,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 37.77777777777778,
+              "profit_factor": 1.2141928794896728,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 29,
+                "target": 12,
+                "time_stop": 4
+              },
+              "fees_closed_trades": 6.4573069986,
+              "funding_debit_closed_trades": -0.042641493546999996,
+              "funding_mark_proxy_events_closed_trades": 139,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 682,
+                "cooldown": 118,
+                "basis": 5
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 45,
+                  "target_trades": 0,
+                  "net_closed_pnl": 11.07037719494718
+                }
+              },
+              "estimated_close_equity": 1011.0703771949471,
+              "estimated_close_return_pct": 1.107037719494718,
+              "net_closed_pnl": 11.07037719494718,
+              "estimated_open_close_net_pnl": 0,
+              "trade_diagnostics": {
+                "closed_pnl": 11.07037719494718,
+                "closed_return_pct_initial_capital": 1.107037719494718,
+                "closed_return_without_largest_winner_pct": 0.44911772746366674,
+                "largest_winner_share_gross_profit_pct": 10.484024143169943,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 23,
+                    "net_pnl": 5.154873807921063,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 22,
+                    "net_pnl": 5.915503387026118,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 7,
+                  "trade_count": 45,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.04500391745211527,
+                  "mean_trade_pnl_pct_initial_capital_p50": 0.020348245475638422,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.09303908423950395
+                }
+              }
+            },
+            "full_cost2": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-10-01T12:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1003.7559154925494,
+              "account_return_pct": 0.37559154925495,
+              "max_sampled_drawdown_pct": 1.3836154875800684,
+              "closed_trades": 44,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 38.63636363636363,
+              "profit_factor": 1.0735976094975925,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 28,
+                "target": 12,
+                "time_stop": 4
+              },
+              "fees_closed_trades": 11.739272386536,
+              "funding_debit_closed_trades": -0.029115799084999994,
+              "funding_mark_proxy_events_closed_trades": 139,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 690,
+                "cooldown": 126,
+                "basis": 4
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 44,
+                  "target_trades": 0,
+                  "net_closed_pnl": 3.755915492549277
+                }
+              },
+              "estimated_close_equity": 1003.7559154925493,
+              "estimated_close_return_pct": 0.37559154925492766,
+              "net_closed_pnl": 3.755915492549277,
+              "estimated_open_close_net_pnl": 0,
+              "trade_diagnostics": {
+                "closed_pnl": 3.755915492549277,
+                "closed_return_pct_initial_capital": 0.37559154925492766,
+                "closed_return_without_largest_winner_pct": -0.20668811452656993,
+                "largest_winner_share_gross_profit_pct": 10.627668098832137,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 22,
+                    "net_pnl": 2.0888940729410477,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 22,
+                    "net_pnl": 1.6670214196082294,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 7,
+                  "trade_count": 44,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.05407241756135401,
+                  "mean_trade_pnl_pct_initial_capital_p50": 0.0048807546509349485,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.07122854439575738
+                }
+              }
+            }
+          },
+          "development_failures": {
+            "1": [],
+            "2": []
+          }
+        },
+        "range_reversion_15m": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "range_reversion",
+            "signal_timeframe": "15m",
+            "entry_signal_validity_minutes": 15
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 968.5245927480846,
+              "account_return_pct": -3.1475407251915333,
+              "max_sampled_drawdown_pct": 4.061804567038716,
+              "closed_trades": 105,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 29.523809523809526,
+              "profit_factor": 0.7837052351389076,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 88,
+                "target": 12,
+                "time_stop": 5
+              },
+              "fees_closed_trades": 16.9183615258305,
+              "funding_debit_closed_trades": 0.25390149688200003,
+              "funding_mark_proxy_events_closed_trades": 260,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 1273,
+                "cooldown": 86,
+                "basis": 12,
+                "entry_gap": 1
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "BTCUSDT",
+                  "entry_utc": "2026-08-31T23:30:00+00:00",
+                  "estimated_close_net_pnl": -0.16700592973897765,
+                  "estimated_net_return_initial_margin_pct": -1.062993294536219
+                }
+              ],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 105,
+                  "target_trades": 0,
+                  "net_closed_pnl": -31.394798812711898
+                }
+              },
+              "estimated_close_equity": 968.4381952575492,
+              "estimated_close_return_pct": -3.1561804742450876,
+              "net_closed_pnl": -31.394798812711898,
+              "estimated_open_close_net_pnl": -0.16700592973897765
+            },
+            "development_cost2": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 945.6907600509273,
+              "account_return_pct": -5.430923994907266,
+              "max_sampled_drawdown_pct": 5.822261029892503,
+              "closed_trades": 107,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 28.971962616822427,
+              "profit_factor": 0.6561431276153715,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 92,
+                "time_stop": 5,
+                "target": 10
+              },
+              "fees_closed_trades": 33.528930095196,
+              "funding_debit_closed_trades": 0.300205997065,
+              "funding_mark_proxy_events_closed_trades": 255,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 1261,
+                "cooldown": 90,
+                "basis": 15,
+                "entry_gap": 1
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "BTCUSDT",
+                  "entry_utc": "2026-08-31T23:30:00+00:00",
+                  "estimated_close_net_pnl": -0.33981185895597277,
+                  "estimated_net_return_initial_margin_pct": -2.16268735780076
+                }
+              ],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 107,
+                  "target_trades": 0,
+                  "net_closed_pnl": -54.142208932259976
+                }
+              },
+              "estimated_close_equity": 945.517979208784,
+              "estimated_close_return_pct": -5.448202079121596,
+              "net_closed_pnl": -54.142208932259976,
+              "estimated_open_close_net_pnl": -0.33981185895597277
+            }
+          },
+          "development_failures": {
+            "1": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "range_reversion_1h": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "range_reversion",
+            "signal_timeframe": "1h",
+            "entry_signal_validity_minutes": 60
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 994.9068180206438,
+              "account_return_pct": -0.5093181979356265,
+              "max_sampled_drawdown_pct": 2.181853313846119,
+              "closed_trades": 33,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 33.33333333333333,
+              "profit_factor": 0.888029940357955,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 25,
+                "time_stop": 2,
+                "target": 6
+              },
+              "fees_closed_trades": 5.147696556,
+              "funding_debit_closed_trades": 0.0015528433570000015,
+              "funding_mark_proxy_events_closed_trades": 91,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 318,
+                "cooldown": 75,
+                "entry_gap": 1
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 33,
+                  "target_trades": 0,
+                  "net_closed_pnl": -5.093181979356898
+                }
+              },
+              "estimated_close_equity": 994.9068180206431,
+              "estimated_close_return_pct": -0.5093181979356898,
+              "net_closed_pnl": -5.093181979356898,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-04-15T00:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 991.7542126424821,
+              "account_return_pct": -0.8245787357517909,
+              "max_sampled_drawdown_pct": 2.2226908167426753,
+              "closed_trades": 33,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 33.33333333333333,
+              "profit_factor": 0.8269821924354256,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 25,
+                "time_stop": 2,
+                "target": 6
+              },
+              "fees_closed_trades": 10.063560587004,
+              "funding_debit_closed_trades": 0.018079810515000003,
+              "funding_mark_proxy_events_closed_trades": 92,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 318,
+                "cooldown": 76,
+                "entry_gap": 1
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "BTCUSDT": {
+                  "closed_trades": 33,
+                  "target_trades": 0,
+                  "net_closed_pnl": -8.245787357518767
+                }
+              },
+              "estimated_close_equity": 991.7542126424812,
+              "estimated_close_return_pct": -0.8245787357518767,
+              "net_closed_pnl": -8.245787357518767,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        }
+      },
+      "development_selected": "breakout_1h",
+      "selected_passes_audit": false,
+      "audit_failures": [
+        "validation_cost1: closed_net_pnl_nonpositive",
+        "validation_cost1: net_liquidation_equity_nonpositive",
+        "validation_cost1: profit_factor_below_gate",
+        "validation_cost2: closed_net_pnl_nonpositive",
+        "validation_cost2: net_liquidation_equity_nonpositive",
+        "validation_cost2: profit_factor_below_gate",
+        "recent30d_cost1: closed_net_pnl_nonpositive",
+        "recent30d_cost1: net_liquidation_equity_nonpositive",
+        "recent30d_cost1: profit_factor_below_gate",
+        "recent30d_cost2: closed_net_pnl_nonpositive",
+        "recent30d_cost2: net_liquidation_equity_nonpositive",
+        "recent30d_cost2: profit_factor_below_gate"
+      ],
+      "forward_validated": false
+    }
+  }
+}

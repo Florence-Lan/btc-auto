@@ -1,0 +1,111 @@
+{
+  "candidate_id": "stock_bidirectional_forward_20261005",
+  "status": "forward_research_only",
+  "base_config": "config/stock_swing_120_candidate_20261004.json",
+  "execution_timeframe": "5m",
+  "capital_weights": {
+    "MUUSDT": 0.3333333333333333,
+    "SNDKUSDT": 0.3333333333333333,
+    "SKHYNIXUSDT": 0.3333333333333333
+  },
+  "max_positions_per_capital_bucket": 1,
+  "risk_fraction_per_bucket_trade": 0.005,
+  "symbol_profiles": {
+    "MUUSDT": {
+      "signal_family": "ema_transition",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0,
+      "target_margin_return": 1.2,
+      "max_holding_calendar_days": 15,
+      "trail_activation_underlying_return": 0.08,
+      "trail_locked_underlying_return": 0.03,
+      "trail_atr": 2.0,
+      "signal_timeframe": "15m",
+      "entry_direction": "both",
+      "entry_signal_validity_minutes": 15,
+      "cooldown_signal_bars": 3,
+      "research_variant": "cross_8_24_60_15m_both_swing_net120",
+      "candidate_id": "muusdt_bidirectional_forward_20261005"
+    },
+    "SNDKUSDT": {
+      "signal_family": "breakout",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "breakout_bars": 6,
+      "stop_atr": 2.0,
+      "target_margin_return": 1.2,
+      "max_holding_calendar_days": 15,
+      "trail_activation_underlying_return": 0.08,
+      "trail_locked_underlying_return": 0.03,
+      "trail_atr": 2.0,
+      "signal_timeframe": "5m",
+      "entry_direction": "both",
+      "entry_signal_validity_minutes": 5,
+      "cooldown_signal_bars": 3,
+      "research_variant": "breakout_8_24_60_5m_both_swing_net120",
+      "candidate_id": "sndkusdt_bidirectional_forward_20261005"
+    },
+    "SKHYNIXUSDT": {
+      "signal_family": "ema_transition",
+      "research_variant": "transition_8_24_60_slow1",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0,
+      "candidate_id": "skhynixusdt_bidirectional_forward_20261005",
+      "entry_direction": "both"
+    }
+  },
+  "selection_provenance": {
+    "source_profile": "config/stock_swing_per_symbol_15m_forward_20261005.json",
+    "research_results_path": "data/research/stock_independent_short_cycle_20261005/results.json",
+    "verification_path": "data/research/stock_independent_short_cycle_20261005/verification.json",
+    "variant_count_per_stock": 24,
+    "selection_window": "development before 2026-09-01 UTC only",
+    "historical_audit_is_retrospective": true,
+    "independent_unseen_validation_claim": false,
+    "account_choices": {
+      "MUUSDT": {
+        "action": "replace_with_development_selected_and_audited_candidate",
+        "selected": "cross_8_24_60_15m_long_swing_net120"
+      },
+      "SNDKUSDT": {
+        "action": "replace_with_development_selected_and_audited_candidate",
+        "selected": "breakout_8_24_60_5m_long_swing_net120"
+      },
+      "SKHYNIXUSDT": {
+        "action": "retain_existing_rule",
+        "rejected_development_winner": "cross_8_24_60_15m_both_tactical_net30",
+        "reasons": [
+          "validation_cost1: nonpositive closed net return",
+          "validation_cost2: nonpositive closed net return",
+          "recent30d_cost1: nonpositive closed net return",
+          "recent30d_cost2: nonpositive closed net return"
+        ]
+      }
+    }
+  },
+  "notes": [
+    "User requires both long and short entries for all stock accounts. MU retains 15m EMA crossover, SNDK retains 5m trend breakout, SKHYNIX retains 15m EMA crossover.",
+    "Each account independently sets signal family, timeframe, direction, exit model and cooldown. No account gains offset another account loss for selection.",
+    "All accounts retain 1000 USDT initial capital, max 10x, 0.5% risk per trade, 1x gross notional cap, prior completed 5m volume and observed-depth entry limits.",
+    "New entries only use post-revision signal closes. Poll every 30 seconds and expire each signal at the next close. Cooldown is 3 own signal bars: MU/SKHYNIX 45 minutes, SNDK 15 minutes.",
+    "Known retrospective data ended 2026-10-04T12:00:00Z. Train-only ranking and later checks are not independent unseen evidence. Forward profitability remains unproved.",
+    "Execution liquidity is refreshed each 30-second poll; a zero or unavailable latest closed 5m volume still blocks entry. No earlier candle or open candle substitutes for it."
+  ],
+  "signal_timeframe": "15m",
+  "cooldown_signal_bars": 3,
+  "user_revision": {
+    "reason": "User explicitly requires both long and short entries for every stock account; refresh execution volume every 30 seconds to observe delayed corrections.",
+    "previous_profile": "config/stock_independent_shortcycle_forward_20261005.json",
+    "historical_long_only_results_validate_bidirectional_revision": false
+  }
+}

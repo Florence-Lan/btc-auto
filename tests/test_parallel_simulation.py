@@ -153,6 +153,7 @@ def fast_stock_fixture(tmp_path, monkeypatch):
     monkeypatch.setattr(runner, 'now_ms', lambda: clock['now'])
     plan = json.loads(runner.PLAN.read_text())
     cfg = runner.stock_config(plan, 'MUUSDT')
+    cfg = {**cfg, 'entry_enabled': True}  # Execution fixtures also exercise unqualified research signals.
     path = tmp_path / 'state.json'
     runner.write_json(path, runner.initial_stock('MUUSDT', boundary - 10_000, cfg))
     rules = {'symbol': 'MUUSDT', 'status': 'TRADING', 'filters': [
@@ -218,6 +219,102 @@ def test_expired_signal_cannot_enter_using_stale_candles(tmp_path, monkeypatch):
     assert result['position'] is None
     assert result['fill_count_total'] == 0
     assert observed.call_count == 1
+
+
+def test_revised_zero_volume_rechecked_in_same_bucket_without_restart(tmp_path, monkeypatch):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    first = account.step()
+    assert first['entry_blockers'] == ['prior_5m_volume']
+    original_bucket = account.candle_bucket
+    clock.update(now=clock['now'] + 30_000, volume=1000)
+    result = account.step()
+    assert account.candle_bucket == original_bucket
+    assert result['fill_count_total'] == 1
+    assert result['entry_checks']['prior_5m_volume'] == 1000
+    assert result['entry_blockers'] == []
+    assert observed.call_count == 1
+    account.step()
+    assert json.loads(path.read_text())['fill_count_total'] == 1
+
+
+def test_zero_volume_remains_blocked_and_open_candle_is_not_liquidity(tmp_path, monkeypatch):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    original = account.venue.get.side_effect
+    def open_volume(endpoint, params=None):
+        result = original(endpoint, params)
+        if endpoint == 'klines' and params['interval'] == '5m':
+            result[-1][5] = 1000  # Only the still-open candle has volume.
+        return result
+    account.venue.get.side_effect = open_volume
+    for _ in range(2):
+        result = account.step()
+        assert result['entry_blockers'] == ['prior_5m_volume']
+        assert result['fill_count_total'] == 0
+        clock['now'] += 30_000
+
+
+@pytest.mark.parametrize('failure', ['outage', 'empty'])
+def test_failed_liquidity_refresh_never_uses_cached_positive_volume(tmp_path, monkeypatch, failure):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    clock.update(volume=1000, funding_error=True)
+    first = account.step()
+    assert first['pending_signal'] and first['fill_count_total'] == 0
+    clock.update(now=clock['now'] + 30_000, funding_error=False)
+    original = account.venue.get.side_effect
+    def failed_refresh(endpoint, params=None):
+        if endpoint == 'klines' and params['interval'] == '5m':
+            if failure == 'empty': return []
+            raise RuntimeError('Volume source unavailable')
+        return original(endpoint, params)
+    account.venue.get.side_effect = failed_refresh
+    result = account.step()
+    assert result['status'] == 'degraded'
+    assert 'five' in result['entry_blockers']
+    assert result['pending_signal'] and result['fill_count_total'] == 0
+    assert result['wallet_balance'] == 1000
+
+
+@pytest.mark.parametrize('symbol', ['MUUSDT', 'SNDKUSDT', 'SKHYNIXUSDT'])
+def test_active_stock_profiles_allow_both_directions(symbol):
+    cfg = runner.stock_config(json.loads(runner.PLAN.read_text()), symbol)
+    assert cfg['entry_direction'] == 'both'
+    for direction in (-1, 1):
+        assert runner.entry_policy.rejection(cfg, symbol, 1791189900000, direction) is None
+
+
+def test_bidirectional_short_signal_enters(tmp_path, monkeypatch):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    observed.return_value = runner.signals.Signal(-1, 1, 100, 1, clock['now'] - 960_000)
+    clock['volume'] = 1000
+    result = account.step()
+    assert result['fill_count_total'] == 1
+    assert result['position']['direction'] == -1
+    assert result['fills'][0]['side'] == 'SELL'
+
+
+def test_unqualified_strategy_observes_signal_without_opening(tmp_path, monkeypatch):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    account.config = {**account.config, 'entry_enabled': False}
+    clock['volume'] = 1000
+    result = account.step()
+    assert result['pending_signal']
+    assert result['signal_status'] == 'strategy_not_qualified'
+    assert result['entry_blockers'] == ['strategy_not_qualified']
+    assert result['fill_count_total'] == 0
+
+
+def test_unqualified_strategy_still_executes_protective_exit(tmp_path, monkeypatch):
+    account, path, clock, observed = fast_stock_fixture(tmp_path, monkeypatch)
+    clock['volume'] = 1000
+    state = account.step()
+    state['position']['stop'] = 101
+    runner.write_json(path, state)
+    account.config = {**account.config, 'entry_enabled': False}
+    clock['now'] += 30_000
+    result = account.step()
+    assert result['position'] is None
+    assert result['fill_count_total'] == 2
+    assert result['fills'][-1]['reason'] == 'protective_stop'
 
 
 def test_new_bar_without_signal_cancels_prior_pending_entry(tmp_path, monkeypatch):

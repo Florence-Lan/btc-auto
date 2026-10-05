@@ -6,6 +6,16 @@ from pathlib import Path
 
 import pytest
 
+
+@pytest.mark.parametrize('direction', [-1, 1])
+def test_net_target_retains_actual_entry_fee_after_fee_revision(direction):
+    import stock_swing_signals as swing
+    entry, paid_entry_fee, exit_fee, funding = 100, .1, .000125, .03
+    target = swing.target_exit_price(entry,direction,funding,exit_fee,.3,10,
+                                    entry_fee_per_unit=paid_entry_fee)
+    net = direction*(target-entry)-paid_entry_fee-target*exit_fee-funding
+    assert net == pytest.approx(.3*entry/10)
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import stock_swing_signals as swing
 

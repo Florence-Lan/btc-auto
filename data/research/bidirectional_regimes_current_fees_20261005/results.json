@@ -1,0 +1,4148 @@
+{
+  "declaration": {
+    "declared_at_utc": "2026-10-05T09:25:53.605942+00:00",
+    "places_orders": false,
+    "known_history_previously_reviewed": true,
+    "independent_unseen_holdout": false,
+    "snapshot_sha256": "fe7ab9ba4d2597f88584a3d4f582468e3ec97d2a59eee0c87136d9c595c5a369",
+    "source_sha256": {
+      "research_bidirectional_regimes.py": "b1c72efe2c0f8b6c5ad92e1134c52252f909ea61ebef265ba73c867ee5caff19",
+      "stock_swing_profiles.py": "6261ccf3a4e956c5b9fc35088ea74522b580b3fed302120b9daf6acc5ee01b0a",
+      "backtest_stock_swing_120.py": "0e338a02e57d5c293e204927602ecd4024ff56b81b156de856b5b36ffd1d949e"
+    },
+    "candidates": {
+      "MUUSDT": {
+        "trend_pullback_15m": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "trend_pullback",
+          "signal_timeframe": "15m",
+          "entry_signal_validity_minutes": 15
+        },
+        "trend_pullback_1h": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "trend_pullback",
+          "signal_timeframe": "1h",
+          "entry_signal_validity_minutes": 60
+        },
+        "breakout_15m": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "breakout",
+          "signal_timeframe": "15m",
+          "entry_signal_validity_minutes": 15
+        },
+        "breakout_1h": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "breakout",
+          "signal_timeframe": "1h",
+          "entry_signal_validity_minutes": 60
+        },
+        "range_reversion_15m": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "range_reversion",
+          "signal_timeframe": "15m",
+          "entry_signal_validity_minutes": 15
+        },
+        "range_reversion_1h": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "range_reversion",
+          "signal_timeframe": "1h",
+          "entry_signal_validity_minutes": 60
+        },
+        "current_control": {
+          "signal_timeframe": "15m",
+          "cooldown_signal_bars": 3,
+          "signal_family": "ema_transition",
+          "ema_fast": 8,
+          "ema_mid": 24,
+          "ema_slow": 60,
+          "warmup_bars": 60,
+          "require_price_slow": true,
+          "stop_atr": 2.0,
+          "target_margin_return": 1.2,
+          "max_holding_calendar_days": 15,
+          "trail_activation_underlying_return": 0.08,
+          "trail_locked_underlying_return": 0.03,
+          "trail_atr": 2.0,
+          "entry_direction": "both",
+          "entry_signal_validity_minutes": 15,
+          "research_variant": "cross_8_24_60_15m_both_swing_net120",
+          "candidate_id": "muusdt_bidirectional_forward_20261005"
+        }
+      },
+      "SNDKUSDT": {
+        "trend_pullback_15m": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "trend_pullback",
+          "signal_timeframe": "15m",
+          "entry_signal_validity_minutes": 15
+        },
+        "trend_pullback_1h": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "trend_pullback",
+          "signal_timeframe": "1h",
+          "entry_signal_validity_minutes": 60
+        },
+        "breakout_15m": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "breakout",
+          "signal_timeframe": "15m",
+          "entry_signal_validity_minutes": 15
+        },
+        "breakout_1h": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "breakout",
+          "signal_timeframe": "1h",
+          "entry_signal_validity_minutes": 60
+        },
+        "range_reversion_15m": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "range_reversion",
+          "signal_timeframe": "15m",
+          "entry_signal_validity_minutes": 15
+        },
+        "range_reversion_1h": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "range_reversion",
+          "signal_timeframe": "1h",
+          "entry_signal_validity_minutes": 60
+        },
+        "current_control": {
+          "signal_timeframe": "5m",
+          "cooldown_signal_bars": 3,
+          "signal_family": "breakout",
+          "ema_fast": 8,
+          "ema_mid": 24,
+          "ema_slow": 60,
+          "warmup_bars": 60,
+          "breakout_bars": 6,
+          "stop_atr": 2.0,
+          "target_margin_return": 1.2,
+          "max_holding_calendar_days": 15,
+          "trail_activation_underlying_return": 0.08,
+          "trail_locked_underlying_return": 0.03,
+          "trail_atr": 2.0,
+          "entry_direction": "both",
+          "entry_signal_validity_minutes": 5,
+          "research_variant": "breakout_8_24_60_5m_both_swing_net120",
+          "candidate_id": "sndkusdt_bidirectional_forward_20261005"
+        }
+      },
+      "SKHYNIXUSDT": {
+        "trend_pullback_15m": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "trend_pullback",
+          "signal_timeframe": "15m",
+          "entry_signal_validity_minutes": 15
+        },
+        "trend_pullback_1h": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "trend_pullback",
+          "signal_timeframe": "1h",
+          "entry_signal_validity_minutes": 60
+        },
+        "breakout_15m": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "breakout",
+          "signal_timeframe": "15m",
+          "entry_signal_validity_minutes": 15
+        },
+        "breakout_1h": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "breakout",
+          "signal_timeframe": "1h",
+          "entry_signal_validity_minutes": 60
+        },
+        "range_reversion_15m": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "range_reversion",
+          "signal_timeframe": "15m",
+          "entry_signal_validity_minutes": 15
+        },
+        "range_reversion_1h": {
+          "ema_fast": 20,
+          "ema_mid": 50,
+          "ema_slow": 200,
+          "warmup_bars": 200,
+          "ema_slope_bars": 6,
+          "breakout_bars": 20,
+          "stop_atr": 2.0,
+          "min_stop_fraction": 0.01,
+          "max_stop_fraction": 0.05,
+          "entry_direction": "both",
+          "target_margin_return": 0.3,
+          "max_holding_calendar_days": 3,
+          "trail_activation_underlying_return": 0.02,
+          "trail_locked_underlying_return": 0.005,
+          "trail_atr": 2.0,
+          "cooldown_signal_bars": 3,
+          "signal_family": "range_reversion",
+          "signal_timeframe": "1h",
+          "entry_signal_validity_minutes": 60
+        },
+        "current_control": {
+          "signal_timeframe": "15m",
+          "cooldown_signal_bars": 3,
+          "signal_family": "ema_transition",
+          "research_variant": "transition_8_24_60_slow1",
+          "ema_fast": 8,
+          "ema_mid": 24,
+          "ema_slow": 60,
+          "warmup_bars": 60,
+          "require_price_slow": true,
+          "stop_atr": 2.0,
+          "candidate_id": "skhynixusdt_bidirectional_forward_20261005",
+          "entry_direction": "both"
+        }
+      }
+    },
+    "risk_fraction_per_trade": 0.0025,
+    "leverage_cap": 10,
+    "fee_model": "current_documented_rates_on_historical_prices",
+    "fee_assumptions": {
+      "MUUSDT": 0.000125,
+      "SNDKUSDT": 0.000125,
+      "SKHYNIXUSDT": 0.001
+    },
+    "fee_source": "https://docs.asterdex.com/trading/perpetuals/fees-and-specs/fees",
+    "selection": "Development before 2026-09-01 only. Both costs: positive closed net and estimated liquidation equity, >=20 closed trades, profit factor >=1.15, drawdown <=6%, no liquidation. Rank worst-cost closed return, freeze before audit.",
+    "audit": "Frozen winner only: validation >=5 closed trades, recent30d >=3, both costs positive closed and liquidation return, PF >=1.1, DD <=6%, no liquidation. Do not select an audit winner if frozen choice fails.",
+    "limitations": [
+      "Previously reviewed retrospective history; not independent profitability evidence.",
+      "5m OHLC execution and hourly opening index proxy; historical depth, actual fills and exact price path unavailable.",
+      "0.10% fee/side, 2bp adverse slippage, observed historical funding. Double fees/slippage at cost2.",
+      "Entry capped at 10% of previous completed 5m volume; missing and zero volumes block entry.",
+      "Forward runtime has 30s observations; these replays have 5m observations."
+    ]
+  },
+  "end_utc_exclusive": "2026-10-04T12:00:00+00:00",
+  "results": {
+    "MUUSDT": {
+      "experiments": {
+        "trend_pullback_15m": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "trend_pullback",
+            "signal_timeframe": "15m",
+            "entry_signal_validity_minutes": 15
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 992.6205442184148,
+              "account_return_pct": -0.7379455781585165,
+              "max_sampled_drawdown_pct": 3.4898437281223638,
+              "closed_trades": 79,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 43.037974683544306,
+              "profit_factor": 0.9192204453149398,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 42,
+                "stop_gap": 21,
+                "target_gap": 4,
+                "target": 12
+              },
+              "fees_closed_trades": 2.5905279055125,
+              "funding_debit_closed_trades": -0.0764167439265441,
+              "funding_mark_proxy_events_closed_trades": 65,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "previous_bar_liquidity": 119,
+                "basis": 134,
+                "funding_rate": 72,
+                "already_open": 237,
+                "cooldown": 13,
+                "entry_gap": 18
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 79,
+                  "target_trades": 0,
+                  "net_closed_pnl": -7.379455781585604
+                }
+              },
+              "estimated_close_equity": 992.6205442184144,
+              "estimated_close_return_pct": -0.7379455781585604,
+              "net_closed_pnl": -7.379455781585604,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 983.5283700977476,
+              "account_return_pct": -1.6471629902252372,
+              "max_sampled_drawdown_pct": 4.2535216290043465,
+              "closed_trades": 78,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 41.02564102564102,
+              "profit_factor": 0.8233515589265028,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 41,
+                "stop_gap": 22,
+                "target_gap": 3,
+                "target": 12
+              },
+              "fees_closed_trades": 4.97800123615,
+              "funding_debit_closed_trades": -0.08267273389665984,
+              "funding_mark_proxy_events_closed_trades": 65,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "previous_bar_liquidity": 120,
+                "basis": 136,
+                "funding_rate": 72,
+                "already_open": 237,
+                "cooldown": 13,
+                "entry_gap": 18
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 78,
+                  "target_trades": 0,
+                  "net_closed_pnl": -16.471629902252452
+                }
+              },
+              "estimated_close_equity": 983.5283700977476,
+              "estimated_close_return_pct": -1.6471629902252451,
+              "net_closed_pnl": -16.471629902252452,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "trend_pullback_1h": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "trend_pullback",
+            "signal_timeframe": "1h",
+            "entry_signal_validity_minutes": 60
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 988.7407242776909,
+              "account_return_pct": -1.1259275722309114,
+              "max_sampled_drawdown_pct": 1.4411642484122233,
+              "closed_trades": 30,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 46.666666666666664,
+              "profit_factor": 0.6484217204235,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 9,
+                "target_gap": 5,
+                "stop": 11,
+                "target": 5
+              },
+              "fees_closed_trades": 0.5415899815675,
+              "funding_debit_closed_trades": 1.0884421207412547,
+              "funding_mark_proxy_events_closed_trades": 50,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 147,
+                "basis": 116,
+                "funding_rate": 54,
+                "already_open": 206,
+                "cooldown": 23,
+                "entry_gap": 7,
+                "stop_too_wide": 5
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 30,
+                  "target_trades": 0,
+                  "net_closed_pnl": -11.259275722308724
+                }
+              },
+              "estimated_close_equity": 988.7407242776912,
+              "estimated_close_return_pct": -1.1259275722308724,
+              "net_closed_pnl": -11.259275722308724,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 989.9713258063006,
+              "account_return_pct": -1.002867419369946,
+              "max_sampled_drawdown_pct": 1.329157259764932,
+              "closed_trades": 30,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 46.666666666666664,
+              "profit_factor": 0.6703729792083085,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 13,
+                "target_gap": 6,
+                "stop_gap": 7,
+                "target": 4
+              },
+              "fees_closed_trades": 1.04677032582,
+              "funding_debit_closed_trades": 1.0488723478792337,
+              "funding_mark_proxy_events_closed_trades": 50,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 147,
+                "basis": 116,
+                "funding_rate": 54,
+                "already_open": 206,
+                "cooldown": 23,
+                "entry_gap": 7,
+                "stop_too_wide": 5
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 30,
+                  "target_trades": 0,
+                  "net_closed_pnl": -10.028674193699043
+                }
+              },
+              "estimated_close_equity": 989.9713258063009,
+              "estimated_close_return_pct": -1.0028674193699043,
+              "net_closed_pnl": -10.028674193699043,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "breakout_15m": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "breakout",
+            "signal_timeframe": "15m",
+            "entry_signal_validity_minutes": 15
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 974.7201228175255,
+              "account_return_pct": -2.5279877182474486,
+              "max_sampled_drawdown_pct": 4.657130245696618,
+              "closed_trades": 111,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 32.432432432432435,
+              "profit_factor": 0.8087184438749184,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 30,
+                "stop": 60,
+                "target_gap": 2,
+                "target": 19
+              },
+              "fees_closed_trades": 3.6007622861775,
+              "funding_debit_closed_trades": -2.0292040437020984,
+              "funding_mark_proxy_events_closed_trades": 93,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "basis": 498,
+                "previous_bar_liquidity": 126,
+                "quantity_or_risk_cap": 3,
+                "already_open": 396,
+                "funding_rate": 84,
+                "cooldown": 83,
+                "entry_gap": 22
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 111,
+                  "target_trades": 0,
+                  "net_closed_pnl": -25.27987718247468
+                }
+              },
+              "estimated_close_equity": 974.7201228175253,
+              "estimated_close_return_pct": -2.527987718247468,
+              "net_closed_pnl": -25.27987718247468,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 968.4296687893459,
+              "account_return_pct": -3.1570331210654112,
+              "max_sampled_drawdown_pct": 4.70044702434847,
+              "closed_trades": 111,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 32.432432432432435,
+              "profit_factor": 0.7630698495739607,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 31,
+                "stop": 60,
+                "target_gap": 3,
+                "target": 17
+              },
+              "fees_closed_trades": 6.99332470661,
+              "funding_debit_closed_trades": -1.9284105759546102,
+              "funding_mark_proxy_events_closed_trades": 89,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "basis": 498,
+                "previous_bar_liquidity": 132,
+                "quantity_or_risk_cap": 3,
+                "already_open": 391,
+                "funding_rate": 84,
+                "cooldown": 82,
+                "entry_gap": 22
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 111,
+                  "target_trades": 0,
+                  "net_closed_pnl": -31.570331210654114
+                }
+              },
+              "estimated_close_equity": 968.4296687893459,
+              "estimated_close_return_pct": -3.1570331210654112,
+              "net_closed_pnl": -31.570331210654114,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "breakout_1h": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "breakout",
+            "signal_timeframe": "1h",
+            "entry_signal_validity_minutes": 60
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1000.743934660275,
+              "account_return_pct": 0.0743934660275114,
+              "max_sampled_drawdown_pct": 1.6680130616725142,
+              "closed_trades": 53,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 43.39622641509434,
+              "profit_factor": 1.0131157033251912,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 7,
+                "target_gap": 2,
+                "stop": 26,
+                "target": 18
+              },
+              "fees_closed_trades": 1.1216968948625001,
+              "funding_debit_closed_trades": 0.045153264862707376,
+              "funding_mark_proxy_events_closed_trades": 40,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "quantity_or_risk_cap": 1,
+                "previous_bar_liquidity": 146,
+                "basis": 186,
+                "entry_gap": 18,
+                "already_open": 307,
+                "cooldown": 191,
+                "funding_rate": 156,
+                "stop_too_wide": 3
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 53,
+                  "target_trades": 0,
+                  "net_closed_pnl": 0.7439346602750477
+                }
+              },
+              "estimated_close_equity": 1000.743934660275,
+              "estimated_close_return_pct": 0.07439346602750478,
+              "net_closed_pnl": 0.7439346602750477,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 998.8358482652603,
+              "account_return_pct": -0.11641517347397157,
+              "max_sampled_drawdown_pct": 1.8177016592335309,
+              "closed_trades": 53,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 43.39622641509434,
+              "profit_factor": 0.9793340176935865,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 9,
+                "target_gap": 3,
+                "stop": 25,
+                "target": 16
+              },
+              "fees_closed_trades": 2.19942146181,
+              "funding_debit_closed_trades": 0.07755519293024438,
+              "funding_mark_proxy_events_closed_trades": 41,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "quantity_or_risk_cap": 1,
+                "previous_bar_liquidity": 146,
+                "basis": 185,
+                "entry_gap": 18,
+                "already_open": 307,
+                "cooldown": 192,
+                "funding_rate": 156,
+                "stop_too_wide": 3
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 53,
+                  "target_trades": 0,
+                  "net_closed_pnl": -1.1641517347398522
+                }
+              },
+              "estimated_close_equity": 998.8358482652601,
+              "estimated_close_return_pct": -0.11641517347398522,
+              "net_closed_pnl": -1.1641517347398522,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "range_reversion_15m": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "range_reversion",
+            "signal_timeframe": "15m",
+            "entry_signal_validity_minutes": 15
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1005.492409909107,
+              "account_return_pct": 0.5492409909106932,
+              "max_sampled_drawdown_pct": 1.8091775559875063,
+              "closed_trades": 41,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 39.02439024390244,
+              "profit_factor": 1.1460101945539276,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "target": 4,
+                "target_gap": 3,
+                "stop_gap": 16,
+                "stop": 18
+              },
+              "fees_closed_trades": 1.2822202337725002,
+              "funding_debit_closed_trades": 2.3229170371208983,
+              "funding_mark_proxy_events_closed_trades": 63,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 89,
+                "already_open": 192,
+                "previous_bar_liquidity": 140,
+                "entry_gap": 23,
+                "quantity_or_risk_cap": 1,
+                "funding_rate": 26,
+                "cooldown": 27
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 41,
+                  "target_trades": 0,
+                  "net_closed_pnl": 5.492409909106778
+                }
+              },
+              "estimated_close_equity": 1005.4924099091068,
+              "estimated_close_return_pct": 0.5492409909106778,
+              "net_closed_pnl": 5.492409909106778,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1001.730762804834,
+              "account_return_pct": 0.1730762804833974,
+              "max_sampled_drawdown_pct": 2.0532744081396976,
+              "closed_trades": 42,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 38.095238095238095,
+              "profit_factor": 1.0427944938900244,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "target": 6,
+                "target_gap": 1,
+                "stop_gap": 17,
+                "stop": 18
+              },
+              "fees_closed_trades": 2.5968788801400002,
+              "funding_debit_closed_trades": 2.2159503950265536,
+              "funding_mark_proxy_events_closed_trades": 62,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 89,
+                "already_open": 192,
+                "previous_bar_liquidity": 140,
+                "entry_gap": 23,
+                "quantity_or_risk_cap": 1,
+                "funding_rate": 26,
+                "cooldown": 26
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 42,
+                  "target_trades": 0,
+                  "net_closed_pnl": 1.7307628048338237
+                }
+              },
+              "estimated_close_equity": 1001.7307628048338,
+              "estimated_close_return_pct": 0.1730762804833824,
+              "net_closed_pnl": 1.7307628048338237,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "range_reversion_1h": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "range_reversion",
+            "signal_timeframe": "1h",
+            "entry_signal_validity_minutes": 60
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 990.7936339938506,
+              "account_return_pct": -0.9206366006149436,
+              "max_sampled_drawdown_pct": 1.2924230048953178,
+              "closed_trades": 12,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 33.33333333333333,
+              "profit_factor": 0.32230288616163055,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 5,
+                "target": 2,
+                "stop_gap": 4,
+                "time_stop": 1
+              },
+              "fees_closed_trades": 0.3079007481075,
+              "funding_debit_closed_trades": -0.018475601958,
+              "funding_mark_proxy_events_closed_trades": 22,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 71,
+                "basis": 46,
+                "entry_gap": 13,
+                "cooldown": 17,
+                "stop_too_wide": 2,
+                "already_open": 72
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 12,
+                  "target_trades": 0,
+                  "net_closed_pnl": -9.206366006149482
+                }
+              },
+              "estimated_close_equity": 990.7936339938506,
+              "estimated_close_return_pct": -0.9206366006149482,
+              "net_closed_pnl": -9.206366006149482,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 990.88892586562,
+              "account_return_pct": -0.9111074134380059,
+              "max_sampled_drawdown_pct": 1.2174336636922527,
+              "closed_trades": 12,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 33.33333333333333,
+              "profit_factor": 0.31699958318088345,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 6,
+                "target": 2,
+                "stop_gap": 3,
+                "time_stop": 1
+              },
+              "fees_closed_trades": 0.60241205616,
+              "funding_debit_closed_trades": -0.01679600178,
+              "funding_mark_proxy_events_closed_trades": 22,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 71,
+                "basis": 46,
+                "entry_gap": 13,
+                "cooldown": 17,
+                "stop_too_wide": 2,
+                "already_open": 72
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 12,
+                  "target_trades": 0,
+                  "net_closed_pnl": -9.111074134379905
+                }
+              },
+              "estimated_close_equity": 990.8889258656201,
+              "estimated_close_return_pct": -0.9111074134379905,
+              "net_closed_pnl": -9.111074134379905,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "insufficient_closed_trades",
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "insufficient_closed_trades",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "current_control": {
+          "settings": {
+            "signal_timeframe": "15m",
+            "cooldown_signal_bars": 3,
+            "signal_family": "ema_transition",
+            "ema_fast": 8,
+            "ema_mid": 24,
+            "ema_slow": 60,
+            "warmup_bars": 60,
+            "require_price_slow": true,
+            "stop_atr": 2.0,
+            "target_margin_return": 1.2,
+            "max_holding_calendar_days": 15,
+            "trail_activation_underlying_return": 0.08,
+            "trail_locked_underlying_return": 0.03,
+            "trail_atr": 2.0,
+            "entry_direction": "both",
+            "entry_signal_validity_minutes": 15,
+            "research_variant": "cross_8_24_60_15m_both_swing_net120",
+            "candidate_id": "muusdt_bidirectional_forward_20261005"
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1015.4778366419604,
+              "account_return_pct": 1.547783664196034,
+              "max_sampled_drawdown_pct": 5.767874943446798,
+              "closed_trades": 74,
+              "target_trades_net_at_least_120pct_margin": 1,
+              "win_rate_pct": 21.62162162162162,
+              "profit_factor": 1.1447051906340233,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 41,
+                "stop_gap": 32,
+                "target_gap": 1
+              },
+              "fees_closed_trades": 1.5304862281925,
+              "funding_debit_closed_trades": 1.9151983098477467,
+              "funding_mark_proxy_events_closed_trades": 219,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 325,
+                "already_open": 640,
+                "previous_bar_liquidity": 167,
+                "cooldown": 44,
+                "funding_rate": 73,
+                "entry_gap": 28
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 74,
+                  "target_trades": 1,
+                  "net_closed_pnl": 15.477836641960062
+                }
+              },
+              "estimated_close_equity": 1015.47783664196,
+              "estimated_close_return_pct": 1.547783664196006,
+              "net_closed_pnl": 15.477836641960062,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1012.5670204025769,
+              "account_return_pct": 1.2567020402576956,
+              "max_sampled_drawdown_pct": 5.653114225792237,
+              "closed_trades": 74,
+              "target_trades_net_at_least_120pct_margin": 1,
+              "win_rate_pct": 21.62162162162162,
+              "profit_factor": 1.1183838656689384,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 42,
+                "stop_gap": 31,
+                "target_gap": 1
+              },
+              "fees_closed_trades": 2.97643495765,
+              "funding_debit_closed_trades": 1.8677451597730477,
+              "funding_mark_proxy_events_closed_trades": 219,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 325,
+                "already_open": 640,
+                "previous_bar_liquidity": 167,
+                "cooldown": 44,
+                "funding_rate": 73,
+                "entry_gap": 28
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "MUUSDT": {
+                  "closed_trades": 74,
+                  "target_trades": 1,
+                  "net_closed_pnl": 12.567020402577375
+                }
+              },
+              "estimated_close_equity": 1012.5670204025773,
+              "estimated_close_return_pct": 1.2567020402577376,
+              "net_closed_pnl": 12.567020402577375,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "profit_factor_below_gate"
+            ]
+          }
+        }
+      },
+      "development_selected": null,
+      "selected_passes_audit": false,
+      "audit_failures": [],
+      "forward_validated": false
+    },
+    "SNDKUSDT": {
+      "experiments": {
+        "trend_pullback_15m": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "trend_pullback",
+            "signal_timeframe": "15m",
+            "entry_signal_validity_minutes": 15
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1032.5593185922737,
+              "account_return_pct": 3.255931859227368,
+              "max_sampled_drawdown_pct": 1.3692829204298111,
+              "closed_trades": 86,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 43.02325581395349,
+              "profit_factor": 1.3781345250290724,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 13,
+                "target": 30,
+                "stop": 41,
+                "target_gap": 2
+              },
+              "fees_closed_trades": 2.6087603754125,
+              "funding_debit_closed_trades": -0.8585971076860756,
+              "funding_mark_proxy_events_closed_trades": 92,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 109,
+                "funding_rate": 21,
+                "entry_gap": 21,
+                "basis": 152,
+                "already_open": 296,
+                "cooldown": 16
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 86,
+                  "target_trades": 0,
+                  "net_closed_pnl": 32.55931859227403
+                }
+              },
+              "estimated_close_equity": 1032.559318592274,
+              "estimated_close_return_pct": 3.2559318592274034,
+              "net_closed_pnl": 32.55931859227403,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1028.3133461729487,
+              "account_return_pct": 2.8313346172948783,
+              "max_sampled_drawdown_pct": 1.4193059026918138,
+              "closed_trades": 86,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 43.02325581395349,
+              "profit_factor": 1.328581393526765,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 14,
+                "target": 29,
+                "stop": 41,
+                "target_gap": 2
+              },
+              "fees_closed_trades": 5.08380355519,
+              "funding_debit_closed_trades": -0.8331419281378751,
+              "funding_mark_proxy_events_closed_trades": 92,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 109,
+                "funding_rate": 21,
+                "entry_gap": 21,
+                "basis": 152,
+                "already_open": 296,
+                "cooldown": 16
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 86,
+                  "target_trades": 0,
+                  "net_closed_pnl": 28.313346172948712
+                }
+              },
+              "estimated_close_equity": 1028.3133461729487,
+              "estimated_close_return_pct": 2.8313346172948712,
+              "net_closed_pnl": 28.313346172948712,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [],
+            "2": []
+          }
+        },
+        "trend_pullback_1h": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "trend_pullback",
+            "signal_timeframe": "1h",
+            "entry_signal_validity_minutes": 60
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 981.4628462012303,
+              "account_return_pct": -1.8537153798769745,
+              "max_sampled_drawdown_pct": 3.0495315259883875,
+              "closed_trades": 30,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 30.0,
+              "profit_factor": 0.502319870748016,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 7,
+                "stop": 15,
+                "target": 7,
+                "target_gap": 1
+              },
+              "fees_closed_trades": 0.6209947396575001,
+              "funding_debit_closed_trades": -0.16373184088796822,
+              "funding_mark_proxy_events_closed_trades": 39,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 96,
+                "previous_bar_liquidity": 116,
+                "already_open": 156,
+                "funding_rate": 36,
+                "entry_gap": 11,
+                "cooldown": 12,
+                "stop_too_wide": 4
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 30,
+                  "target_trades": 0,
+                  "net_closed_pnl": -18.537153798769385
+                }
+              },
+              "estimated_close_equity": 981.4628462012306,
+              "estimated_close_return_pct": -1.8537153798769386,
+              "net_closed_pnl": -18.537153798769385,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 980.6321937153507,
+              "account_return_pct": -1.9367806284649292,
+              "max_sampled_drawdown_pct": 3.0743761102189224,
+              "closed_trades": 30,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 30.0,
+              "profit_factor": 0.4881091552026968,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 7,
+                "stop": 15,
+                "target": 7,
+                "target_gap": 1
+              },
+              "fees_closed_trades": 1.22270593434,
+              "funding_debit_closed_trades": -0.1546265296902319,
+              "funding_mark_proxy_events_closed_trades": 39,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 96,
+                "previous_bar_liquidity": 116,
+                "already_open": 156,
+                "funding_rate": 36,
+                "entry_gap": 11,
+                "cooldown": 12,
+                "stop_too_wide": 4
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 30,
+                  "target_trades": 0,
+                  "net_closed_pnl": -19.367806284649536
+                }
+              },
+              "estimated_close_equity": 980.6321937153505,
+              "estimated_close_return_pct": -1.9367806284649534,
+              "net_closed_pnl": -19.367806284649536,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "breakout_15m": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "breakout",
+            "signal_timeframe": "15m",
+            "entry_signal_validity_minutes": 15
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1010.6602518432547,
+              "account_return_pct": 1.0660251843254809,
+              "max_sampled_drawdown_pct": 2.404075268764452,
+              "closed_trades": 120,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 39.166666666666664,
+              "profit_factor": 1.0737571914816844,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 25,
+                "stop": 57,
+                "target": 34,
+                "target_gap": 4
+              },
+              "fees_closed_trades": 3.7574076431725003,
+              "funding_debit_closed_trades": -1.6564124664273747,
+              "funding_mark_proxy_events_closed_trades": 96,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 411,
+                "previous_bar_liquidity": 104,
+                "already_open": 355,
+                "cooldown": 95,
+                "entry_gap": 15,
+                "funding_rate": 44
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 120,
+                  "target_trades": 0,
+                  "net_closed_pnl": 10.660251843255438
+                }
+              },
+              "estimated_close_equity": 1010.6602518432554,
+              "estimated_close_return_pct": 1.0660251843255437,
+              "net_closed_pnl": 10.660251843255438,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 998.5400169535869,
+              "account_return_pct": -0.1459983046413038,
+              "max_sampled_drawdown_pct": 2.9737451660599294,
+              "closed_trades": 118,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 38.983050847457626,
+              "profit_factor": 0.9897929318305266,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 23,
+                "stop": 59,
+                "target": 31,
+                "target_gap": 5
+              },
+              "fees_closed_trades": 7.16909036831,
+              "funding_debit_closed_trades": -1.6127544018962217,
+              "funding_mark_proxy_events_closed_trades": 97,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 411,
+                "previous_bar_liquidity": 104,
+                "already_open": 357,
+                "cooldown": 98,
+                "entry_gap": 15,
+                "funding_rate": 44
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 118,
+                  "target_trades": 0,
+                  "net_closed_pnl": -1.4599830464127261
+                }
+              },
+              "estimated_close_equity": 998.5400169535873,
+              "estimated_close_return_pct": -0.1459983046412726,
+              "net_closed_pnl": -1.4599830464127261,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "breakout_1h": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "breakout",
+            "signal_timeframe": "1h",
+            "entry_signal_validity_minutes": 60
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1018.5989027835006,
+              "account_return_pct": 1.8598902783500737,
+              "max_sampled_drawdown_pct": 1.0647678747115732,
+              "closed_trades": 43,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 55.81395348837209,
+              "profit_factor": 1.5107493502715919,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "target": 18,
+                "stop": 16,
+                "stop_gap": 8,
+                "time_stop": 1
+              },
+              "fees_closed_trades": 0.9045212712425,
+              "funding_debit_closed_trades": -0.30035891474339665,
+              "funding_mark_proxy_events_closed_trades": 51,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 175,
+                "previous_bar_liquidity": 121,
+                "funding_rate": 38,
+                "already_open": 309,
+                "cooldown": 123,
+                "entry_gap": 11,
+                "stop_too_wide": 38
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 43,
+                  "target_trades": 0,
+                  "net_closed_pnl": 18.598902783500975
+                }
+              },
+              "estimated_close_equity": 1018.598902783501,
+              "estimated_close_return_pct": 1.8598902783500977,
+              "net_closed_pnl": 18.598902783500975,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1016.7787474071736,
+              "account_return_pct": 1.6778747407173666,
+              "max_sampled_drawdown_pct": 1.4401121144592683,
+              "closed_trades": 43,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 53.48837209302325,
+              "profit_factor": 1.4295797763182894,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "target": 17,
+                "stop": 18,
+                "stop_gap": 6,
+                "time_stop": 1,
+                "target_gap": 1
+              },
+              "fees_closed_trades": 1.8061185075700001,
+              "funding_debit_closed_trades": -0.30035891474339665,
+              "funding_mark_proxy_events_closed_trades": 51,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 175,
+                "previous_bar_liquidity": 121,
+                "funding_rate": 38,
+                "already_open": 309,
+                "cooldown": 123,
+                "entry_gap": 11,
+                "stop_too_wide": 38
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 43,
+                  "target_trades": 0,
+                  "net_closed_pnl": 16.778747407173572
+                }
+              },
+              "estimated_close_equity": 1016.7787474071736,
+              "estimated_close_return_pct": 1.6778747407173573,
+              "net_closed_pnl": 16.778747407173572,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [],
+            "2": []
+          }
+        },
+        "range_reversion_15m": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "range_reversion",
+            "signal_timeframe": "15m",
+            "entry_signal_validity_minutes": 15
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 988.6338535113018,
+              "account_return_pct": -1.136614648869816,
+              "max_sampled_drawdown_pct": 3.424209012084805,
+              "closed_trades": 39,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 30.76923076923077,
+              "profit_factor": 0.7629462709854307,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 21,
+                "target_gap": 3,
+                "target": 7,
+                "stop_gap": 8
+              },
+              "fees_closed_trades": 1.1893280473225,
+              "funding_debit_closed_trades": -0.11900609862410931,
+              "funding_mark_proxy_events_closed_trades": 42,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 158,
+                "basis": 82,
+                "entry_gap": 27,
+                "funding_rate": 30,
+                "already_open": 152,
+                "cooldown": 11
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 39,
+                  "target_trades": 0,
+                  "net_closed_pnl": -11.366146488698181
+                }
+              },
+              "estimated_close_equity": 988.6338535113018,
+              "estimated_close_return_pct": -1.1366146488698181,
+              "net_closed_pnl": -11.366146488698181,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 996.3658424438663,
+              "account_return_pct": -0.36341575561337214,
+              "max_sampled_drawdown_pct": 3.235446428897198,
+              "closed_trades": 39,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 33.33333333333333,
+              "profit_factor": 0.9207412486381663,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 20,
+                "target_gap": 3,
+                "target": 8,
+                "stop_gap": 8
+              },
+              "fees_closed_trades": 2.32662826984,
+              "funding_debit_closed_trades": -0.11347631370573706,
+              "funding_mark_proxy_events_closed_trades": 43,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 158,
+                "basis": 82,
+                "entry_gap": 27,
+                "funding_rate": 30,
+                "already_open": 157,
+                "cooldown": 6
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 39,
+                  "target_trades": 0,
+                  "net_closed_pnl": -3.6341575561338826
+                }
+              },
+              "estimated_close_equity": 996.3658424438661,
+              "estimated_close_return_pct": -0.3634157556133883,
+              "net_closed_pnl": -3.6341575561338826,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "range_reversion_1h": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "range_reversion",
+            "signal_timeframe": "1h",
+            "entry_signal_validity_minutes": 60
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1005.3097463740116,
+              "account_return_pct": 0.5309746374011715,
+              "max_sampled_drawdown_pct": 0.49022462779281906,
+              "closed_trades": 6,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 66.66666666666666,
+              "profit_factor": 2.29232940565488,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 3,
+                "target": 3
+              },
+              "fees_closed_trades": 0.14132255641500002,
+              "funding_debit_closed_trades": 0.06621474957337134,
+              "funding_mark_proxy_events_closed_trades": 15,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 25,
+                "basis": 15,
+                "entry_gap": 10,
+                "stop_too_wide": 3,
+                "already_open": 24
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 6,
+                  "target_trades": 0,
+                  "net_closed_pnl": 5.3097463740116355
+                }
+              },
+              "estimated_close_equity": 1005.3097463740116,
+              "estimated_close_return_pct": 0.5309746374011636,
+              "net_closed_pnl": 5.3097463740116355,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1004.4135651177262,
+              "account_return_pct": 0.44135651177261703,
+              "max_sampled_drawdown_pct": 0.5019782184841932,
+              "closed_trades": 6,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 66.66666666666666,
+              "profit_factor": 2.0590667435963965,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 4,
+                "target": 2
+              },
+              "fees_closed_trades": 0.27501690331,
+              "funding_debit_closed_trades": 0.08829009896382663,
+              "funding_mark_proxy_events_closed_trades": 16,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 25,
+                "basis": 15,
+                "entry_gap": 10,
+                "stop_too_wide": 3,
+                "already_open": 24
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 6,
+                  "target_trades": 0,
+                  "net_closed_pnl": 4.413565117726206
+                }
+              },
+              "estimated_close_equity": 1004.4135651177262,
+              "estimated_close_return_pct": 0.4413565117726206,
+              "net_closed_pnl": 4.413565117726206,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "insufficient_closed_trades"
+            ],
+            "2": [
+              "insufficient_closed_trades"
+            ]
+          }
+        },
+        "current_control": {
+          "settings": {
+            "signal_timeframe": "5m",
+            "cooldown_signal_bars": 3,
+            "signal_family": "breakout",
+            "ema_fast": 8,
+            "ema_mid": 24,
+            "ema_slow": 60,
+            "warmup_bars": 60,
+            "breakout_bars": 6,
+            "stop_atr": 2.0,
+            "target_margin_return": 1.2,
+            "max_holding_calendar_days": 15,
+            "trail_activation_underlying_return": 0.08,
+            "trail_locked_underlying_return": 0.03,
+            "trail_atr": 2.0,
+            "entry_direction": "both",
+            "entry_signal_validity_minutes": 5,
+            "research_variant": "breakout_8_24_60_5m_both_swing_net120",
+            "candidate_id": "sndkusdt_bidirectional_forward_20261005"
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1056.399449590262,
+              "account_return_pct": 5.6399449590262,
+              "max_sampled_drawdown_pct": 3.7820010691987296,
+              "closed_trades": 122,
+              "target_trades_net_at_least_120pct_margin": 4,
+              "win_rate_pct": 24.59016393442623,
+              "profit_factor": 1.2961376379535683,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 25,
+                "stop": 93,
+                "target_gap": 1,
+                "target": 3
+              },
+              "fees_closed_trades": 3.0266778442025,
+              "funding_debit_closed_trades": -2.674855517384815,
+              "funding_mark_proxy_events_closed_trades": 284,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 348,
+                "already_open": 1426,
+                "previous_bar_liquidity": 66,
+                "entry_gap": 14,
+                "funding_rate": 141,
+                "cooldown": 33
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SNDKUSDT",
+                  "entry_utc": "2026-08-31T21:45:00+00:00",
+                  "estimated_close_net_pnl": -0.17824420243999753,
+                  "estimated_net_return_initial_margin_pct": -1.4358133687611343
+                }
+              ],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 122,
+                  "target_trades": 4,
+                  "net_closed_pnl": 56.53739065318287
+                }
+              },
+              "estimated_close_equity": 1056.3591464507429,
+              "estimated_close_return_pct": 5.635914645074287,
+              "net_closed_pnl": 56.53739065318287,
+              "estimated_open_close_net_pnl": -0.17824420243999753
+            },
+            "development_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1053.5498118504356,
+              "account_return_pct": 5.354981185043561,
+              "max_sampled_drawdown_pct": 3.753001986007593,
+              "closed_trades": 122,
+              "target_trades_net_at_least_120pct_margin": 4,
+              "win_rate_pct": 24.59016393442623,
+              "profit_factor": 1.2814459622578607,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 24,
+                "stop": 94,
+                "target": 4
+              },
+              "fees_closed_trades": 5.94436417067,
+              "funding_debit_closed_trades": -2.640157672786288,
+              "funding_mark_proxy_events_closed_trades": 284,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 348,
+                "already_open": 1428,
+                "previous_bar_liquidity": 65,
+                "entry_gap": 14,
+                "funding_rate": 141,
+                "cooldown": 32
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SNDKUSDT",
+                  "entry_utc": "2026-08-31T21:45:00+00:00",
+                  "estimated_close_net_pnl": -0.2588884097599929,
+                  "estimated_net_return_initial_margin_pct": -2.0850110202782557
+                }
+              ],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 122,
+                  "target_trades": 4,
+                  "net_closed_pnl": 53.728100182117394
+                }
+              },
+              "estimated_close_equity": 1053.4692117723575,
+              "estimated_close_return_pct": 5.34692117723574,
+              "net_closed_pnl": 53.728100182117394,
+              "estimated_open_close_net_pnl": -0.2588884097599929
+            },
+            "validation_cost1": {
+              "start_utc": "2026-09-01T00:00:00+00:00",
+              "end_utc_exclusive": "2026-10-04T12:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1014.419962521049,
+              "account_return_pct": 1.4419962521049046,
+              "max_sampled_drawdown_pct": 1.3537710344122935,
+              "closed_trades": 10,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 30.0,
+              "profit_factor": 1.8995229825424995,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 10
+              },
+              "fees_closed_trades": 0.28411651187750003,
+              "funding_debit_closed_trades": -0.10240044600553741,
+              "funding_mark_proxy_events_closed_trades": 77,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 638,
+                "cooldown": 2,
+                "basis": 8
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SNDKUSDT",
+                  "entry_utc": "2026-09-28T19:00:00+00:00",
+                  "estimated_close_net_pnl": 0.0003344005561882867,
+                  "estimated_net_return_initial_margin_pct": 0.003245724961996873
+                }
+              ],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 10,
+                  "target_trades": 0,
+                  "net_closed_pnl": 14.38859691412808
+                }
+              },
+              "estimated_close_equity": 1014.3889313146843,
+              "estimated_close_return_pct": 1.4388931314684268,
+              "net_closed_pnl": 14.38859691412808,
+              "estimated_open_close_net_pnl": 0.0003344005561882867,
+              "trade_diagnostics": {
+                "closed_pnl": 14.38859691412808,
+                "closed_return_pct_initial_capital": 1.4388596914128078,
+                "closed_return_without_largest_winner_pct": 0.33397382876825893,
+                "largest_winner_share_gross_profit_pct": 36.363584082629394,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 5,
+                    "net_pnl": 15.021539359007486,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 5,
+                    "net_pnl": -0.6329424448794065,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 4,
+                  "trade_count": 10,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": 0.011315203139081373,
+                  "mean_trade_pnl_pct_initial_capital_p50": 0.1438069365217047,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.2793977498689349
+                }
+              }
+            },
+            "validation_cost2": {
+              "start_utc": "2026-09-01T00:00:00+00:00",
+              "end_utc_exclusive": "2026-10-04T12:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1012.6141998879498,
+              "account_return_pct": 1.2614199887949873,
+              "max_sampled_drawdown_pct": 1.242910142002478,
+              "closed_trades": 10,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 30.0,
+              "profit_factor": 1.788658065686139,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 10
+              },
+              "fees_closed_trades": 0.55070085538,
+              "funding_debit_closed_trades": -0.10194386696346946,
+              "funding_mark_proxy_events_closed_trades": 77,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 638,
+                "basis": 9,
+                "cooldown": 1
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SNDKUSDT",
+                  "entry_utc": "2026-09-28T19:00:00+00:00",
+                  "estimated_close_net_pnl": -0.06664965269381681,
+                  "estimated_net_return_initial_margin_pct": -0.6467788090216805
+                }
+              ],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 10,
+                  "target_trades": 0,
+                  "net_closed_pnl": 12.616319411583527
+                }
+              },
+              "estimated_close_equity": 1012.5496697588896,
+              "estimated_close_return_pct": 1.254966975888971,
+              "net_closed_pnl": 12.616319411583527,
+              "estimated_open_close_net_pnl": -0.06664965269381681,
+              "trade_diagnostics": {
+                "closed_pnl": 12.616319411583527,
+                "closed_return_pct_initial_capital": 1.2616319411583528,
+                "closed_return_without_largest_winner_pct": 0.16421461525205264,
+                "largest_winner_share_gross_profit_pct": 38.35310777569444,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 5,
+                    "net_pnl": 13.521005003415446,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 5,
+                    "net_pnl": -0.9046855918319201,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 4,
+                  "trade_count": 10,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.005862316414761555,
+                  "mean_trade_pnl_pct_initial_capital_p50": 0.1257266829441827,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.26116077425421785
+                }
+              }
+            },
+            "recent30d_cost1": {
+              "start_utc": "2026-09-04T12:00:00+00:00",
+              "end_utc_exclusive": "2026-10-04T12:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1013.1483613215803,
+              "account_return_pct": 1.314836132158037,
+              "max_sampled_drawdown_pct": 1.1376736514888768,
+              "closed_trades": 13,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 30.76923076923077,
+              "profit_factor": 1.7471242823844342,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 13
+              },
+              "fees_closed_trades": 0.311330204605,
+              "funding_debit_closed_trades": -0.1106547992641886,
+              "funding_mark_proxy_events_closed_trades": 67,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "basis": 6,
+                "already_open": 561,
+                "cooldown": 4,
+                "previous_bar_liquidity": 1
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SNDKUSDT",
+                  "entry_utc": "2026-09-28T19:00:00+00:00",
+                  "estimated_close_net_pnl": 0.0003344005561882867,
+                  "estimated_net_return_initial_margin_pct": 0.003245724961996873
+                }
+              ],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 13,
+                  "target_trades": 0,
+                  "net_closed_pnl": 13.116995714659197
+                }
+              },
+              "estimated_close_equity": 1013.1173301152154,
+              "estimated_close_return_pct": 1.3117330115215384,
+              "net_closed_pnl": 13.116995714659197,
+              "estimated_open_close_net_pnl": 0.0003344005561882867,
+              "trade_diagnostics": {
+                "closed_pnl": 13.116995714659197,
+                "closed_return_pct_initial_capital": 1.3116995714659196,
+                "closed_return_without_largest_winner_pct": 0.31657282639191864,
+                "largest_winner_share_gross_profit_pct": 32.442407404251306,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 6,
+                    "net_pnl": 11.74063575675119,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 7,
+                    "net_pnl": 1.3763599579080077,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 4,
+                  "trade_count": 13,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.08327471009986423,
+                  "mean_trade_pnl_pct_initial_capital_p50": 0.09956019189596146,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.26581187847039656
+                }
+              }
+            },
+            "recent30d_cost2": {
+              "start_utc": "2026-09-04T12:00:00+00:00",
+              "end_utc_exclusive": "2026-10-04T12:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1012.8423249836203,
+              "account_return_pct": 1.2842324983620257,
+              "max_sampled_drawdown_pct": 1.1282749119955509,
+              "closed_trades": 13,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 30.76923076923077,
+              "profit_factor": 1.7305353467496967,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 13
+              },
+              "fees_closed_trades": 0.61388769201,
+              "funding_debit_closed_trades": -0.1106547992641886,
+              "funding_mark_proxy_events_closed_trades": 67,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "basis": 7,
+                "already_open": 560,
+                "cooldown": 4,
+                "previous_bar_liquidity": 1
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SNDKUSDT",
+                  "entry_utc": "2026-09-28T19:00:00+00:00",
+                  "estimated_close_net_pnl": -0.06664965269381681,
+                  "estimated_net_return_initial_margin_pct": -0.6467788090216805
+                }
+              ],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 13,
+                  "target_trades": 0,
+                  "net_closed_pnl": 12.844444507254243
+                }
+              },
+              "estimated_close_equity": 1012.7777948545604,
+              "estimated_close_return_pct": 1.2777794854560427,
+              "net_closed_pnl": 12.844444507254243,
+              "estimated_open_close_net_pnl": -0.06664965269381681,
+              "trade_diagnostics": {
+                "closed_pnl": 12.844444507254243,
+                "closed_return_pct_initial_capital": 1.2844444507254245,
+                "closed_return_without_largest_winner_pct": 0.2971509104294238,
+                "largest_winner_share_gross_profit_pct": 32.44828354842473,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 6,
+                    "net_pnl": 11.422058983778719,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 7,
+                    "net_pnl": 1.4223855234755252,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 4,
+                  "trade_count": 13,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.08249510959389299,
+                  "mean_trade_pnl_pct_initial_capital_p50": 0.09838575255503262,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.2619124368244172
+                }
+              }
+            },
+            "full_cost1": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-10-04T12:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1067.9370973796713,
+              "account_return_pct": 6.793709737967135,
+              "max_sampled_drawdown_pct": 5.06136032321001,
+              "closed_trades": 134,
+              "target_trades_net_at_least_120pct_margin": 4,
+              "win_rate_pct": 24.62686567164179,
+              "profit_factor": 1.3189324762871684,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 25,
+                "stop": 105,
+                "target_gap": 1,
+                "target": 3
+              },
+              "fees_closed_trades": 3.3921263638325003,
+              "funding_debit_closed_trades": -2.7785632765826827,
+              "funding_mark_proxy_events_closed_trades": 363,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 357,
+                "already_open": 2063,
+                "previous_bar_liquidity": 66,
+                "entry_gap": 14,
+                "funding_rate": 141,
+                "cooldown": 34
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SNDKUSDT",
+                  "entry_utc": "2026-09-28T19:00:00+00:00",
+                  "estimated_close_net_pnl": 0.0003344005561882867,
+                  "estimated_net_return_initial_margin_pct": 0.003245724961996873
+                }
+              ],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 134,
+                  "target_trades": 4,
+                  "net_closed_pnl": 67.90573177275081
+                }
+              },
+              "estimated_close_equity": 1067.906066173307,
+              "estimated_close_return_pct": 6.7906066173307,
+              "net_closed_pnl": 67.90573177275081,
+              "estimated_open_close_net_pnl": 0.0003344005561882867,
+              "trade_diagnostics": {
+                "closed_pnl": 67.90573177275081,
+                "closed_return_pct_initial_capital": 6.790573177275082,
+                "closed_return_without_largest_winner_pct": 5.344754325969564,
+                "largest_winner_share_gross_profit_pct": 5.148534557457742,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 70,
+                    "net_pnl": 66.70816525874008,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 64,
+                    "net_pnl": 1.1975665140107221,
+                    "net120_targets": 4
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 12,
+                  "trade_count": 134,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.015486856763997105,
+                  "mean_trade_pnl_pct_initial_capital_p50": 0.046529394187470936,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.1166329229153635
+                }
+              }
+            },
+            "full_cost2": {
+              "start_utc": "2026-03-03T12:00:00+00:00",
+              "end_utc_exclusive": "2026-10-04T12:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1061.398492007081,
+              "account_return_pct": 6.139849200708092,
+              "max_sampled_drawdown_pct": 5.040309705987654,
+              "closed_trades": 134,
+              "target_trades_net_at_least_120pct_margin": 4,
+              "win_rate_pct": 24.62686567164179,
+              "profit_factor": 1.2877426834774064,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 24,
+                "stop": 106,
+                "target": 4
+              },
+              "fees_closed_trades": 6.658293828330001,
+              "funding_debit_closed_trades": -2.7454876390451557,
+              "funding_mark_proxy_events_closed_trades": 363,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 357,
+                "already_open": 2065,
+                "previous_bar_liquidity": 65,
+                "entry_gap": 14,
+                "funding_rate": 141,
+                "cooldown": 33
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SNDKUSDT",
+                  "entry_utc": "2026-09-28T19:00:00+00:00",
+                  "estimated_close_net_pnl": -0.06664965269381681,
+                  "estimated_net_return_initial_margin_pct": -0.6467788090216805
+                }
+              ],
+              "symbol_summaries": {
+                "SNDKUSDT": {
+                  "closed_trades": 134,
+                  "target_trades": 4,
+                  "net_closed_pnl": 61.400611530716326
+                }
+              },
+              "estimated_close_equity": 1061.3339618780226,
+              "estimated_close_return_pct": 6.1333961878022505,
+              "net_closed_pnl": 61.400611530716326,
+              "estimated_open_close_net_pnl": -0.06664965269381681,
+              "trade_diagnostics": {
+                "closed_pnl": 61.400611530716326,
+                "closed_return_pct_initial_capital": 6.140061153071633,
+                "closed_return_without_largest_winner_pct": 4.694528905205615,
+                "largest_winner_share_gross_profit_pct": 5.26053950658179,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 70,
+                    "net_pnl": 62.2405287095764,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 64,
+                    "net_pnl": -0.8399171788600788,
+                    "net120_targets": 4
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 12,
+                  "trade_count": 134,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.018687414029952127,
+                  "mean_trade_pnl_pct_initial_capital_p50": 0.041915435541459364,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.1104984921402172
+                }
+              }
+            }
+          },
+          "development_failures": {
+            "1": [],
+            "2": []
+          }
+        }
+      },
+      "development_selected": "current_control",
+      "selected_passes_audit": true,
+      "audit_failures": [],
+      "forward_validated": false
+    },
+    "SKHYNIXUSDT": {
+      "experiments": {
+        "trend_pullback_15m": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "trend_pullback",
+            "signal_timeframe": "15m",
+            "entry_signal_validity_minutes": 15
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1021.2120547776811,
+              "account_return_pct": 2.1212054777681066,
+              "max_sampled_drawdown_pct": 1.038015436814853,
+              "closed_trades": 59,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 50.847457627118644,
+              "profit_factor": 1.356167177054415,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 7,
+                "stop": 33,
+                "target": 17,
+                "target_gap": 2
+              },
+              "fees_closed_trades": 14.837264055274,
+              "funding_debit_closed_trades": 0.6174173771090329,
+              "funding_mark_proxy_events_closed_trades": 66,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 44,
+                "basis": 67,
+                "funding_rate": 174,
+                "already_open": 227,
+                "entry_gap": 7,
+                "cooldown": 15,
+                "stop_too_wide": 1
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SKHYNIXUSDT",
+                  "entry_utc": "2026-08-31T23:45:00+00:00",
+                  "estimated_close_net_pnl": -0.09475226553600141,
+                  "estimated_net_return_initial_margin_pct": -4.824156852284378
+                }
+              ],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 59,
+                  "target_trades": 0,
+                  "net_closed_pnl": 21.25149416961703
+                }
+              },
+              "estimated_close_equity": 1021.156741904081,
+              "estimated_close_return_pct": 2.115674190408103,
+              "net_closed_pnl": 21.25149416961703,
+              "estimated_open_close_net_pnl": -0.09475226553600141
+            },
+            "development_cost2": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1002.0567751019848,
+              "account_return_pct": 0.20567751019848757,
+              "max_sampled_drawdown_pct": 1.5106186668404995,
+              "closed_trades": 59,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 49.152542372881356,
+              "profit_factor": 1.0351019637019028,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 6,
+                "stop": 36,
+                "target": 17
+              },
+              "fees_closed_trades": 26.159751875272,
+              "funding_debit_closed_trades": 0.6194112764390804,
+              "funding_mark_proxy_events_closed_trades": 67,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 44,
+                "basis": 64,
+                "funding_rate": 174,
+                "already_open": 227,
+                "entry_gap": 7,
+                "cooldown": 18,
+                "stop_too_wide": 1
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SKHYNIXUSDT",
+                  "entry_utc": "2026-08-31T23:45:00+00:00",
+                  "estimated_close_net_pnl": -0.14182455014399892,
+                  "estimated_net_return_initial_margin_pct": -7.219321769959801
+                }
+              ],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 59,
+                  "target_trades": 0,
+                  "net_closed_pnl": 2.1197910122895314
+                }
+              },
+              "estimated_close_equity": 1001.9779664621456,
+              "estimated_close_return_pct": 0.19779664621455323,
+              "net_closed_pnl": 2.1197910122895314,
+              "estimated_open_close_net_pnl": -0.14182455014399892
+            }
+          },
+          "development_failures": {
+            "1": [],
+            "2": [
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "trend_pullback_1h": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "trend_pullback",
+            "signal_timeframe": "1h",
+            "entry_signal_validity_minutes": 60
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 996.4598849831116,
+              "account_return_pct": -0.35401150168884454,
+              "max_sampled_drawdown_pct": 0.8159115770203482,
+              "closed_trades": 20,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 50.0,
+              "profit_factor": 0.815038416579464,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 11,
+                "target_gap": 2,
+                "target": 5,
+                "stop_gap": 2
+              },
+              "fees_closed_trades": 2.89371394084,
+              "funding_debit_closed_trades": -0.13654170395145468,
+              "funding_mark_proxy_events_closed_trades": 59,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 19,
+                "funding_rate": 157,
+                "basis": 76,
+                "already_open": 180,
+                "cooldown": 24,
+                "stop_too_wide": 17
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 20,
+                  "target_trades": 0,
+                  "net_closed_pnl": -3.5401150168884805
+                }
+              },
+              "estimated_close_equity": 996.4598849831115,
+              "estimated_close_return_pct": -0.35401150168884804,
+              "net_closed_pnl": -3.5401150168884805,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 993.775448362448,
+              "account_return_pct": -0.6224551637552089,
+              "max_sampled_drawdown_pct": 0.879752022865441,
+              "closed_trades": 20,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 45.0,
+              "profit_factor": 0.6845538238527429,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 12,
+                "target_gap": 1,
+                "target": 5,
+                "stop_gap": 2
+              },
+              "fees_closed_trades": 5.392796655984,
+              "funding_debit_closed_trades": -0.11678437043150114,
+              "funding_mark_proxy_events_closed_trades": 59,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "previous_bar_liquidity": 19,
+                "funding_rate": 157,
+                "basis": 76,
+                "already_open": 180,
+                "cooldown": 24,
+                "stop_too_wide": 17
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 20,
+                  "target_trades": 0,
+                  "net_closed_pnl": -6.224551637552343
+                }
+              },
+              "estimated_close_equity": 993.7754483624476,
+              "estimated_close_return_pct": -0.6224551637552344,
+              "net_closed_pnl": -6.224551637552343,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "breakout_15m": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "breakout",
+            "signal_timeframe": "15m",
+            "entry_signal_validity_minutes": 15
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1001.1724756329378,
+              "account_return_pct": 0.1172475632937875,
+              "max_sampled_drawdown_pct": 2.191386604399517,
+              "closed_trades": 54,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 35.18518518518518,
+              "profit_factor": 1.0250866148211684,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 32,
+                "stop_gap": 10,
+                "target": 12
+              },
+              "fees_closed_trades": 14.459238949746,
+              "funding_debit_closed_trades": 0.8636940993563993,
+              "funding_mark_proxy_events_closed_trades": 70,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "entry_gap": 14,
+                "previous_bar_liquidity": 28,
+                "basis": 251,
+                "already_open": 275,
+                "funding_rate": 360,
+                "cooldown": 38,
+                "stop_too_wide": 3
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SKHYNIXUSDT",
+                  "entry_utc": "2026-08-31T22:00:00+00:00",
+                  "estimated_close_net_pnl": -0.7836629907600134,
+                  "estimated_net_return_initial_margin_pct": -8.157012001716895
+                }
+              ],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 54,
+                  "target_trades": 0,
+                  "net_closed_pnl": 1.6864883648978712
+                }
+              },
+              "estimated_close_equity": 1000.9028253741378,
+              "estimated_close_return_pct": 0.09028253741378578,
+              "net_closed_pnl": 1.6864883648978712,
+              "estimated_open_close_net_pnl": -0.7836629907600134
+            },
+            "development_cost2": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 972.6882269913388,
+              "account_return_pct": -2.7311773008661278,
+              "max_sampled_drawdown_pct": 3.592115385370181,
+              "closed_trades": 54,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 31.48148148148148,
+              "profit_factor": 0.6462304306412973,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 35,
+                "stop_gap": 9,
+                "target": 9,
+                "target_gap": 1
+              },
+              "fees_closed_trades": 25.360835609360002,
+              "funding_debit_closed_trades": 0.6877354834809607,
+              "funding_mark_proxy_events_closed_trades": 68,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "entry_gap": 14,
+                "previous_bar_liquidity": 27,
+                "basis": 247,
+                "already_open": 283,
+                "funding_rate": 359,
+                "cooldown": 37,
+                "stop_too_wide": 3
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SKHYNIXUSDT",
+                  "entry_utc": "2026-08-31T22:00:00+00:00",
+                  "estimated_close_net_pnl": -1.0135262030399985,
+                  "estimated_net_return_initial_margin_pct": -10.547509186670032
+                }
+              ],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 54,
+                  "target_trades": 0,
+                  "net_closed_pnl": -26.682438924840415
+                }
+              },
+              "estimated_close_equity": 972.3040348721196,
+              "estimated_close_return_pct": -2.7695965127880413,
+              "net_closed_pnl": -26.682438924840415,
+              "estimated_open_close_net_pnl": -1.0135262030399985
+            }
+          },
+          "development_failures": {
+            "1": [
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "breakout_1h": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "breakout",
+            "signal_timeframe": "1h",
+            "entry_signal_validity_minutes": 60
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1021.6445678115492,
+              "account_return_pct": 2.164456781154933,
+              "max_sampled_drawdown_pct": 0.4863648250651092,
+              "closed_trades": 17,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 70.58823529411765,
+              "profit_factor": 3.4532647748487055,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "target": 9,
+                "stop_gap": 4,
+                "stop": 4
+              },
+              "fees_closed_trades": 3.104531083872,
+              "funding_debit_closed_trades": 0.9106338365790988,
+              "funding_mark_proxy_events_closed_trades": 41,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 216,
+                "cooldown": 70,
+                "funding_rate": 277,
+                "basis": 65,
+                "previous_bar_liquidity": 21,
+                "entry_gap": 1
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 17,
+                  "target_trades": 0,
+                  "net_closed_pnl": 21.644567811548992
+                }
+              },
+              "estimated_close_equity": 1021.644567811549,
+              "estimated_close_return_pct": 2.164456781154899,
+              "net_closed_pnl": 21.644567811548992,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1016.3519563112806,
+              "account_return_pct": 1.6351956311280613,
+              "max_sampled_drawdown_pct": 0.507183806344946,
+              "closed_trades": 17,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 58.82352941176471,
+              "profit_factor": 2.8010871630759873,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop_gap": 5,
+                "target": 8,
+                "stop": 4
+              },
+              "fees_closed_trades": 5.650631668784,
+              "funding_debit_closed_trades": 0.8313018519357014,
+              "funding_mark_proxy_events_closed_trades": 41,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "already_open": 225,
+                "funding_rate": 277,
+                "basis": 65,
+                "previous_bar_liquidity": 21,
+                "cooldown": 61,
+                "entry_gap": 1
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 17,
+                  "target_trades": 0,
+                  "net_closed_pnl": 16.351956311280386
+                }
+              },
+              "estimated_close_equity": 1016.3519563112803,
+              "estimated_close_return_pct": 1.6351956311280385,
+              "net_closed_pnl": 16.351956311280386,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "insufficient_closed_trades"
+            ],
+            "2": [
+              "insufficient_closed_trades"
+            ]
+          }
+        },
+        "range_reversion_15m": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "range_reversion",
+            "signal_timeframe": "15m",
+            "entry_signal_validity_minutes": 15
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 989.9697496060052,
+              "account_return_pct": -1.0030250393994855,
+              "max_sampled_drawdown_pct": 2.2627026588039616,
+              "closed_trades": 39,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 35.8974358974359,
+              "profit_factor": 0.7614024069660709,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 27,
+                "stop_gap": 7,
+                "target": 5
+              },
+              "fees_closed_trades": 9.105416293982001,
+              "funding_debit_closed_trades": -0.016159193987228017,
+              "funding_mark_proxy_events_closed_trades": 70,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "basis": 52,
+                "previous_bar_liquidity": 26,
+                "funding_rate": 19,
+                "entry_gap": 1,
+                "already_open": 178,
+                "cooldown": 20
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 39,
+                  "target_trades": 0,
+                  "net_closed_pnl": -10.030250393994638
+                }
+              },
+              "estimated_close_equity": 989.9697496060054,
+              "estimated_close_return_pct": -1.0030250393994637,
+              "net_closed_pnl": -10.030250393994638,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 976.931492020626,
+              "account_return_pct": -2.3068507979373987,
+              "max_sampled_drawdown_pct": 2.927523249786168,
+              "closed_trades": 39,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 33.33333333333333,
+              "profit_factor": 0.49500265389311765,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 25,
+                "stop_gap": 10,
+                "target_gap": 2,
+                "target": 2
+              },
+              "fees_closed_trades": 16.039863703304,
+              "funding_debit_closed_trades": 0.0665421360704595,
+              "funding_mark_proxy_events_closed_trades": 69,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "basis": 52,
+                "previous_bar_liquidity": 26,
+                "funding_rate": 19,
+                "entry_gap": 1,
+                "already_open": 181,
+                "cooldown": 17
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 39,
+                  "target_trades": 0,
+                  "net_closed_pnl": -23.06850797937414
+                }
+              },
+              "estimated_close_equity": 976.9314920206259,
+              "estimated_close_return_pct": -2.3068507979374138,
+              "net_closed_pnl": -23.06850797937414,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "range_reversion_1h": {
+          "settings": {
+            "ema_fast": 20,
+            "ema_mid": 50,
+            "ema_slow": 200,
+            "warmup_bars": 200,
+            "ema_slope_bars": 6,
+            "breakout_bars": 20,
+            "stop_atr": 2.0,
+            "min_stop_fraction": 0.01,
+            "max_stop_fraction": 0.05,
+            "entry_direction": "both",
+            "target_margin_return": 0.3,
+            "max_holding_calendar_days": 3,
+            "trail_activation_underlying_return": 0.02,
+            "trail_locked_underlying_return": 0.005,
+            "trail_atr": 2.0,
+            "cooldown_signal_bars": 3,
+            "signal_family": "range_reversion",
+            "signal_timeframe": "1h",
+            "entry_signal_validity_minutes": 60
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 999.0884724963433,
+              "account_return_pct": -0.09115275036566395,
+              "max_sampled_drawdown_pct": 0.4281985959505442,
+              "closed_trades": 4,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 25.0,
+              "profit_factor": 0.6847491282306347,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 3,
+                "stop_gap": 1
+              },
+              "fees_closed_trades": 0.602422913408,
+              "funding_debit_closed_trades": 0.021580014248554324,
+              "funding_mark_proxy_events_closed_trades": 18,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "previous_bar_liquidity": 4,
+                "already_open": 36,
+                "entry_gap": 2,
+                "basis": 8
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 4,
+                  "target_trades": 0,
+                  "net_closed_pnl": -0.911527503656562
+                }
+              },
+              "estimated_close_equity": 999.0884724963435,
+              "estimated_close_return_pct": -0.09115275036565619,
+              "net_closed_pnl": -0.911527503656562,
+              "estimated_open_close_net_pnl": 0
+            },
+            "development_cost2": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 998.3577117972876,
+              "account_return_pct": -0.16422882027123942,
+              "max_sampled_drawdown_pct": 0.43822920810643884,
+              "closed_trades": 4,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 25.0,
+              "profit_factor": 0.4800661930202635,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 3,
+                "stop_gap": 1
+              },
+              "fees_closed_trades": 1.127127256768,
+              "funding_debit_closed_trades": 0.018775537944538845,
+              "funding_mark_proxy_events_closed_trades": 18,
+              "uncredited_ambiguous_funding_events": 1,
+              "skipped_signals": {
+                "previous_bar_liquidity": 4,
+                "already_open": 36,
+                "entry_gap": 2,
+                "basis": 8
+              },
+              "halt_time": null,
+              "open_positions": [],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 4,
+                  "target_trades": 0,
+                  "net_closed_pnl": -1.64228820271253
+                }
+              },
+              "estimated_close_equity": 998.3577117972875,
+              "estimated_close_return_pct": -0.16422882027125302,
+              "net_closed_pnl": -1.64228820271253,
+              "estimated_open_close_net_pnl": 0
+            }
+          },
+          "development_failures": {
+            "1": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "insufficient_closed_trades",
+              "profit_factor_below_gate"
+            ],
+            "2": [
+              "closed_net_pnl_nonpositive",
+              "net_liquidation_equity_nonpositive",
+              "insufficient_closed_trades",
+              "profit_factor_below_gate"
+            ]
+          }
+        },
+        "current_control": {
+          "settings": {
+            "signal_timeframe": "15m",
+            "cooldown_signal_bars": 3,
+            "signal_family": "ema_transition",
+            "research_variant": "transition_8_24_60_slow1",
+            "ema_fast": 8,
+            "ema_mid": 24,
+            "ema_slow": 60,
+            "warmup_bars": 60,
+            "require_price_slow": true,
+            "stop_atr": 2.0,
+            "candidate_id": "skhynixusdt_bidirectional_forward_20261005",
+            "entry_direction": "both"
+          },
+          "runs": {
+            "development_cost1": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1025.6788174063972,
+              "account_return_pct": 2.5678817406397325,
+              "max_sampled_drawdown_pct": 1.7979078156326704,
+              "closed_trades": 25,
+              "target_trades_net_at_least_120pct_margin": 3,
+              "win_rate_pct": 24.0,
+              "profit_factor": 1.7703274403464828,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 21,
+                "target": 3,
+                "stop_gap": 1
+              },
+              "fees_closed_trades": 3.954356084628,
+              "funding_debit_closed_trades": 1.8903475755865478,
+              "funding_mark_proxy_events_closed_trades": 163,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 66,
+                "previous_bar_liquidity": 23,
+                "funding_rate": 34,
+                "already_open": 107,
+                "cooldown": 4,
+                "entry_gap": 1
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SKHYNIXUSDT",
+                  "entry_utc": "2026-08-31T13:45:00+00:00",
+                  "estimated_close_net_pnl": 0.41257041421232366,
+                  "estimated_net_return_initial_margin_pct": 3.605785901034037
+                }
+              ],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 25,
+                  "target_trades": 3,
+                  "net_closed_pnl": 24.941283859785532
+                }
+              },
+              "estimated_close_equity": 1025.3538542739977,
+              "estimated_close_return_pct": 2.5353854273997856,
+              "net_closed_pnl": 24.941283859785532,
+              "estimated_open_close_net_pnl": 0.41257041421232366
+            },
+            "development_cost2": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-09-01T00:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1019.8641766737322,
+              "account_return_pct": 1.9864176673732192,
+              "max_sampled_drawdown_pct": 1.745046260099764,
+              "closed_trades": 25,
+              "target_trades_net_at_least_120pct_margin": 3,
+              "win_rate_pct": 24.0,
+              "profit_factor": 1.586885685465102,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 20,
+                "target": 3,
+                "stop_gap": 2
+              },
+              "fees_closed_trades": 7.321824364728,
+              "funding_debit_closed_trades": 1.761443916135421,
+              "funding_mark_proxy_events_closed_trades": 163,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 66,
+                "previous_bar_liquidity": 23,
+                "funding_rate": 34,
+                "already_open": 107,
+                "cooldown": 4,
+                "entry_gap": 1
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SKHYNIXUSDT",
+                  "entry_utc": "2026-08-31T13:45:00+00:00",
+                  "estimated_close_net_pnl": 0.12405370744498723,
+                  "estimated_net_return_initial_margin_pct": 1.19876401664164
+                }
+              ],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 25,
+                  "target_trades": 3,
+                  "net_closed_pnl": 19.3214520671367
+                }
+              },
+              "estimated_close_equity": 1019.4455057745816,
+              "estimated_close_return_pct": 1.9445505774581686,
+              "net_closed_pnl": 19.3214520671367,
+              "estimated_open_close_net_pnl": 0.12405370744498723
+            },
+            "validation_cost1": {
+              "start_utc": "2026-09-01T00:00:00+00:00",
+              "end_utc_exclusive": "2026-10-04T12:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1006.5960081797766,
+              "account_return_pct": 0.659600817977668,
+              "max_sampled_drawdown_pct": 1.3617943407498865,
+              "closed_trades": 13,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 30.76923076923077,
+              "profit_factor": 1.286599341136802,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 8,
+                "stop_gap": 5
+              },
+              "fees_closed_trades": 2.7452964504360002,
+              "funding_debit_closed_trades": 0.6470334856973189,
+              "funding_mark_proxy_events_closed_trades": 113,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 18,
+                "funding_rate": 3,
+                "already_open": 64,
+                "previous_bar_liquidity": 7,
+                "entry_gap": 1
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SKHYNIXUSDT",
+                  "entry_utc": "2026-10-02T12:45:00+00:00",
+                  "estimated_close_net_pnl": -0.022820061270000913,
+                  "estimated_net_return_initial_margin_pct": -3.3231131815207244
+                }
+              ],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 13,
+                  "target_trades": 0,
+                  "net_closed_pnl": 6.606430351866686
+                }
+              },
+              "estimated_close_equity": 1006.5836102905968,
+              "estimated_close_return_pct": 0.6583610290596685,
+              "net_closed_pnl": 6.606430351866686,
+              "estimated_open_close_net_pnl": -0.022820061270000913,
+              "trade_diagnostics": {
+                "closed_pnl": 6.606430351866686,
+                "closed_return_pct_initial_capital": 0.6606430351866686,
+                "closed_return_without_largest_winner_pct": -0.41224080485770176,
+                "largest_winner_share_gross_profit_pct": 36.175763526152984,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 6,
+                    "net_pnl": 12.720032465120092,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 7,
+                    "net_pnl": -6.113602113253405,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 4,
+                  "trade_count": 13,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.15356105975272347,
+                  "mean_trade_pnl_pct_initial_capital_p50": 0.04861389763055336,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.2552194717053898
+                }
+              }
+            },
+            "validation_cost2": {
+              "start_utc": "2026-09-01T00:00:00+00:00",
+              "end_utc_exclusive": "2026-10-04T12:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1003.0617902215498,
+              "account_return_pct": 0.30617902215497317,
+              "max_sampled_drawdown_pct": 1.3692167265498247,
+              "closed_trades": 13,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 30.76923076923077,
+              "profit_factor": 1.1336348169418375,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 8,
+                "stop_gap": 5
+              },
+              "fees_closed_trades": 4.982773222232001,
+              "funding_debit_closed_trades": 0.5874252367083886,
+              "funding_mark_proxy_events_closed_trades": 113,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 18,
+                "funding_rate": 3,
+                "already_open": 64,
+                "previous_bar_liquidity": 7,
+                "entry_gap": 1
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SKHYNIXUSDT",
+                  "entry_utc": "2026-10-02T12:45:00+00:00",
+                  "estimated_close_net_pnl": -0.03929012508000078,
+                  "estimated_net_return_initial_margin_pct": -5.720380341971719
+                }
+              ],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 13,
+                  "target_trades": 0,
+                  "net_closed_pnl": 3.080455353059712
+                }
+              },
+              "estimated_close_equity": 1003.0411652279797,
+              "estimated_close_return_pct": 0.3041165227979711,
+              "net_closed_pnl": 3.080455353059712,
+              "estimated_open_close_net_pnl": -0.03929012508000078,
+              "trade_diagnostics": {
+                "closed_pnl": 3.080455353059712,
+                "closed_return_pct_initial_capital": 0.3080455353059712,
+                "closed_return_without_largest_winner_pct": -0.6415264016609112,
+                "largest_winner_share_gross_profit_pct": 36.3378643953315,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 6,
+                    "net_pnl": 10.356789883816711,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 7,
+                    "net_pnl": -7.2763345307569995,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 4,
+                  "trade_count": 13,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.16274245578632032,
+                  "mean_trade_pnl_pct_initial_capital_p50": 0.01990677017401768,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.2103121093947933
+                }
+              }
+            },
+            "recent30d_cost1": {
+              "start_utc": "2026-09-04T12:00:00+00:00",
+              "end_utc_exclusive": "2026-10-04T12:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 999.8650121127082,
+              "account_return_pct": -0.013498788729182642,
+              "max_sampled_drawdown_pct": 1.3620786332484796,
+              "closed_trades": 11,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 27.27272727272727,
+              "profit_factor": 0.993921433285305,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 7,
+                "stop_gap": 4
+              },
+              "fees_closed_trades": 2.271737136116,
+              "funding_debit_closed_trades": 0.5179010270851708,
+              "funding_mark_proxy_events_closed_trades": 99,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 16,
+                "previous_bar_liquidity": 7,
+                "already_open": 58,
+                "funding_rate": 2,
+                "entry_gap": 1
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SKHYNIXUSDT",
+                  "entry_utc": "2026-10-02T12:45:00+00:00",
+                  "estimated_close_net_pnl": -0.022820061270000913,
+                  "estimated_net_return_initial_margin_pct": -3.3231131815207244
+                }
+              ],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 11,
+                  "target_trades": 0,
+                  "net_closed_pnl": -0.12456571520115645
+                }
+              },
+              "estimated_close_equity": 999.8526142235289,
+              "estimated_close_return_pct": -0.014738577647115735,
+              "net_closed_pnl": -0.12456571520115645,
+              "estimated_open_close_net_pnl": -0.022820061270000913,
+              "trade_diagnostics": {
+                "closed_pnl": -0.12456571520115645,
+                "closed_return_pct_initial_capital": -0.012456571520115645,
+                "closed_return_without_largest_winner_pct": -1.0853404115644858,
+                "largest_winner_share_gross_profit_pct": 52.67485025523458,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 5,
+                    "net_pnl": 3.606295363391756,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 6,
+                    "net_pnl": -3.7308610785929126,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 4,
+                  "trade_count": 11,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.15144355530048081,
+                  "mean_trade_pnl_pct_initial_capital_p50": -0.0008356227052827387,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.13281255729381602
+                }
+              }
+            },
+            "recent30d_cost2": {
+              "start_utc": "2026-09-04T12:00:00+00:00",
+              "end_utc_exclusive": "2026-10-04T12:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 997.5695877156568,
+              "account_return_pct": -0.2430412284343264,
+              "max_sampled_drawdown_pct": 1.3703454989958237,
+              "closed_trades": 11,
+              "target_trades_net_at_least_120pct_margin": 0,
+              "win_rate_pct": 27.27272727272727,
+              "profit_factor": 0.882310761754077,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 7,
+                "stop_gap": 4
+              },
+              "fees_closed_trades": 4.129134629696,
+              "funding_debit_closed_trades": 0.46966511513709547,
+              "funding_mark_proxy_events_closed_trades": 99,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 16,
+                "previous_bar_liquidity": 7,
+                "already_open": 58,
+                "funding_rate": 2,
+                "entry_gap": 1
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SKHYNIXUSDT",
+                  "entry_utc": "2026-10-02T12:45:00+00:00",
+                  "estimated_close_net_pnl": -0.03929012508000078,
+                  "estimated_net_return_initial_margin_pct": -5.720380341971719
+                }
+              ],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 11,
+                  "target_trades": 0,
+                  "net_closed_pnl": -2.411747152832998
+                }
+              },
+              "estimated_close_equity": 997.548962722087,
+              "estimated_close_return_pct": -0.24510372779129988,
+              "net_closed_pnl": -2.411747152832998,
+              "estimated_open_close_net_pnl": -0.03929012508000078,
+              "trade_diagnostics": {
+                "closed_pnl": -2.411747152832998,
+                "closed_return_pct_initial_capital": -0.2411747152832998,
+                "closed_return_without_largest_winner_pct": -1.1907466522501824,
+                "largest_winner_share_gross_profit_pct": 52.51837406896701,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 5,
+                    "net_pnl": 2.3383224202634603,
+                    "net120_targets": 0
+                  },
+                  "short": {
+                    "closed_trades": 6,
+                    "net_pnl": -4.750069573096457,
+                    "net120_targets": 0
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 4,
+                  "trade_count": 11,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.16092296221652394,
+                  "mean_trade_pnl_pct_initial_capital_p50": -0.021600079542253223,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.10237130237844723
+                }
+              }
+            },
+            "full_cost1": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-10-04T12:00:00+00:00",
+              "cost_multiplier": 1,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1029.158479551198,
+              "account_return_pct": 2.91584795511981,
+              "max_sampled_drawdown_pct": 1.7979078156326704,
+              "closed_trades": 39,
+              "target_trades_net_at_least_120pct_margin": 3,
+              "win_rate_pct": 25.64102564102564,
+              "profit_factor": 1.4988324713467238,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 30,
+                "target": 3,
+                "stop_gap": 6
+              },
+              "fees_closed_trades": 6.988422282028,
+              "funding_debit_closed_trades": 2.5348499346844404,
+              "funding_mark_proxy_events_closed_trades": 281,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 83,
+                "previous_bar_liquidity": 30,
+                "funding_rate": 37,
+                "already_open": 172,
+                "cooldown": 4,
+                "entry_gap": 2
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SKHYNIXUSDT",
+                  "entry_utc": "2026-10-02T12:45:00+00:00",
+                  "estimated_close_net_pnl": -0.022820061270000913,
+                  "estimated_net_return_initial_margin_pct": -3.3231131815207244
+                }
+              ],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 39,
+                  "target_trades": 3,
+                  "net_closed_pnl": 29.168901723287625
+                }
+              },
+              "estimated_close_equity": 1029.1460816620177,
+              "estimated_close_return_pct": 2.9146081662017624,
+              "net_closed_pnl": 29.168901723287625,
+              "estimated_open_close_net_pnl": -0.022820061270000913,
+              "trade_diagnostics": {
+                "closed_pnl": 29.168901723287625,
+                "closed_return_pct_initial_capital": 2.9168901723287624,
+                "closed_return_without_largest_winner_pct": 1.550401371079166,
+                "largest_winner_share_gross_profit_pct": 15.591490067094025,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 21,
+                    "net_pnl": 24.070164062785246,
+                    "net120_targets": 1
+                  },
+                  "short": {
+                    "closed_trades": 18,
+                    "net_pnl": 5.0987376605023815,
+                    "net120_targets": 2
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 7,
+                  "trade_count": 39,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.0005489229595178023,
+                  "mean_trade_pnl_pct_initial_capital_p50": 0.06691250864389545,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.1530295692125994
+                }
+              }
+            },
+            "full_cost2": {
+              "start_utc": "2026-05-29T09:00:00+00:00",
+              "end_utc_exclusive": "2026-10-04T12:00:00+00:00",
+              "cost_multiplier": 2,
+              "initial_equity": 1000,
+              "execution_step_ms": 300000,
+              "final_mark_equity": 1020.2086058653575,
+              "account_return_pct": 2.0208605865357443,
+              "max_sampled_drawdown_pct": 1.745046260099764,
+              "closed_trades": 39,
+              "target_trades_net_at_least_120pct_margin": 3,
+              "win_rate_pct": 25.64102564102564,
+              "profit_factor": 1.3440245401029802,
+              "liquidation_stress_count": 0,
+              "exit_reasons": {
+                "stop": 29,
+                "target": 3,
+                "stop_gap": 7
+              },
+              "fees_closed_trades": 12.79707011532,
+              "funding_debit_closed_trades": 2.347088795813131,
+              "funding_mark_proxy_events_closed_trades": 281,
+              "uncredited_ambiguous_funding_events": 0,
+              "skipped_signals": {
+                "basis": 83,
+                "previous_bar_liquidity": 30,
+                "funding_rate": 37,
+                "already_open": 172,
+                "cooldown": 4,
+                "entry_gap": 2
+              },
+              "halt_time": null,
+              "open_positions": [
+                {
+                  "symbol": "SKHYNIXUSDT",
+                  "entry_utc": "2026-10-02T12:45:00+00:00",
+                  "estimated_close_net_pnl": -0.03929012508000078,
+                  "estimated_net_return_initial_margin_pct": -5.720380341971719
+                }
+              ],
+              "symbol_summaries": {
+                "SKHYNIXUSDT": {
+                  "closed_trades": 39,
+                  "target_trades": 3,
+                  "net_closed_pnl": 20.22727099686709
+                }
+              },
+              "estimated_close_equity": 1020.1879808717871,
+              "estimated_close_return_pct": 2.018798087178709,
+              "net_closed_pnl": 20.22727099686709,
+              "estimated_open_close_net_pnl": -0.03929012508000078,
+              "trade_diagnostics": {
+                "closed_pnl": 20.22727099686709,
+                "closed_return_pct_initial_capital": 2.0227270996867093,
+                "closed_return_without_largest_winner_pct": 0.7841321040524615,
+                "largest_winner_share_gross_profit_pct": 15.673798256242923,
+                "by_side": {
+                  "long": {
+                    "closed_trades": 21,
+                    "net_pnl": 18.778846530419482,
+                    "net120_targets": 1
+                  },
+                  "short": {
+                    "closed_trades": 18,
+                    "net_pnl": 1.4484244664476091,
+                    "net120_targets": 2
+                  }
+                },
+                "bootstrap_warning": "Conditional circular trade-block resampling of the selected historical trades, not independent evidence or a forecast of account returns. No compounding, unseen trades or terminal open inventory included.",
+                "historical_trade_block_bootstrap": {
+                  "samples": 500,
+                  "seed": 20261004,
+                  "block_length": 7,
+                  "trade_count": 39,
+                  "sample_below_10_closed_trades": false,
+                  "mean_trade_pnl_pct_initial_capital_p05": -0.019013333853192607,
+                  "mean_trade_pnl_pct_initial_capital_p50": 0.044837227323282505,
+                  "mean_trade_pnl_pct_initial_capital_p95": 0.12344793660448967
+                }
+              }
+            }
+          },
+          "development_failures": {
+            "1": [],
+            "2": []
+          }
+        }
+      },
+      "development_selected": "current_control",
+      "selected_passes_audit": false,
+      "audit_failures": [
+        "recent30d_cost1: closed_net_pnl_nonpositive",
+        "recent30d_cost1: net_liquidation_equity_nonpositive",
+        "recent30d_cost1: profit_factor_below_gate",
+        "recent30d_cost2: closed_net_pnl_nonpositive",
+        "recent30d_cost2: net_liquidation_equity_nonpositive",
+        "recent30d_cost2: profit_factor_below_gate"
+      ],
+      "forward_validated": false
+    }
+  }
+}

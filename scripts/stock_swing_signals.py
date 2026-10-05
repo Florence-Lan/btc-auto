@@ -1,6 +1,6 @@
 """Causal signals and risk arithmetic for an isolated stock-perpetual study.
 
-The caller must supply completed, consecutive 4-hour candles. No exchange client,
+The caller must supply completed, consecutive signal candles. No exchange client,
 orders, account state, or active BTC strategy is imported by this module. Prices
 used by the risk helpers are actual entry fills; slippage on that fill must not be
 charged a second time.
@@ -213,12 +213,14 @@ def initial_stop(
 def target_exit_price(
     entry: float, direction: int, funding_debit_per_unit: float,
     fee_rate: float, target_margin_return: float = 1.2, leverage: float = 10,
+    *, entry_fee_per_unit: float | None = None,
 ) -> float:
     """Actual exit fill giving the requested net return on initial margin.
 
     Funding debits are positive and credits negative. Entry and exit fees are
     charged on their respective actual notional values. Slippage is represented
     by actual entry/exit fills and is not another fee in this equation.
+    An explicit entry fee preserves the actual paid cost across later fee revisions.
     """
     price = _positive(entry, "entry")
     side = _direction(direction)
@@ -228,7 +230,13 @@ def target_exit_price(
     multiple = _positive(leverage, "leverage")
     if not 0 <= fee < 1 or target < 0:
         raise ValueError("Fee must be in [0, 1) and target return must be nonnegative")
-    exit_price = (price * (side + target / multiple + fee) + funding) / (side - fee)
+    if entry_fee_per_unit is None:
+        exit_price = (price * (side + target / multiple + fee) + funding) / (side - fee)
+    else:
+        paid_entry_fee = _finite(entry_fee_per_unit, 'entry fee per unit')
+        if paid_entry_fee < 0:
+            raise ValueError('Entry fee cannot be negative')
+        exit_price = (price * (side + target / multiple) + paid_entry_fee + funding) / (side - fee)
     if exit_price <= 0 or not math.isfinite(exit_price):
         raise ValueError("Requested net target has no positive exit price")
     return exit_price
