@@ -26,6 +26,7 @@ import decision_runtime
 import simulation_risk_monitor
 import stock_swing_profiles
 import stock_swing_signals as signals
+import stock_profit_exits as profit_exits
 import stock_research_entry_policy as entry_policy
 from trading_execution import SimulationAccount, execute_report, read_json, write_json
 
@@ -140,6 +141,7 @@ class StockAccount:
         self.signal_timeframe = config.get('signal_timeframe', '4h')
         self.signal_interval_ms = SIGNAL_INTERVALS[self.signal_timeframe]
         entry_policy.validate({**config, 'symbols': [symbol]}, FIVE_MINUTES)
+        profit_exits.validate(config)
         self.signal_bars = []
         self.five = []
         self.candle_bucket = None
@@ -169,10 +171,14 @@ class StockAccount:
                 debit = qty * float(price) * float(event['fundingRate'])
                 state['wallet_balance'] -= debit
                 state['funding_pnl'] -= debit
+                open_debit = 0.0
                 if state['position'] and event_time > state['position']['entry_time']:
-                    state['position']['funding'] += debit
+                    # A late event can refer to inventory larger than today's residual.
+                    open_debit = debit * min(1.0, state['position']['qty'] / abs(qty))
+                    state['position']['funding'] += open_debit
                 journal(self.path.with_name('funding.jsonl'), {**event, 'debit': debit,
-                    'inventory_qty': qty, 'settlement_price': float(price), 'price_method': method})
+                    'inventory_qty': qty, 'settlement_price': float(price), 'price_method': method,
+                    'open_funding_debit': open_debit, 'closed_funding_debit': debit - open_debit})
             state['settled_funding'].append(key)
             known.add(key)
 
@@ -192,10 +198,8 @@ class StockAccount:
         journal(self.path.with_name('fills.jsonl'), record)
         return record
 
-    def step(self):
+    def market_data(self, force_rules=False, force_signal=False):
         state = json.loads(self.path.read_text())  # Corrupt ledgers never reset silently.
-        cfg = self.config
-        errors = {}
         def fetch(label, endpoint, params):
             try:
                 return label, self.venue.get(endpoint, params), None
@@ -209,12 +213,50 @@ class StockAccount:
                             # Closed volumes can be revised after their first publication.
                             # Refresh execution liquidity on every poll, independently of signals.
                             ('five', 'klines', {'symbol': self.symbol, 'interval': '5m', 'limit': 12})]
-        if self.rules is None or now_ms() - self.rules_at_ms >= 3_600_000:
+        if force_rules or self.rules is None or now_ms() - self.rules_at_ms >= 3_600_000:
             requests_to_make.append(('rules', 'exchangeInfo', {}))
-        if self.candle_bucket != now_ms() // FIVE_MINUTES:
+        if force_signal or self.candle_bucket != now_ms() // FIVE_MINUTES:
             requests_to_make.append(('signal', 'klines', {'symbol': self.symbol, 'interval': self.signal_timeframe, 'limit': 500}))
         with ThreadPoolExecutor(max_workers=7) as pool:
-            responses = list(pool.map(lambda args: fetch(*args), requests_to_make))
+            return list(pool.map(lambda args: fetch(*args), requests_to_make))
+
+    def close(self, state, pos, book, requested, reason, trigger_ms, step, min_qty):
+        """Book one observed exit leg and allocate costs to that leg exactly once."""
+        result = book_fill(book, -pos['direction'] * requested, step,
+                           self.config['adverse_slippage_fraction_assumption'])
+        if result['qty'] < min_qty:
+            return pos
+        record = self.fill(state, result, now_ms(), -pos['direction'], reason, trigger_ms)
+        gross = pos['direction'] * result['qty'] * (result['price'] - pos['entry'])
+        state['wallet_balance'] += gross
+        state['realized_pnl'] += gross
+        fraction = result['qty'] / pos['qty']
+        remainder = floor_qty(Decimal(str(pos['qty'])) - Decimal(str(result['qty'])), step)
+        journal(self.path.with_name('closed_trades.jsonl'), {**record, 'gross_pnl': gross,
+            'allocated_entry_fee': pos['entry_fee'] * fraction,
+            'allocated_funding_debit': pos['funding'] * fraction,
+            'net_pnl': gross - record['fee'] - pos['entry_fee'] * fraction - pos['funding'] * fraction,
+            'entry_time_ms': pos['entry_time'], 'signal_time_ms': pos['signal_time'],
+            'position_closed': remainder <= 0, 'remaining_qty': remainder})
+        if reason == 'one_r_partial':
+            profit_exits.record_partial(pos, result['qty'], step)
+        pos['qty'] = remainder
+        for key in ('margin', 'entry_fee', 'funding'):
+            pos[key] *= 1 - fraction
+        if remainder <= 0:
+            state['position'] = None
+            state['cooldown_until_ms'] = now_ms() + (
+                self.config['cooldown_signal_bars'] * self.signal_interval_ms
+                if 'cooldown_signal_bars' in self.config else self.config['cooldown_4h_bars'] * FOUR_HOURS)
+        state['position_history'].append({'time_ms': record['time_ms'],
+            'signed_qty': pos['direction'] * remainder})
+        return pos if remainder > 0 else None
+
+    def step(self, market_data=None):
+        state = json.loads(self.path.read_text())  # Corrupt ledgers never reset silently.
+        cfg = self.config
+        errors = {}
+        responses = self.market_data() if market_data is None else market_data
         data = {}
         for label, payload, error in responses:
             data[label] = payload
@@ -297,7 +339,22 @@ class StockAccount:
         if pos:
             side = pos['direction']
             executable = (bid if side == 1 else ask) if fresh_book else price
-            target = signals.target_exit_price(pos['entry'], side, pos['funding'] / pos['qty'],
+            managed = profit_exits.enabled(cfg)
+            atr = atr_bar_ms = None
+            if managed and fresh_book and lot:
+                profit_exits.observe(pos, executable, cfg, timestamp, step,
+                                     float(lot['minQty']), minimum)
+                if self.signal_bars and not errors.get('signal'):
+                    latest = self.signal_bars[-1]
+                    if timestamp - self.signal_interval_ms - 5000 <= int(latest[6]) < timestamp:
+                        try:
+                            bars = [arithmetic.candle(row) for row in self.signal_bars]
+                            atr = signals.compute_indicators(bars, cfg)['atr'][-1]
+                            atr_bar_ms = int(latest[6])
+                        except (ValueError, KeyError, IndexError, TypeError) as exc:
+                            errors['profit_atr'] = type(exc).__name__ + ': ' + str(exc)[:160]
+                profit_exits.protect(pos, cfg, tick, atr, atr_bar_ms)
+            target = None if managed else signals.target_exit_price(pos['entry'], side, pos['funding'] / pos['qty'],
                 cfg['taker_fee_rate_assumption'], cfg['target_margin_return'], cfg['leverage'],
                 entry_fee_per_unit=pos['entry_fee'] / pos['qty'])
             reason = None
@@ -307,7 +364,7 @@ class StockAccount:
                 reason = 'liquidation_stress'
             elif side * (executable - pos['stop']) <= 0:
                 reason = 'protective_stop'
-            elif fresh_book and side * (executable * (1 - side * cfg['adverse_slippage_fraction_assumption']) - target) >= 0:
+            elif not managed and fresh_book and side * (executable * (1 - side * cfg['adverse_slippage_fraction_assumption']) - target) >= 0:
                 reason = 'net120_target'
             elif timestamp - pos['entry_time'] >= cfg['max_holding_calendar_days'] * 86_400_000:
                 reason = 'time_stop'
@@ -321,26 +378,19 @@ class StockAccount:
                 fresh(mark['time'], now_ms())
                 result = book_fill(book, -side * pos['qty'], step, cfg['adverse_slippage_fraction_assumption'])
                 if result['qty'] >= float(lot['minQty']):
-                    record = self.fill(state, result, now_ms(), -side, pos['pending_exit'], pos['trigger_observed_at_ms'])
-                    gross = side * result['qty'] * (result['price'] - pos['entry'])
-                    state['wallet_balance'] += gross
-                    state['realized_pnl'] += gross
-                    fraction = result['qty'] / pos['qty']
-                    journal(self.path.with_name('closed_trades.jsonl'), {**record, 'gross_pnl': gross,
-                        'allocated_entry_fee': pos['entry_fee'] * fraction, 'allocated_funding_debit': pos['funding'] * fraction,
-                        'net_pnl': gross - record['fee'] - pos['entry_fee'] * fraction - pos['funding'] * fraction,
-                        'entry_time_ms': pos['entry_time'], 'signal_time_ms': pos['signal_time']})
-                    pos['qty'] = floor_qty(max(0, pos['qty'] - result['qty']), step)
-                    for key in ('margin', 'entry_fee', 'funding'):
-                        pos[key] *= 1 - fraction
-                    if pos['qty'] <= 0:
-                        state['position'] = pos = None
-                        state['cooldown_until_ms'] = timestamp + (
-                            cfg['cooldown_signal_bars'] * self.signal_interval_ms
-                            if 'cooldown_signal_bars' in cfg else cfg['cooldown_4h_bars'] * FOUR_HOURS)
-                    state['position_history'].append({'time_ms': record['time_ms'], 'signed_qty': side * pos['qty'] if pos else 0})
+                    pos = self.close(state, pos, book, pos['qty'], pos['pending_exit'],
+                                     pos['trigger_observed_at_ms'], step, float(lot['minQty']))
+            elif managed and fresh_book and lot and not pos.get('pending_exit'):
+                requested = profit_exits.requested_qty(pos, step)
+                if requested >= float(lot['minQty']):
+                    fresh(book.get('T') or book.get('E'), now_ms())
+                    fresh(mark['time'], now_ms())
+                    pos = self.close(state, pos, book, requested, 'one_r_partial',
+                                     pos['profit_exit']['trigger_observed_at_ms'], step, float(lot['minQty']))
+                    if pos:
+                        profit_exits.protect(pos, cfg, tick, atr, atr_bar_ms)
             # Trailing update only from a newly closed signal bar and AFTER current-stop checks.
-            if pos and self.signal_bars and not errors.get('signal'):
+            if not managed and pos and self.signal_bars and not errors.get('signal'):
                 latest = self.signal_bars[-1]
                 if int(latest[6]) > pos.get('last_trail_bar_ms', 0):
                     bars = [arithmetic.candle(row) for row in self.signal_bars]
@@ -365,7 +415,7 @@ class StockAccount:
         if pending and timestamp >= pending['expires_at_ms']:
             state['pending_signal'] = pending = None
             state['signal_status'] = 'signal_expired'
-        if not pos and self.signal_bars and clock and not errors.get('signal'):
+        if not pos and self.signal_bars and clock and not errors.get('signal') and not errors.get('profit_atr'):
             boundary = int(self.signal_bars[-1][0]) + self.signal_interval_ms
             active_after = state.get('signal_active_after_ms', state['start_ms'])
             if (boundary >= active_after and boundary == timestamp // self.signal_interval_ms * self.signal_interval_ms
@@ -440,6 +490,7 @@ class StockAccount:
                                         cfg['taker_fee_rate_assumption'], cfg['adverse_slippage_fraction_assumption'])
                                     candidate = {'entry': result['price'], 'qty': result['qty'], 'direction': sig.direction,
                                         'entry_time': now_ms(), 'signal_time': boundary, 'stop': stop,
+                                        'initial_stop': stop,
                                         'entry_fee': result['qty'] * result['price'] * cfg['taker_fee_rate_assumption'],
                                         'margin': result['qty'] * result['price'] / 10, 'funding': 0.0, 'atr': sig.atr}
                                     liq = arithmetic.liquidation_price(candidate, cfg['maintenance_margin_fraction_assumption'])
@@ -491,6 +542,9 @@ class StockAccount:
         observation['pending_signal'] = state.get('pending_signal')
         observation['entry_checks'] = state['entry_checks']
         observation['entry_blockers'] = state['entry_blockers']
+        state['profit_exit_status'] = ({**pos.get('profit_exit', {}), 'stop': pos['stop']}
+            if pos and profit_exits.enabled(cfg) else None)
+        observation['profit_exit_status'] = state['profit_exit_status']
         if 'signal' in data:
             observation['signal_candles'] = self.signal_bars
         if 'five' in data and not errors.get('five'):
@@ -504,12 +558,13 @@ def stock_config(plan, symbol):
     profile = json.loads((ROOT / plan['stock_research_profile']).read_text())
     base = json.loads((ROOT / profile['base_config']).read_text())
     common = {key: profile[key] for key in ('signal_timeframe', 'execution_timeframe', 'cooldown_signal_bars',
-                                          'max_entry_spread_fraction') if key in profile}
+                                          'max_entry_spread_fraction', 'profit_exit_policy') if key in profile}
     cfg = {**base, **common, **profile['symbol_profiles'][symbol],
         'candidate_id': profile['symbol_profiles'][symbol].get('candidate_id', profile['candidate_id']),
         'risk_fraction_per_trade': profile['risk_fraction_per_bucket_trade'],
         'initial_equity_usdt': 1000, 'leverage': 10}
     SIGNAL_INTERVALS[cfg['signal_timeframe']]  # Validate before changing any account.
+    profit_exits.validate(cfg)
     return cfg
 
 
@@ -528,21 +583,63 @@ def synchronize_stock_rules(plan, root, manifest):
         cfg = configs[account_id]
         if state['rule'] == cfg:
             continue
+        exit_only = plan.get('stock_rule_revision_scope') == 'profit_exits_only'
+        if exit_only:
+            ignored = {'profit_exit_policy', 'candidate_id'}
+            if ({k: v for k, v in state['rule'].items() if k not in ignored}
+                    != {k: v for k, v in cfg.items() if k not in ignored}):
+                raise ValueError('Exit-only migration cannot alter entry or risk settings')
         write_json(root / 'rule_revisions' / str(activated) / account_id / 'previous_state.json', state)
         revision = {'activated_at_ms': activated, 'activated_at_utc': arithmetic.iso(activated),
             'previous_rule': state['rule'], 'new_rule': cfg,
             'source_hash': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             'reason': plan.get('stock_rule_revision_reason', 'User authorized independent per-account strategies and shorter stock signal cycles; closed-bar signals with 30s entry retries.')}
         state.setdefault('rule_history', []).append(revision)
-        state.update(rule=cfg, signal_timeframe=cfg['signal_timeframe'], signal_active_after_ms=activated,
-            last_signal_time_ms=None, last_signal_result=None, pending_signal=None,
-            signal_status='waiting_for_first_forward_candle')
+        state.update(rule=cfg, signal_timeframe=cfg['signal_timeframe'])
+        if not exit_only:
+            state.update(signal_active_after_ms=activated, last_signal_time_ms=None,
+                last_signal_result=None, pending_signal=None, signal_status='waiting_for_first_forward_candle')
         write_json(path, state)
         journal(path.with_name('rule_revisions.jsonl'), revision)
         revisions.append({'account_id': account_id, **revision})
     if revisions:
         manifest.setdefault('rule_revisions', []).extend(revisions)
         write_json(root / 'manifest.json', manifest)
+
+
+def prepare_profit_comparison(plan, root):
+    """Clone cash/inventory before exit migration; the old-rule control has its own ledger."""
+    comparison = plan.get('profit_exit_comparison')
+    if not comparison:
+        return None
+    path = root / comparison['directory']
+    manifest_path = path / 'manifest.json'
+    stocks = [a for a in plan['accounts'] if a['account_id'] != 'btc']
+    if manifest_path.exists():
+        manifest = read_json(manifest_path)
+        for account in stocks:
+            if not (path / account['account_id'] / 'state.json').exists():
+                raise RuntimeError('Existing profit comparison missing a control ledger')
+        return path, manifest
+    if path.exists():
+        raise RuntimeError('Incomplete profit comparison; refusing to reset controls')
+    path.mkdir(parents=True)
+    timestamp = now_ms()
+    manifest = {'activated_at_ms': timestamp, 'activated_at_utc': arithmetic.iso(timestamp),
+        'places_orders': False, 'baseline': {}, 'control_rules': {},
+        'comparison_basis': 'equity/wallet changes from identical activation inventory; same public responses',
+        'existing_positions': 'new exit extrema begin at first post-activation executable quote'}
+    for account in stocks:
+        state = read_json(ROOT / account['state_path'])
+        if profit_exits.enabled(state['rule']):
+            raise RuntimeError('Control must be captured before profit-rule activation')
+        account_id = account['account_id']
+        write_json(path / account_id / 'state.json', state)
+        manifest['baseline'][account_id] = {k: state.get(k) for k in (
+            'equity', 'wallet_balance', 'realized_pnl', 'fees_paid', 'funding_pnl', 'fill_count_total', 'position_qty')}
+        manifest['control_rules'][account_id] = state['rule']
+    write_json(manifest_path, manifest)
+    return path, manifest
 
 
 def bootstrap(plan):
@@ -639,6 +736,7 @@ def main():
     lock = (root / 'runner.lock').open('a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     root, manifest = bootstrap(plan)
+    comparison = prepare_profit_comparison(plan, root)
     synchronize_stock_rules(plan, root, manifest)
     status_path = root / 'status.json'
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -646,6 +744,8 @@ def main():
     venue = PublicAster()
     client = BinanceTerminalClient()
     workers = {}
+    controls = {}
+    control_shared = {}
     shared = {}
     mutex = threading.Lock()
     def publish():
@@ -653,21 +753,47 @@ def main():
             write_json(status_path, {'plan_id': plan['plan_id'], 'mode': 'SIMULATION', 'places_orders': False,
                 'pid': os.getpid(), 'running': not STOP.is_set(), 'started_at_utc': manifest['start_utc'],
                 'updated_at_utc': arithmetic.iso(now_ms()), 'poll_seconds': args.poll_seconds,
-                'accounts': dict(shared), 'forward_validated': False})
+                'accounts': dict(shared), 'forward_validated': False,
+                'profit_exit_comparison': ({'activated_at_utc': comparison[1]['activated_at_utc'],
+                    'baseline': comparison[1]['baseline'], 'controls': dict(control_shared)} if comparison else None)})
     for account in plan['accounts']:
         if account['account_id'] != 'btc':
             state = json.loads((ROOT / account['state_path']).read_text())
             workers[account['account_id']] = StockAccount(ROOT / account['state_path'], venue,
                 account['symbol'], state['rule'])
+            if comparison:
+                path = comparison[0] / account['account_id'] / 'state.json'
+                controls[account['account_id']] = StockAccount(path, venue, account['symbol'], read_json(path)['rule'])
     def run(account):
         account_id = account['account_id']
         while not STOP.is_set():
             try:
-                result = btc_step(account, root, manifest, client) if account_id == 'btc' else workers[account_id].step()
+                if account_id == 'btc':
+                    result = btc_step(account, root, manifest, client)
+                elif account_id in controls:
+                    responses = workers[account_id].market_data(
+                        force_rules=controls[account_id].rules is None,
+                        force_signal=controls[account_id].candle_bucket != now_ms() // FIVE_MINUTES)
+                    # Read once for both arms, including contract rules and closed candles.
+                    try:
+                        control = controls[account_id].step(responses)
+                        control_view = {k: control.get(k) for k in ('equity', 'wallet_balance',
+                            'realized_pnl', 'fees_paid', 'funding_pnl', 'position_qty', 'fill_count_total',
+                            'status', 'checked_at_utc', 'errors')}
+                    except Exception as exc:
+                        control_view = {'status': 'degraded', 'checked_at_utc': arithmetic.iso(now_ms()),
+                            'errors': {'worker': type(exc).__name__ + ': ' + str(exc)[:180]}}
+                        journal(controls[account_id].path.with_name('errors.jsonl'), control_view)
+                    with mutex:
+                        control_shared[account_id] = control_view
+                    result = workers[account_id].step(responses)
+                else:
+                    result = workers[account_id].step()
                 view = {k: result.get(k) for k in ('symbol', 'status', 'checked_at_utc', 'equity', 'wallet_balance',
                     'return_pct', 'position_qty', 'fill_count_total', 'fees_paid', 'funding_pnl', 'max_drawdown_pct',
                     'last_mark_price', 'signal_status', 'signal_timeframe', 'signal_family', 'entry_direction', 'next_signal_time_ms',
-                    'last_signal_time_ms', 'signal_active_after_ms', 'entry_checks', 'entry_blockers', 'entry_qualification', 'errors', 'observations')}
+                    'last_signal_time_ms', 'signal_active_after_ms', 'entry_checks', 'entry_blockers', 'entry_qualification', 'errors', 'observations',
+                    'profit_exit_status', 'realized_pnl')}
                 with mutex:
                     shared[account_id] = view
             except Exception as exc:

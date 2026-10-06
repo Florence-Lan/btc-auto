@@ -12,7 +12,7 @@
   "start_policy": "Create a new comparison generation with a common prospective start timestamp; preserve existing accounts and histories.",
   "prospective_start_utc": "2026-10-05T04:42:03.609000+00:00",
   "historical_warmup_counts_as_forward_performance": false,
-  "stock_research_profile": "config/stock_unrestricted_paper_validation_20261005.json",
+  "stock_research_profile": "config/stock_one_r_half_atr_paper_20261006.json",
   "accounts": [
     {
       "account_id": "btc",
@@ -40,7 +40,7 @@
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
       "strategy_selection_status": "user_authorized_paper_validation_not_profitability_qualified",
-      "strategy_path": "config/stock_unrestricted_paper_validation_20261005.json",
+      "strategy_path": "config/stock_one_r_half_atr_paper_20261006.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/mu/state.json"
     },
     {
@@ -50,7 +50,7 @@
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
       "strategy_selection_status": "user_authorized_paper_validation_not_profitability_qualified",
-      "strategy_path": "config/stock_unrestricted_paper_validation_20261005.json",
+      "strategy_path": "config/stock_one_r_half_atr_paper_20261006.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/sndk/state.json"
     },
     {
@@ -60,7 +60,7 @@
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
       "strategy_selection_status": "user_authorized_paper_validation_not_profitability_qualified",
-      "strategy_path": "config/stock_unrestricted_paper_validation_20261005.json",
+      "strategy_path": "config/stock_one_r_half_atr_paper_20261006.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/skhynix/state.json"
     }
   ],
@@ -98,22 +98,21 @@
     "places_orders": false
   },
   "stock_rule_revision": {
-    "candidate_id": "stock_unrestricted_paper_validation_20261005",
-    "previous_profile": "config/stock_expectancy_admission_20261005.json",
-    "report_path": "docs/paper_validation_reenabled_20261005.md",
+    "candidate_id": "stock_one_r_half_atr_paper_20261006",
+    "previous_profile": "config/stock_unrestricted_paper_validation_20261005.json",
+    "report_path": "docs/stock_profit_exits_20261006.md",
     "account_ledgers_preserved": true,
     "forward_profitability_verified": false,
-    "new_entry_enabled": {
-      "btc": true,
-      "mu": true,
-      "sndk": true,
-      "skhynix": true
+    "profit_exit_policy": {
+      "mode": "one_r_half_atr",
+      "first_target_r": 1.0,
+      "first_close_fraction": 0.5,
+      "trail_atr": 1.5
     },
-    "user_authorized_at_utc": "2026-10-05T15:24:24.518904+00:00",
-    "activation_verification_path": "data/runtime/paper_validation_reenabled_20261005.json",
-    "activated_at_utc": "2026-10-05T15:25:08.207350+00:00",
-    "runner_pid": 41311,
-    "runner_source_hash": "c9dc454c923973ddfca9cea80b63e793b4515bd86f1366acbbd62fe76b79770d"
+    "activated_at_utc": "2026-10-06T05:06:47.652000+00:00",
+    "runner_pid": 53983,
+    "related_tests_passed": 771,
+    "activation_verification_path": "data/runtime/stock_profit_exits_activation_20261006.json"
   },
   "account_strategy_policy": {
     "user_authorization": "User permits distinct account strategies and explicitly requires both long and short stock entries; objective is net profitability.",
@@ -314,5 +313,31 @@
       "activation_verification_path": "data/runtime/stock_expectancy_activation.json"
     }
   ],
-  "stock_rule_revision_reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。"
+  "stock_rule_revision_reason": "用户认可1R平一半、余仓扣费保本及1.5ATR跟踪退出，落实到当前股票模拟并保留原退出规则前瞻对照。",
+  "stock_rule_revision_scope": "profit_exits_only",
+  "profit_exit_comparison": {
+    "directory": "profit_exit_comparison_20261006",
+    "control_profile_path": "config/stock_unrestricted_paper_validation_20261005.json",
+    "status": "running_forward_comparison",
+    "performance_basis": "cash/equity changes from identical activation inventory, not the 1000 USDT inception balance"
+  },
+  "stock_rule_revision_history": [
+    {
+      "candidate_id": "stock_one_r_half_atr_paper_20261006",
+      "previous_profile": "config/stock_unrestricted_paper_validation_20261005.json",
+      "report_path": "docs/stock_profit_exits_20261006.md",
+      "account_ledgers_preserved": true,
+      "forward_profitability_verified": false,
+      "profit_exit_policy": {
+        "mode": "one_r_half_atr",
+        "first_target_r": 1.0,
+        "first_close_fraction": 0.5,
+        "trail_atr": 1.5
+      },
+      "activated_at_utc": "2026-10-06T05:06:47.652000+00:00",
+      "runner_pid": 53983,
+      "related_tests_passed": 771,
+      "activation_verification_path": "data/runtime/stock_profit_exits_activation_20261006.json"
+    }
+  ]
 }

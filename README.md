@@ -1,5 +1,12 @@
 # BTC Auto
 
+October 6, 13:06 Beijing time: the joint stock paper accounts now take roughly
+half off at 1R, then apply cost-aware break-even and 1.5 ATR protection. Original
+exit-rule controls were cloned from the same activation balances and inventory
+and share public market observations. Existing ledgers and pending signals were
+preserved; prior price extrema do not create retroactive fills. See
+[the rules, checks and activation](docs/stock_profit_exits_20261006.md).
+
 October 5, 23:25 Beijing time: the user explicitly requested continued validation
 in all four joint paper accounts without historical strategy admission gates.
 BTC, MU, SNDK and SKHYNIX now permit new simulated entries under their existing

@@ -43,13 +43,28 @@ async function refresh() {
       const spread = a.entry_checks?.max_spread_fraction != null ? `买卖价差 ${(a.entry_checks.spread_fraction * 100).toFixed(4)}% · 入场上限 ${(a.entry_checks.max_spread_fraction * 100).toFixed(4)}%` : '';
       const qualification = a.entry_qualification?.reason || '';
       const signal = `<p class="parallel-age">${id !== 'btc' ? escape(family)+' · '+escape(direction)+' · '+escape(a.signal_timeframe || '—')+'<br>' : ''}${escape(signalNames[a.signal_status] || '等待状态更新')}${blockers && !blockers.includes(signalNames[a.signal_status]) ? '<br>'+escape(blockers) : ''}${qualification ? '<br>'+escape(qualification) : ''}${volume ? '<br>'+escape(volume) : ''}${spread ? '<br>'+escape(spread) : ''}${id !== 'btc' ? '<br>下一根收盘 '+localTime(a.next_signal_time_ms) : ''}</p>`;
-      return `<article class="panel parallel-card"><h2>${name}</h2><span class="parallel-state ${healthy ? '' : 'parallel-warning'}">${status}</span><div class="parallel-equity">${money(a.equity)}</div><small>USDT · 收益 ${a.return_pct == null ? '—' : Number(a.return_pct).toFixed(4)+'%'}</small><dl><div><dt>仓位</dt><dd>${a.position_qty == null ? '—' : a.position_qty === 0 ? '空仓' : escape(a.position_qty)}</dd></div><div><dt>模拟成交次数</dt><dd>${a.fill_count_total ?? '—'}</dd></div><div><dt>累计手续费</dt><dd>${money(a.fees_paid)}</dd></div><div><dt>累计资金费损益</dt><dd>${money(a.funding_pnl)}</dd></div><div><dt>最大回撤</dt><dd>${a.max_drawdown_pct == null ? '—' : Number(a.max_drawdown_pct).toFixed(4)+'%'}</dd></div><div><dt>标记价</dt><dd>${money(a.last_mark_price)}</dd></div></dl>${signal}<p class="parallel-age">检查 ${localTime(a.checked_at_utc)}</p>${error ? `<p class="parallel-error">${error}</p>` : ''}</article>`;
+      const p = a.profit_exit_status;
+      const profit = p ? `<p class="parallel-age">分批止盈：${p.split_skipped ? '数量不足以拆分 · 整仓保护' : p.stage_done ? '首段完成 · 余仓跟踪保护' : p.armed ? '首段部分成交 · 继续完成减仓' : p.trigger_observed_at_ms ? '已触发1R · 等待可成交数量' : '等待达到1R'}<br>首段已退出 ${money(p.filled_qty)} · 当前保护价 ${money(p.stop)}</p>` : '';
+      return `<article class="panel parallel-card"><h2>${name}</h2><span class="parallel-state ${healthy ? '' : 'parallel-warning'}">${status}</span><div class="parallel-equity">${money(a.equity)}</div><small>USDT · 收益 ${a.return_pct == null ? '—' : Number(a.return_pct).toFixed(4)+'%'}</small><dl><div><dt>仓位</dt><dd>${a.position_qty == null ? '—' : a.position_qty === 0 ? '空仓' : escape(a.position_qty)}</dd></div><div><dt>模拟成交次数</dt><dd>${a.fill_count_total ?? '—'}</dd></div><div><dt>累计手续费</dt><dd>${money(a.fees_paid)}</dd></div><div><dt>累计资金费损益</dt><dd>${money(a.funding_pnl)}</dd></div><div><dt>最大回撤</dt><dd>${a.max_drawdown_pct == null ? '—' : Number(a.max_drawdown_pct).toFixed(4)+'%'}</dd></div><div><dt>标记价</dt><dd>${money(a.last_mark_price)}</dd></div></dl>${profit}${signal}<p class="parallel-age">检查 ${localTime(a.checked_at_utc)}</p>${error ? `<p class="parallel-error">${error}</p>` : ''}</article>`;
     }).join('');
+    const comparison = result.profit_exit_comparison;
+    $('#comparison').hidden = !comparison;
+    if (comparison) {
+      $('#comparison-start').textContent = `对照起点：北京时间 ${localTime(comparison.activated_at_utc)}。表内单位为USDT，净值变化包含浮盈；现金变化计入已实现损益、费用和资金费。`;
+      $('#comparison-rows').innerHTML = ['mu','sndk','skhynix'].map(id => {
+        const a = result.accounts?.[id], c = comparison.controls?.[id], b = comparison.baseline?.[id];
+        const fresh = v => v?.status === 'healthy' && active && Date.now()-new Date(v.checked_at_utc).getTime() < 120000 && Date.now()-new Date(v.checked_at_utc).getTime() >= -5000;
+        const delta = (v,key) => fresh(v) && v[key] != null && b?.[key] != null ? v[key]-b[key] : null;
+        const next = delta(a,'equity'), old = delta(c,'equity');
+        return `<tr><td>${names[id]}</td><td>${money(next)}</td><td>${money(old)}</td><td>${money(next != null && old != null ? next-old : null)}</td><td>${money(delta(a,'wallet_balance'))}</td><td>${money(delta(c,'wallet_balance'))}</td></tr>`;
+      }).join('');
+    }
   } catch (error) {
     $('#heartbeat').textContent = error.message;
     $('#heartbeat').classList.add('parallel-warning');
     $('#total').textContent = '当前权益暂不可用';
     $('#cards').textContent = '等待运行记录恢复';
+    $('#comparison').hidden = true;
   }
 }
 refresh();
