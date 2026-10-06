@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="MU、SNDK、SKHYNIX 独立股票模拟账户与策略研究"><title>股票账户 · BTC AUTO</title><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./accounts.css?v=20261006-stock-details"></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="MU、SNDK、SKHYNIX 独立股票模拟账户与策略研究"><title>股票账户 · BTC AUTO</title><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./accounts.css?v=20261006-trend-exit"></head>
 <body><header class="topbar account-topbar"><div class="brand"><span class="brand-mark">股</span><div><strong>股票账户</strong><small>MEMORY STOCK ACCOUNTS</small></div></div><span class="mode-badge">SIMULATION · 3 STOCKS</span></header>
 <main><nav class="workspace-nav" aria-label="账户入口">
 <a class="workspace-tab" href="./">账户首页</a>
@@ -12,6 +12,13 @@
 <p data-paper-field="trade-status" class="parallel-age" role="status">正在读取持仓与成交账本…</p>
 <section class="panel stock-trading-panel"><div class="panel-heading"><div><small>OPEN POSITIONS</small><h2>当前持仓</h2></div><span>三个账户独立持仓</span></div><div class="table-wrap"><table><thead><tr><th>账户</th><th>方向</th><th>数量</th><th>开仓均价</th><th>标记价</th><th>未实现盈亏 · USDT</th><th>保护价</th></tr></thead><tbody data-paper-field="positions"><tr><td colspan="7">读取持仓…</td></tr></tbody></table></div></section>
 <section class="panel stock-trading-panel"><div class="panel-heading"><div><small>RECENT FILLS</small><h2>最近模拟成交</h2></div><span>价格与费用按账本记录</span></div><div class="table-wrap"><table><thead><tr><th>时间 · 北京</th><th>账户</th><th>买卖</th><th>成交价</th><th>数量</th><th>手续费 · USDT</th><th>成交原因</th></tr></thead><tbody data-paper-field="trades"><tr><td colspan="7">读取成交记录…</td></tr></tbody></table></div></section>
+<section class="panel stock-trading-panel" data-trend-experiment>
+<div class="panel-heading"><div><small>TREND EXIT EXPERIMENT</small><h2>趋势反转退出 · 独立模拟对照</h2></div><span>原账户继续运行</span></div>
+<p class="experiment-description">三只股票各有一份新规则账户和一份现行规则对照，从相同余额与持仓开始。连续两根收盘线确认持仓方向失效后退出，入场沿用原信号与风控。表内收益为实验起点后的净值变化，单位USDT；六个实验账户不计入上方原账户总权益。</p>
+<p data-trend-field="status" class="experiment-description parallel-age" role="status">读取模拟实验状态…</p>
+<div class="table-wrap"><table><thead><tr><th>账户</th><th>新规则净值变化</th><th>现行规则净值变化</th><th>新−现行</th><th>新规则仓位</th><th>现行规则仓位</th><th>实验成交 · 新/现行</th></tr></thead><tbody data-trend-field="rows"><tr><td colspan="7">读取实验账户…</td></tr></tbody></table></div>
+<details class="experiment-trades"><summary>查看实验新增成交</summary><div class="table-wrap"><table><thead><tr><th>时间 · 北京</th><th>账户</th><th>规则</th><th>买卖</th><th>成交价</th><th>数量</th><th>手续费</th><th>原因</th></tr></thead><tbody data-trend-field="trades"></tbody></table></div></details>
+</section>
 <section class="parallel-note panel" data-paper-field="comparison" hidden><h2>分批止盈 · 原规则对照</h2><p data-paper-field="comparison-start"></p><p>新规则：达到1R先退出约一半，余仓扣费保本，并按自身信号周期的1.5ATR跟踪。R为入场到初始止损的价格距离。已有持仓从生效后报价开始观察；原规则对照从相同余额和持仓开始。部分退出不计作完整平仓。</p><div style="overflow-x:auto"><table style="width:100%;text-align:left;white-space:nowrap"><thead><tr><th>账户</th><th>新规则净值变化</th><th>原规则净值变化</th><th>新−原</th><th>新规则现金变化</th><th>原规则现金变化</th></tr></thead><tbody data-paper-field="comparison-rows"></tbody></table></div></section>
 
 </section><details class="stock-explanations"><summary>股票规则与验证说明</summary><section class="parallel-note panel"><h2>SNDK 新数据验证</h2><p>已冻结1小时趋势、4小时方向、成交量与纳指期货过滤，另建正常成本和双倍成本两个模拟账户。盈利目标为扣费后初始保证金的60%；原账户准入和已有仓位继续按各自规则处理。</p><a href="./stock-shadow.html">查看独立模拟与纳指状态 ↗</a></section>
@@ -58,4 +65,4 @@
         </div>
       </section>
 </details>
-</main><script type="module" src="./parallel.js?v=20261006-stock-details"></script><script type="module" src="./stocks.js?v=20261006-stock-details"></script><script>if (location.protocol === 'file:') { document.querySelector('[data-paper-field="heartbeat"]').textContent = '本地文件无法加载交易服务，请打开 http://127.0.0.1:8766/terminal/stocks.html'; }</script></body></html>
+</main><script type="module" src="./trend-experiment.js?v=20261006-trend-exit"></script><script type="module" src="./parallel.js?v=20261006-stock-details"></script><script type="module" src="./stocks.js?v=20261006-stock-details"></script><script>if (location.protocol === 'file:') { document.querySelector('[data-paper-field="heartbeat"]').textContent = '本地文件无法加载交易服务，请打开 http://127.0.0.1:8766/terminal/stocks.html'; }</script></body></html>

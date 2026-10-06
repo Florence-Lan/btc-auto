@@ -1,5 +1,12 @@
 # BTC Auto
 
+October 6, 22:15 Beijing time: a separate six-ledger stock experiment now
+compares two-closed-bar trend invalidation exits against the existing 1R/ATR
+rules. Original accounts continue running. Each pair starts from matching
+activation cash and inventory and shares public observations. Entries retain
+the existing signals and execution risk checks, without historical profitability
+admission gates. See [rules, activation and verification](docs/stock_trend_experiment_20261006.md).
+
 October 6, 13:06 Beijing time: the joint stock paper accounts now take roughly
 half off at 1R, then apply cost-aware break-even and 1.5 ATR protection. Original
 exit-rule controls were cloned from the same activation balances and inventory

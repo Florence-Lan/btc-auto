@@ -65,3 +65,6 @@ a.workspace-tab { text-decoration: none; }
 .stock-explanations > summary { cursor: pointer; font-size: 16px; color: var(--muted); padding: 14px 0; }
 .account-signal-details { margin-top: 14px; }
 .account-signal-details > summary { color: var(--muted); cursor: pointer; font-size: 12px; }
+
+.experiment-description { margin: 12px 22px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.experiment-trades > summary { padding: 18px 22px; cursor: pointer; color: var(--accent-deep); font-size: 13px; }

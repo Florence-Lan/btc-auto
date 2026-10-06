@@ -1,0 +1,19 @@
+{
+  "experiment_id": "stock_trend_reversal_exit_20261006",
+  "mode": "simulation",
+  "places_orders": false,
+  "source_plan": "config/parallel_simulation_plan_20261005.json",
+  "stock_account_ids": ["mu", "sndk", "skhynix"],
+  "trend_exit_policy": {
+    "mode": "opposite_ema_two_closed_bars",
+    "confirmation_bars": 2,
+    "require_price_slow": true
+  },
+  "entry_policy": "Existing per-stock long/short signals and execution risk controls; no historical-profitability admission gate",
+  "activation_inventory": "Clone each source stock ledger into candidate and control; preserve balances, existing positions, funding and fills",
+  "confirmation_policy": "Two consecutive closed signal bars closing after activation and entry; fast/mid EMA opposite the position and close opposite slow EMA",
+  "exit_execution": "Latch full exit; retry observed depth with existing quantity limits and costs; existing cooldown applies",
+  "original_accounts_modified": false,
+  "forward_validated": false,
+  "user_authorization": "User authorized strategy experiments that continue normal paper trading without historical research admission blocking"
+}

@@ -252,6 +252,10 @@ class StockAccount:
             'signed_qty': pos['direction'] * remainder})
         return pos if remainder > 0 else None
 
+    def additional_exit_reason(self, state, position, data, errors, timestamp):
+        """Optional paper-experiment extension after the existing full-exit guards."""
+        return None
+
     def step(self, market_data=None):
         state = json.loads(self.path.read_text())  # Corrupt ledgers never reset silently.
         cfg = self.config
@@ -370,6 +374,8 @@ class StockAccount:
                 reason = 'time_stop'
             elif pos['funding'] > pos['margin'] * cfg['max_funding_debit_fraction_initial_margin']:
                 reason = 'funding_budget'
+            else:
+                reason = self.additional_exit_reason(state, pos, data, errors, timestamp)
             if reason and not pos.get('pending_exit'):
                 pos['pending_exit'] = reason
                 pos['trigger_observed_at_ms'] = now_ms()
