@@ -1,5 +1,12 @@
 # BTC Auto
 
+October 5, 23:25 Beijing time: the user explicitly requested continued validation
+in all four joint paper accounts without historical strategy admission gates.
+BTC, MU, SNDK and SKHYNIX now permit new simulated entries under their existing
+signals and execution risk controls. Existing balances and positions were
+preserved. Earlier pause records below describe previous policy. See
+[the activation and verification](docs/paper_validation_reenabled_20261005.md).
+
 October 4 leverage update: the selected `btc_multifactor_regular_10x_20261004`
 simulation generation uses a 10x ceiling across tactical/hourly sizing, portfolio
 risk, execution and the terminal. Actual positions still follow the original risk

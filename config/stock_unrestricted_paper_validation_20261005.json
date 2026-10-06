@@ -1,0 +1,190 @@
+{
+  "candidate_id": "stock_unrestricted_paper_validation_20261005",
+  "status": "running_user_authorized_paper_validation",
+  "base_config": "config/stock_swing_120_candidate_20261004.json",
+  "execution_timeframe": "5m",
+  "capital_weights": {
+    "MUUSDT": 0.3333333333333333,
+    "SNDKUSDT": 0.3333333333333333,
+    "SKHYNIXUSDT": 0.3333333333333333
+  },
+  "max_positions_per_capital_bucket": 1,
+  "risk_fraction_per_bucket_trade": 0.0025,
+  "symbol_profiles": {
+    "MUUSDT": {
+      "signal_family": "ema_transition",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0,
+      "target_margin_return": 1.2,
+      "max_holding_calendar_days": 15,
+      "trail_activation_underlying_return": 0.08,
+      "trail_locked_underlying_return": 0.03,
+      "trail_atr": 2.0,
+      "signal_timeframe": "15m",
+      "entry_direction": "both",
+      "entry_signal_validity_minutes": 15,
+      "cooldown_signal_bars": 3,
+      "research_variant": "cross_8_24_60_15m_both_swing_net120",
+      "candidate_id": "muusdt_paper_validation_20261005",
+      "entry_enabled": true,
+      "taker_fee_rate_assumption": 0.000125,
+      "entry_qualification": {
+        "approved_for_forward_simulation": true,
+        "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+        "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+        "minimum_closed_net_win_rate": null,
+        "minimum_net60_success_rate": null,
+        "minimum_target_net_return_on_initial_margin": 0.6,
+        "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+        "known_retrospective_history": true,
+        "forward_validated": false,
+        "authorization_basis": "explicit_user_instruction",
+        "historical_screen_passed": false
+      }
+    },
+    "SNDKUSDT": {
+      "signal_family": "breakout",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "breakout_bars": 6,
+      "stop_atr": 2.0,
+      "target_margin_return": 1.2,
+      "max_holding_calendar_days": 15,
+      "trail_activation_underlying_return": 0.08,
+      "trail_locked_underlying_return": 0.03,
+      "trail_atr": 2.0,
+      "signal_timeframe": "5m",
+      "entry_direction": "both",
+      "entry_signal_validity_minutes": 5,
+      "cooldown_signal_bars": 3,
+      "research_variant": "breakout_8_24_60_5m_both_swing_net120",
+      "candidate_id": "sndkusdt_paper_validation_20261005",
+      "entry_enabled": true,
+      "taker_fee_rate_assumption": 0.000125,
+      "entry_qualification": {
+        "approved_for_forward_simulation": true,
+        "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+        "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+        "minimum_closed_net_win_rate": null,
+        "minimum_net60_success_rate": null,
+        "minimum_target_net_return_on_initial_margin": 0.6,
+        "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+        "known_retrospective_history": true,
+        "forward_validated": false,
+        "authorization_basis": "explicit_user_instruction",
+        "historical_screen_passed": false
+      }
+    },
+    "SKHYNIXUSDT": {
+      "signal_family": "ema_transition",
+      "research_variant": "transition_8_24_60_slow1",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0,
+      "candidate_id": "skhynixusdt_paper_validation_20261005",
+      "entry_direction": "both",
+      "entry_enabled": true,
+      "taker_fee_rate_assumption": 0.001,
+      "entry_qualification": {
+        "approved_for_forward_simulation": true,
+        "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+        "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+        "minimum_closed_net_win_rate": null,
+        "minimum_net60_success_rate": null,
+        "minimum_target_net_return_on_initial_margin": 0.6,
+        "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+        "known_retrospective_history": true,
+        "forward_validated": false,
+        "authorization_basis": "explicit_user_instruction",
+        "historical_screen_passed": false
+      }
+    }
+  },
+  "selection_provenance": {
+    "known_history_previously_reviewed": true,
+    "independent_unseen_validation": false,
+    "results_path": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+    "previous_selection_preserved_in_profile": "config/stock_bidirectional_forward_20261005.json",
+    "development_selected": {
+      "MUUSDT": null,
+      "SNDKUSDT": "current_control",
+      "SKHYNIXUSDT": "current_control"
+    },
+    "audit_passed": {
+      "MUUSDT": false,
+      "SNDKUSDT": true,
+      "SKHYNIXUSDT": false
+    },
+    "new_user_screen_passed": {
+      "MUUSDT": false,
+      "SNDKUSDT": false,
+      "SKHYNIXUSDT": false
+    },
+    "expectancy_review_passed": {
+      "MUUSDT": false,
+      "SNDKUSDT": false,
+      "SKHYNIXUSDT": false
+    }
+  },
+  "notes": [
+    "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+    "Historical metrics remain research evaluation criteria; they do not block this paper experiment.",
+    "Existing signal, position sizing, fees, funding, spread, liquidity and protective exits remain in force.",
+    "No live orders. Research authorization does not declare historical screening or forward validation passed."
+  ],
+  "signal_timeframe": "15m",
+  "cooldown_signal_bars": 3,
+  "user_revision": {
+    "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+    "previous_profile": "config/stock_expectancy_admission_20261005.json",
+    "requested_at_utc": "2026-10-05T15:24:24.518904+00:00",
+    "scope": "four_account_local_simulation_only",
+    "waived_gates": [
+      "historical_profitability",
+      "win_rate",
+      "sample_size"
+    ],
+    "retain_execution_and_account_risk_controls": true
+  },
+  "fee_assumption_source": "https://docs.asterdex.com/trading/perpetuals/fees-and-specs/fees",
+  "max_entry_spread_fraction": 0.001,
+  "admission_requirements": {
+    "minimum_target_net_return_on_initial_margin": 0.6,
+    "minimum_closed_net_win_rate": null,
+    "return_denominator": "initial_margin_of_this_trade",
+    "net_pnl_includes": [
+      "entry_and_exit_fees",
+      "adverse_execution_slippage",
+      "funding"
+    ],
+    "win_definition": "closed_net_pnl > 0",
+    "every_trade_profit_guaranteed": false,
+    "future_win_rate_guaranteed": false,
+    "known_history_is_independent_validation": false,
+    "new_entries_allowed_before_qualification": true,
+    "minimum_net60_success_rate": null,
+    "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+    "minimum_closed_trades_by_window": {
+      "development": 30,
+      "validation": 10,
+      "recent": 10,
+      "full": 50
+    },
+    "both_normal_and_double_cost_required": true,
+    "positive_net_with_estimated_open_close_required": true,
+    "positive_full_net_without_best_winner_required": true,
+    "maximum_sampled_drawdown_pct": 6,
+    "no_modeled_liquidation": true,
+    "future_positive_expectancy_guaranteed": false,
+    "enforced_for_paper_entries": false
+  }
+}
