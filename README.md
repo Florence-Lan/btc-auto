@@ -143,7 +143,7 @@ The requested joint BTC/MU/SNDK/SKHYNIX simulation uses four independent
 started a new four-account forward trial on October 5 at 04:42:03 UTC.
 The three stock accounts are recording public Aster observations; BTC waits for
 the shared Binance public-data cooldown to expire before evaluating new entries.
-Open `/terminal/parallel.html` for current per-account health and equity.
+Open `/terminal/` and choose BTC or stocks for per-account health and equity.
 The stock signal cycle was changed to completed 15-minute bars at 07:58:07 UTC
 on October 5, with 30-second entry retries until the next signal close and a
 three-bar (45-minute) exit cooldown. Ledgers and prior observations were preserved;
@@ -441,8 +441,13 @@ Run the localhost-only trading terminal:
 python scripts\run_trading_terminal.py --port 8766
 ```
 
-Open `http://127.0.0.1:8766/terminal/`. The top tabs switch between BTC execution and
-stock research; `/terminal/#stocks` opens the research view directly. The read-only
+Open `http://127.0.0.1:8766/terminal/` and choose one of the two account entries.
+`/terminal/btc.html` shows the BTC forward account and the separate BTC execution
+account with its existing controls. `/terminal/stocks.html` shows only MU/SNDK/SKHYNIX
+accounts, their combined stock equity, exit-rule comparisons and historical research.
+Existing balances, positions and ledgers are preserved. `/terminal/parallel.html` now
+offers the same two entries; old `#btc` and `#stocks` bookmarks open the corresponding
+account page. The read-only
 `/api/terminal/research` endpoint reads the artifacts selected by
 `config/stock_research_dashboard.json`, with independent MU/SNDK/SKHYNIX capital,
 normal/double cost comparisons, liquidity constraints, and forward observation status.

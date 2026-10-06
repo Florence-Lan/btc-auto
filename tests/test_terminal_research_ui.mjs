@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beijingTime, researchMarkup, createResearchView } from "../terminal/research.js";
 
-const html = readFileSync(new URL("../terminal/index.html", import.meta.url), "utf8");
+const html = readFileSync(new URL("../terminal/stocks.html", import.meta.url), "utf8");
 const result = JSON.parse(readFileSync(new URL("../data/research/stock_swing_liquidity_20261004/results.json", import.meta.url), "utf8"));
 function data() {
   return {
@@ -51,13 +51,11 @@ function root(hash = "") {
     const classes = match[0].match(/class="([^"]*)"/)?.[1] || "";
     elements[match[1]] = new Element(match[1], classes);
   }
-  const tabs = [elements.btcViewTab, elements.stockViewTab];
-  tabs[0].dataset.workspace = "btc"; tabs[1].dataset.workspace = "stocks";
   const costs = [1, 2].map(n => new Element(`cost${n}`, n === 1 ? "active" : "", {researchCost: String(n)}));
   return {
-    elements, tabs, costs,
+    elements, costs,
     querySelector(selector) { assert.ok(elements[selector.slice(1)], `Missing HTML binding: ${selector}`); return elements[selector.slice(1)]; },
-    querySelectorAll(selector) { return selector === "[data-workspace]" ? tabs : selector === "[data-research-cost]" ? costs : []; },
+    querySelectorAll(selector) { return selector === "[data-research-cost]" ? costs : []; },
     defaultView: {
       location: {hash}, history: {replaceState(_state, _title, next) { this.hash = next; }},
       addEventListener() {}, setInterval() { return 1; }, clearInterval() {}
@@ -111,23 +109,16 @@ test("timestamps explicitly use Beijing time", () => {
   assert.equal(beijingTime(null), "—");
 });
 
-test("deep links and tab keyboard navigation show the appropriate controls", async () => {
-  const page = root("#stocks"), requests = [];
-  const view = createResearchView(page, async url => {requests.push(url); return {ok: true, json: async () => data()};});
+test("dedicated stock research loads without BTC execution requests", async () => {
+  const page = root(), requests = [];
+  const view = createResearchView(page, async url => { requests.push(url); return {ok: true, json: async () => data()}; });
   await view.ready;
-  assert.ok(page.elements.btcWorkspace.classList.contains("hidden"));
   assert.ok(!page.elements.stockWorkspace.classList.contains("hidden"));
-  assert.equal(page.elements.stockViewTab.attributes["aria-selected"], "true");
-  assert.equal(page.elements.stockViewTab.tabIndex, 0);
   assert.match(page.elements.stockDataCutoff.textContent, /20:00/);
-  page.elements.stockViewTab.events.keydown({key: "Home", preventDefault() {}});
-  assert.ok(!page.elements.btcWorkspace.classList.contains("hidden"));
-  assert.ok(page.elements.stockWorkspace.classList.contains("hidden"));
-  assert.equal(page.defaultView.history.hash, "#btc");
-  assert.equal(page.elements.btcViewTab.focused, true);
   assert.equal(requests.length, 2);
   assert.match(requests[0], /^\/api\/terminal\/research\?/);
   assert.match(requests[1], /^\/data\/parallel_simulation\/[^/]+\/status\.json\?/);
+  assert.ok(requests.every(url => !url.includes("/api/terminal/status") && !url.includes("control")));
   view.destroy();
 });
 
@@ -179,7 +170,7 @@ test("network errors and absent forward metadata have explicit states", async ()
   view.destroy();
 });
 
-test("valid four-account heartbeat updates forward status without changing historical returns", async () => {
+test("valid stock-account heartbeat updates forward status without changing historical returns", async () => {
   const page = root();
   const forward = {mode: "SIMULATION", places_orders: false, running: true,
     started_at_utc: "2026-10-05T04:42:03Z", updated_at_utc: new Date().toISOString(),
@@ -187,7 +178,7 @@ test("valid four-account heartbeat updates forward status without changing histo
   const view = createResearchView(page, async url => ({ok: true,
     json: async () => url.startsWith("/data/") ? forward : data()}));
   await view.ready;
-  assert.match(page.elements.stockForwardState.textContent, /四账户运行中/);
+  assert.match(page.elements.stockForwardState.textContent, /股票账户运行中/);
   assert.match(page.elements.stockForwardState.textContent, /12:42/);
   assert.ok(page.elements.stockCards.innerHTML.includes("+0.73%"));
   forward.updated_at_utc = "2026-01-01T00:00:00Z";

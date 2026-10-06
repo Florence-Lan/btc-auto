@@ -52,20 +52,6 @@ export function createResearchView(root, fetcher = globalThis.fetch) {
   const $$ = selector => [...root.querySelectorAll(selector)];
   let data = null, cost = 1, pending = false;
   const viewWindow = root.defaultView;
-  function selectWorkspace(name, updateHash = true) {
-    const stocks = name === "stocks";
-    $("#btcWorkspace").classList.toggle("hidden", stocks);
-    $("#stockWorkspace").classList.toggle("hidden", !stocks);
-    for (const id of ["btcMarketTicker", "btcHeaderStatus"]) $(`#${id}`).classList.toggle("hidden", stocks);
-    for (const id of ["stockMarketTicker", "stockHeaderStatus"]) $(`#${id}`).classList.toggle("hidden", !stocks);
-    $$('[data-workspace]').forEach(button => {
-      const selected = button.dataset.workspace === (stocks ? "stocks" : "btc");
-      button.classList.toggle("active", selected);
-      button.setAttribute("aria-selected", String(selected));
-      button.tabIndex = selected ? 0 : -1;
-    });
-    if (updateHash && viewWindow?.history) viewWindow.history.replaceState(null, "", stocks ? "#stocks" : "#btc");
-  }
   function selectCost(value) {
     cost = Number(value) === 2 ? 2 : 1;
     $$('[data-research-cost]').forEach(button => {
@@ -113,15 +99,15 @@ export function createResearchView(root, fetcher = globalThis.fetch) {
           const forward = await forwardResponse.json();
           if (forward?.mode !== "SIMULATION" || forward.places_orders !== false
               || typeof forward.running !== "boolean"
-              || !["btc", "mu", "sndk", "skhynix"].every(id => forward.accounts?.[id])
+              || !["mu", "sndk", "skhynix"].every(id => forward.accounts?.[id])
               || !Number.isFinite(Date.parse(forward.started_at_utc))
               || !Number.isFinite(Date.parse(forward.updated_at_utc))) {
-            throw new Error("四账户状态格式无效");
+            throw new Error("股票账户状态格式无效");
           }
           const age = (Date.now() - new Date(forward.updated_at_utc).getTime()) / 1000;
           const active = forward.running && age >= -5 && age < 120;
-          $("#stockForwardState").textContent = `四账户${active ? "运行中" : "心跳停止或过期"}；起于北京时间 ${beijingTime(forward.started_at_utc)}，详情见「四账户联合模拟」。`;
-          $("#stockResearchContext").textContent = "历史回放 · 已开启独立四账户前瞻模拟";
+          $("#stockForwardState").textContent = `股票账户${active ? "运行中" : "心跳停止或过期"}；起于北京时间 ${beijingTime(forward.started_at_utc)}，当前账户见本页上方。`;
+          $("#stockResearchContext").textContent = "历史回放 · 已开启独立股票前瞻模拟";
         }
       } catch (_) { /* Historical view stays available when forward status is unavailable. */ }
       $("#stockCoverageNote").textContent = data.coverage?.trimmed ? `因公共数据缺口，完整区间从北京时间 ${beijingTime(data.coverage.common_cutoff_utc)} 之后重新预热；较晚上市标的从自身历史起点开始。` : "各标的从其有效历史起点开始预热；以上为回顾性研究结果。";
@@ -144,21 +130,9 @@ export function createResearchView(root, fetcher = globalThis.fetch) {
       pending = false;
     }
   }
-  $$('[data-workspace]').forEach(button => {
-    button.addEventListener("click", () => selectWorkspace(button.dataset.workspace));
-    button.addEventListener("keydown", event => {
-      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-      event.preventDefault();
-      const name = event.key === "Home" ? "btc" : event.key === "End" ? "stocks" : button.dataset.workspace === "btc" ? "stocks" : "btc";
-      selectWorkspace(name);
-      $(name === "stocks" ? "#stockViewTab" : "#btcViewTab").focus();
-    });
-  });
   $$('[data-research-cost]').forEach(button => button.addEventListener("click", () => selectCost(button.dataset.researchCost)));
   $("#retryStockResearch").addEventListener("click", refresh);
-  viewWindow?.addEventListener("hashchange", () => selectWorkspace(viewWindow.location.hash === "#stocks" ? "stocks" : "btc", false));
-  selectWorkspace(viewWindow?.location.hash === "#stocks" ? "stocks" : "btc", false);
   const ready = refresh();
   const interval = viewWindow?.setInterval(refresh, 60_000);
-  return {selectWorkspace, selectCost, refresh, ready, destroy: () => viewWindow?.clearInterval(interval)};
+  return {selectCost, refresh, ready, destroy: () => viewWindow?.clearInterval(interval)};
 }

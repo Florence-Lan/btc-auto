@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="MU、SNDK、SKHYNIX 独立股票模拟账户与策略研究"><title>股票账户 · BTC AUTO</title><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./accounts.css"></head>
+<body><header class="topbar account-topbar"><div class="brand"><span class="brand-mark">股</span><div><strong>股票账户</strong><small>MEMORY STOCK ACCOUNTS</small></div></div><span class="mode-badge">SIMULATION · 3 STOCKS</span></header>
+<main><nav class="workspace-nav" aria-label="账户入口">
+<a class="workspace-tab" href="./">账户首页</a>
+<a class="workspace-tab " href="./btc.html" >BTC 账户 <span>BTCUSDT</span></a>
+<a class="workspace-tab active" href="./stocks.html" aria-current="page">股票账户 <span>MU / SNDK / SKHYNIX</span></a>
+</nav><section class="paper-accounts" data-account-group="stocks">
+<div class="parallel-heading"><div><small>真实行情 · 独立资金 · 前瞻记录</small><h1>股票模拟账户</h1><p data-paper-field="start">读取账户起点…</p><div class="parallel-total" data-paper-field="total">账户权益 —</div></div><p data-paper-field="heartbeat" class="parallel-age" role="status">连接中</p></div>
+<div class="parallel-cards" data-paper-field="cards" aria-live="polite"></div>
+<section class="parallel-note panel" data-paper-field="comparison" hidden><h2>分批止盈 · 原规则对照</h2><p data-paper-field="comparison-start"></p><p>新规则：达到1R先退出约一半，余仓扣费保本，并按自身信号周期的1.5ATR跟踪。R为入场到初始止损的价格距离。已有持仓从生效后报价开始观察；原规则对照从相同余额和持仓开始。部分退出不计作完整平仓。</p><div style="overflow-x:auto"><table style="width:100%;text-align:left;white-space:nowrap"><thead><tr><th>账户</th><th>新规则净值变化</th><th>原规则净值变化</th><th>新−原</th><th>新规则现金变化</th><th>原规则现金变化</th></tr></thead><tbody data-paper-field="comparison-rows"></tbody></table></div></section>
+
+</section><section class="parallel-note panel"><h2>SNDK 新数据验证</h2><p>已冻结1小时趋势、4小时方向、成交量与纳指期货过滤，另建正常成本和双倍成本两个模拟账户。盈利目标为扣费后初始保证金的60%；原账户准入和已有仓位继续按各自规则处理。</p><a href="./stock-shadow.html">查看独立模拟与纳指状态 ↗</a></section>
+<section class="parallel-note panel"><h2>三股票隔夜验证</h2><p>MU、SNDK、SKHYNIX分别冻结一个候选，各配正常和双倍成本账户，运行至10月6日北京时间10:00并自动生成报告。</p><a href="./stock-overnight.html">查看隔夜三个策略与验证结果 ↗</a></section>
+<section class="parallel-note panel"><h2>股票账户规则</h2><p>MU、SNDK、SKHYNIX各从1,000 USDT开始，分别核算余额、持仓、手续费和资金费，杠杆上限10×。MU与SKHYNIX使用15分钟均线交叉，SNDK使用5分钟趋势突破，均允许做多和做空。</p><p>按用户授权继续模拟验证，历史筛查不作为开仓前提。已启用1R分批止盈、扣费保本与余仓1.5ATR跟踪，并保留原退出规则对照。每30秒观察新鲜行情和保护退出；退出后冷却3根自身信号线。</p><p>单笔计划风险为自身权益的0.25%，入场受此前五分钟成交量、盘口数量和10bp价差上限约束，计入手续费、价差、滑点和资金费。8%回撤限制新增风险，15%回撤触发账户停止。仅记录本地模拟成交。</p></section>
+<details class="historical-research"><summary>历史策略研究与回测</summary>      <section id="stockWorkspace" aria-label="股票历史研究">
+        <div class="research-heading">
+          <div><p class="research-eyebrow">MEMORY STOCKS / STRATEGY RESEARCH</p><h1>存储股策略研究</h1><p>美光、闪迪、海力士 · 四小时信号 · 五分钟回放</p></div>
+          <div class="research-heading-actions"><span class="research-badge">研究阶段</span><a id="stockReportLink" class="text-button hidden" target="_blank" rel="noopener">完整研究记录 ↗</a></div>
+        </div>
+        <div class="research-context panel">
+          <div><strong id="stockResearchContext">历史回放 · 研究状态读取中</strong><p>各标的独立资金核算；收益包含期末估计平仓损益。实际盘口与成交仍需验证。</p></div>
+          <div class="research-cutoff"><span>数据截止（北京时间，结束不含）</span><strong id="stockDataCutoff">—</strong></div>
+        </div>
+        <div id="stockResearchLoading" class="research-empty panel" role="status">正在读取股票研究结果…</div>
+        <div id="stockResearchUnavailable" class="research-empty panel hidden" role="status"><strong id="stockResearchError">研究结果暂不可用</strong><p>结果恢复后会自动更新。</p><button type="button" class="btn" id="retryStockResearch">重新读取</button></div>
+        <div id="stockResearchContent" class="hidden">
+          <div class="research-section-heading">
+            <div><h2>流动性约束实验</h2><p id="stockLiquidityRule">仓位不超过此前已收盘五分钟成交量的 10%</p></div>
+            <div class="research-cost-switch" role="group" aria-label="回测成本"><button type="button" data-research-cost="1" class="active" aria-pressed="true">正常成本</button><button type="button" data-research-cost="2" aria-pressed="false">双倍成本</button></div>
+          </div>
+          <div class="stock-card-grid" id="stockCards"></div>
+          <div class="research-lower-grid">
+            <article class="panel research-comparison">
+              <div class="panel-heading"><div><small>EXECUTION SENSITIVITY</small><h2>流动性限制前后对比</h2></div><span id="stockCostLabel">正常成本</span></div>
+              <div class="table-wrap"><table><caption class="sr-only">各标的原策略与流动性约束实验的历史资金收益对比</caption><thead><tr><th>标的</th><th>原策略收益</th><th>限量后收益</th><th>近 30 天限量收益</th><th>原策略零量开仓</th></tr></thead><tbody id="stockComparisonBody"></tbody></table></div>
+              <p class="research-footnote">零量开仓按开仓所在五分钟线最终报告量统计，仅供事后核查；它不用于入场过滤。</p>
+            </article>
+            <article class="panel research-status-panel">
+              <div class="panel-heading"><div><small>RESEARCH PROGRESS</small><h2>研究进度</h2></div><span class="research-badge">待验证</span></div>
+              <div class="research-stage"><i class="stage-complete"></i><div><strong>固定规则回放</strong><p>完成成本、回撤与成交量约束检查</p></div></div>
+              <div class="research-stage"><i class="stage-current"></i><div><strong>成交可行性</strong><p>待核对盘口深度、部分成交与止损执行</p></div></div>
+              <div class="research-stage"><i></i><div><strong>前瞻模拟</strong><p id="stockForwardState">尚未启动，历史数据不计入前瞻样本</p></div></div>
+              <div class="research-stage"><i></i><div><strong>自动交易</strong><p>实盘执行尚未接入；当前模拟账户见上方</p></div></div>
+            </article>
+          </div>
+          <article class="panel research-findings-panel">
+            <div class="panel-heading"><div><small>FINDINGS & RULES</small><h2>研究结论与规则</h2></div><span id="stockResearchReviewed">—</span></div>
+            <div class="research-findings" id="stockFindings"></div>
+            <div class="research-rule-strip" id="stockRuleStrip"></div>
+            <p class="research-footnote" id="stockCoverageNote"></p>
+          </article>
+        </div>
+      </section>
+</details>
+</main><script type="module" src="./parallel.js"></script><script type="module" src="./stocks.js"></script></body></html>

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="BTC 独立账户与自动交易终端" />
+    <title>BTC 账户 · BTC AUTO</title>
+    <link rel="stylesheet" href="./styles.css" /><link rel="stylesheet" href="./accounts.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">₿</span><div><strong>BTC AUTO</strong><small>AUTOMATED TRADING TERMINAL</small></div></div>
+      <div class="market-ticker" id="btcMarketTicker"><span>BTC / USDT PERP</span><strong id="markPrice">—</strong><small id="marketTime">等待行情</small></div>
+      <div class="top-status" id="btcHeaderStatus"><span class="mode-badge" id="modeBadge">SIMULATION</span><span class="health"><i id="healthDot"></i><span id="healthText">连接中</span></span><time id="clock">—</time></div>
+    </header>
+
+    <main>
+<nav class="workspace-nav" aria-label="账户入口">
+<a class="workspace-tab" href="./">账户首页</a>
+<a class="workspace-tab active" href="./btc.html" aria-current="page">BTC 账户 <span>BTCUSDT</span></a>
+<a class="workspace-tab " href="./stocks.html" >股票账户 <span>MU / SNDK / SKHYNIX</span></a>
+</nav>
+<section class="paper-accounts" data-account-group="btc">
+<div class="parallel-heading"><div><small>真实行情 · 独立资金 · 前瞻记录</small><h1>BTC 前瞻模拟账户</h1><p data-paper-field="start">读取账户起点…</p><div class="parallel-total" data-paper-field="total">账户权益 —</div></div><p data-paper-field="heartbeat" class="parallel-age" role="status">连接中</p></div>
+<div class="parallel-cards" data-paper-field="cards" aria-live="polite"></div>
+
+</section>
+<section id="btcWorkspace" aria-label="BTC 交易执行账户">
+<div class="account-section-heading"><h2>BTC 交易执行账户</h2><p>独立于上方前瞻模拟账户；资金、持仓与操作按本账户记录。</p></div>
+      <section class="compatibility-banner" role="status">
+        <span class="compatibility-label">BTC EXECUTION</span>
+        <p><strong>当前执行对象为 BTCUSDT。</strong> 本页控制作用于下方 BTC 交易执行账户。</p>
+      </section>
+      <section class="command-bar panel">
+        <div class="bot-identity"><span class="pulse-ring"><i></i></span><div><small>运行实例</small><strong id="candidateId">宏观候选</strong><p id="runtimeMeta">读取状态中</p></div></div>
+        <div class="command-actions">
+          <button class="btn primary" id="startButton">▶ 启动自动化</button>
+          <button class="btn" id="onceButton">执行一次</button>
+          <button class="btn" id="pauseButton">Ⅱ 暂停</button>
+          <button class="btn danger" id="emergencyButton">急停</button>
+        </div>
+        <div class="mode-switch"><span>执行模式</span><div><button class="mode-option active" id="simulationMode">模拟盘</button><button class="mode-option live" id="liveMode">实盘</button></div><small id="exchangeStatus">Binance 主网实时行情</small></div>
+      </section>
+
+      <section class="capital-bar panel" id="simulationCapital">
+        <div><small>SIMULATION CAPITAL</small><strong>模拟盘初始金额</strong><p>重置会清空模拟持仓、成交和收益曲线，不影响 Binance 账户。</p></div>
+        <label for="simulationInitialBalance">USDT</label>
+        <input id="simulationInitialBalance" type="number" min="1" max="1000000000" step="0.01" inputmode="decimal" />
+        <button class="btn" id="resetSimulation">重置模拟账户</button>
+      </section>
+
+      <section class="execution-bar panel" id="executionCard">
+        <div class="execution-bar-title"><small>EXECUTION GUARD</small><strong>执行保护</strong><p id="guardDescription">模拟盘读取 Binance 主网实时行情，成交和资金仅写入本地账本。</p></div>
+        <span class="guard-badge" id="guardStatus">SIM SAFE</span>
+        <div class="execution-limit"><span>观测检查</span><strong id="observationInterval">30秒 / 新K线</strong></div>
+        <div class="execution-limit"><span>名义金额上限</span><strong id="notionalLimit">—</strong></div>
+        <div class="execution-limit"><span>杠杆上限</span><strong id="leverageLimit">--</strong></div>
+      </section>
+
+      <section class="metrics-grid">
+        <article class="metric panel"><span id="equityLabel">模拟权益</span><strong id="walletBalance">—</strong><small id="equitySource">USDT virtual</small></article>
+        <article class="metric panel"><span>可用余额</span><strong id="availableBalance">—</strong><small>USDT available</small></article>
+        <article class="metric panel"><span>未实现盈亏</span><strong id="unrealizedPnl">—</strong><small>当前持仓</small></article>
+        <article class="metric panel"><span>账户收益</span><strong id="realizedReturn">—</strong><small id="returnSource">当前运行期</small></article>
+        <article class="metric panel"><span>最大回撤</span><strong id="drawdown">—</strong><div class="risk-meter"><i id="drawdownBar"></i></div></article>
+        <article class="metric panel"><span>目标名义金额</span><strong id="targetNotional">—</strong><small id="targetLeverage">目标杠杆 —</small></article>
+        <article class="metric panel"><span>宏观倍率</span><strong id="macroMultiplier">—</strong><small id="macroCoverage">等待因子</small></article>
+        <article class="metric panel"><span>观测次数</span><strong id="observations">—</strong><small id="heartbeat">等待心跳</small></article>
+      </section>
+
+      <section class="workspace-grid">
+        <div class="main-column">
+          <section class="overview-grid">
+            <article class="panel signal-panel">
+              <div class="panel-heading"><div><small>LIVE STRATEGY SIGNALS</small><h2>策略信号与仓位贡献</h2></div><span id="signalFreshness">等待信号</span></div>
+              <div class="table-wrap"><table><thead><tr><th>策略模块</th><th>运行状态</th><th>方向</th><th>目标杠杆</th><th>观察期收益</th><th>最大回撤</th><th>胜率</th><th>盈利因子</th></tr></thead><tbody id="sleeveSignalsBody"></tbody></table></div>
+            </article>
+
+            <article class="panel account-detail-panel">
+              <div class="panel-heading"><div><small>ACCOUNT BREAKDOWN</small><h2>账户与执行明细</h2></div><span id="lastExecution">尚未执行</span></div>
+              <div class="account-detail-grid">
+                <div><span>初始金额</span><strong id="initialBalanceDetail">—</strong></div>
+                <div><span>钱包余额</span><strong id="walletBalanceDetail">—</strong></div>
+                <div><span>保证金权益</span><strong id="marginBalanceDetail">—</strong></div>
+                <div><span>已实现盈亏</span><strong id="realizedPnlDetail">—</strong></div>
+                <div><span>累计手续费</span><strong id="feesPaidDetail">—</strong></div>
+                <div><span>资金费净损益</span><strong id="fundingPnlDetail">—</strong></div>
+                <div><span>账户风控</span><strong id="accountRiskDetail">—</strong></div>
+                <div><span>持仓名义金额</span><strong id="positionNotionalDetail">—</strong></div>
+                <div><span>持仓数量</span><strong id="positionQtyDetail">—</strong></div>
+                <div><span>平均入场价</span><strong id="entryPriceDetail">—</strong></div>
+                <div><span>累计执行成交</span><strong id="executionFillCountDetail">—</strong></div>
+                <div><span>策略已平仓</span><strong id="strategyTradeCountDetail">—</strong></div>
+                <div><span>模拟账户起点</span><strong id="executionInceptionDetail">—</strong></div>
+                <div><span>影子观察起点</span><strong id="shadowInceptionDetail">—</strong></div>
+              </div>
+            </article>
+          </section>
+
+          <article class="panel chart-panel">
+            <div class="panel-heading"><div><small>EQUITY / EXPOSURE</small><h2 id="chartTitle">模拟净值与风险状态</h2></div><div class="chart-legend"><span><i></i>权益</span><span><i class="amber"></i>回撤软阈值 8%</span><span><i class="red"></i>硬停机 15%</span></div></div>
+            <svg id="equityChart" viewBox="0 0 900 260" role="img" aria-label="影子权益曲线"></svg>
+            <div class="empty-chart" id="emptyChart">等待产生更多账户净值点</div>
+          </article>
+
+          <article class="panel table-panel">
+            <div class="tabbar"><button class="tab active" data-tab="positions">当前持仓 <span id="positionCount">0</span></button><button class="tab" data-tab="orders">活动订单 <span id="orderCount">0</span></button><button class="tab" data-tab="trades">执行成交 <span id="tradeCount">0</span></button></div>
+            <div class="table-wrap" id="positionsPane"><table><thead><tr><th>合约</th><th>方向</th><th>数量</th><th>标记价格</th><th>未实现盈亏</th><th>来源</th></tr></thead><tbody id="positionsBody"></tbody></table></div>
+            <div class="table-wrap hidden" id="ordersPane"><table><thead><tr><th>合约</th><th>类型</th><th>方向</th><th>价格</th><th>数量</th><th>状态</th></tr></thead><tbody id="ordersBody"></tbody></table></div>
+            <div class="table-wrap hidden" id="tradesPane"><table><thead><tr><th>时间</th><th>模式</th><th>方向</th><th>价格</th><th>数量</th><th>已实现盈亏</th></tr></thead><tbody id="tradesBody"></tbody></table></div>
+          </article>
+
+          <article class="panel logs-panel">
+            <div class="panel-heading"><div><small>RUNTIME STREAM</small><h2>机器人日志</h2></div><div class="log-actions"><button type="button" class="text-button" id="copyLogsButton">复制日志</button><button type="button" class="text-button" id="clearViewButton">清空视图</button></div></div>
+            <pre id="logStream">等待日志...</pre>
+          </article>
+        </div>
+
+        <aside class="side-column">
+          <article class="panel status-card">
+            <div class="panel-heading"><div><small>STRATEGY ENGINE</small><h2>策略状态</h2></div><span class="status-pill" id="strategyStatus">SIMULATION</span></div>
+            <div class="strategy-list" id="strategyList"></div>
+            <div class="divider"></div>
+            <div class="detail-row"><span>行情源</span><strong class="positive">BINANCE MAINNET</strong></div>
+            <div class="detail-row"><span>目标仓位</span><strong id="targetPosition">—</strong></div>
+            <div class="detail-row"><span>执行权限</span><strong id="executionPermission">仅本地模拟</strong></div>
+            <div class="detail-row"><span>LLM 门控</span><strong id="llmGateStatus">未启用</strong></div>
+          </article>
+
+          <article class="panel risk-card">
+            <div class="panel-heading"><div><small>RISK CONTROL</small><h2>风险控制器</h2></div></div>
+            <div class="risk-orbit"><div><strong id="riskMultiplier">1.00×</strong><span>当前仓位倍率</span></div></div>
+            <div class="detail-row"><span>软降仓线</span><strong>8.0%</strong></div>
+            <div class="detail-row"><span>硬停机线</span><strong>15.0%</strong></div>
+            <div class="detail-row"><span>组合杠杆上限</span><strong id="portfolioLeverageLimit">—</strong></div>
+            <div class="detail-row"><span>风控监测</span><strong id="riskMonitorState">等待检查</strong></div>
+            <div class="detail-row"><span>策略判断</span><strong id="judgmentState">等待判断</strong></div>
+            <div class="detail-row"><span>判断后执行</span><strong id="judgmentExecutionState">等待判断</strong></div>
+            <div class="detail-row"><span>急停锁</span><strong id="emergencyState">未触发</strong></div>
+          </article>
+
+          <article class="panel factors-card">
+            <div class="panel-heading"><div><small>MACRO REGIME</small><h2>外部因子</h2></div><span id="macroFreshness">—</span></div>
+            <div class="factor-list" id="factorList"></div>
+          </article>
+
+          <article class="panel factors-card">
+            <div class="panel-heading"><div><small>DATA SOURCES</small><h2>信息源状态</h2></div></div>
+            <div class="factor-list" id="informationSources"></div>
+          </article>
+
+        </aside>
+      </section>
+      </section>
+
+    </main>
+
+    <div class="modal-backdrop hidden" id="emergencyModal">
+      <div class="modal"><span class="modal-icon">!</span><h2>触发急停</h2><p id="emergencyDescription">这会停止自动化进程并锁住再次启动。</p><label>输入 <code>EMERGENCY_STOP</code> 确认<input id="emergencyConfirm" autocomplete="off" /></label><div class="modal-actions"><button class="btn" id="cancelEmergency">取消</button><button class="btn danger" id="confirmEmergency">确认急停</button></div></div>
+    </div>
+    <div class="modal-backdrop hidden" id="liveModal">
+      <div class="modal"><span class="modal-icon">!</span><h2>切换到实盘</h2><p>实盘会向 Binance U 本位合约主网提交真实订单。仓位受环境变量中的金额上限约束，急停会撤销挂单并使用 reduceOnly 市价平仓。</p><label>输入 <code>ENABLE_LIVE_BTCUSDT</code> 确认<input id="liveConfirm" autocomplete="off" /></label><div class="modal-actions"><button class="btn" id="cancelLive">取消</button><button class="btn danger" id="confirmLive">启用实盘</button></div></div>
+    </div>
+    <div class="toast hidden" id="toast"></div>
+    <script src="./app.js" type="module"></script><script src="./parallel.js" type="module"></script>
+  </body>
+</html>

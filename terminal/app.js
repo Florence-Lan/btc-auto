@@ -1,5 +1,3 @@
-import { createResearchView } from "./research.js";
-
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const fmt = (value, digits = 2) => value == null ? "—" : Number(value).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -312,5 +310,4 @@ $("#clearViewButton").addEventListener("click", () => { logViewCleared = true; $
 $$('.tab').forEach(tab => tab.addEventListener("click", () => { $$('.tab').forEach(item => item.classList.toggle("active", item === tab)); ["positions","orders","trades"].forEach(name => $(`#${name}Pane`).classList.toggle("hidden", name !== tab.dataset.tab)); }));
 setInterval(() => $("#clock").textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false }), 1000);
 setInterval(refresh, 3000);
-createResearchView(document);
 refresh();

@@ -1,0 +1,59 @@
+.account-topbar { display: flex; justify-content: space-between; gap: 18px; }
+a.workspace-tab { text-decoration: none; }
+.account-home { max-width: 1060px; padding-top: clamp(32px, 7vw, 100px); }
+.account-home-heading { margin-bottom: 30px; }
+.account-home-heading small, .account-entry > small { color: var(--accent-deep); letter-spacing: .1em; font-size: 12px; }
+.account-home-heading h1 { font-size: clamp(30px, 4vw, 42px); margin: 12px 0; }
+.account-home-heading p, .account-entry p, .account-section-heading p { color: var(--muted); line-height: 1.8; }
+.account-entry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+.account-entry { display: flex; flex-direction: column; align-items: flex-start; padding: 32px; color: var(--text); text-decoration: none; transition: border-color .2s, box-shadow .2s; }
+.account-entry:hover { border-color: var(--accent); box-shadow: 0 12px 32px rgba(32, 167, 122, .12); }
+.account-entry:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+.entry-symbol { display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 28px; background: var(--accent-wash); color: var(--accent-deep); border-radius: 14px; font-size: 28px; font-weight: 700; }
+.account-entry h2 { margin: 12px 0 0; font-size: 26px; }
+.account-entry p { flex: 1; margin-bottom: 30px; }
+.entry-link { color: var(--accent-deep); font-weight: 600; }
+.paper-accounts { margin: 24px 0 30px; }
+.parallel-heading { display: flex; justify-content: space-between; gap: 20px; align-items: start; margin-bottom: 20px; }
+.parallel-heading h1 { font-size: 28px; margin: 8px 0; }
+.parallel-heading small { color: var(--accent-deep); }
+.parallel-heading p { color: var(--muted); line-height: 1.8; }
+.parallel-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+[data-account-group="btc"] .parallel-cards { grid-template-columns: 1fr; }
+.parallel-card { padding: 22px; }
+.parallel-card h2 { font-size: 21px; margin: 0 0 6px; }
+.parallel-equity { font-size: 29px; margin: 22px 0 5px; font-variant-numeric: tabular-nums; }
+.parallel-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 8px; margin-top: 24px; }
+[data-account-group="btc"] .parallel-card dl { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.parallel-card dt { color: var(--muted); font-size: 12px; }
+.parallel-card dd { margin: 5px 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.parallel-state { font-size: 12px; color: var(--green); }
+.parallel-warning, .parallel-error { color: #946312; }
+.parallel-error { font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.parallel-age { font-size: 12px; color: var(--muted); line-height: 1.8; overflow-wrap: anywhere; }
+.parallel-total { font-size: 21px; margin-top: 12px; font-variant-numeric: tabular-nums; }
+.parallel-note { margin-top: 18px; padding: 22px; line-height: 1.9; color: var(--muted); }
+.parallel-note h2 { font-size: 16px; color: var(--text); }
+.parallel-note a { color: var(--accent-deep); }
+.account-section-heading { margin-bottom: 16px; }
+.account-section-heading h2 { margin-bottom: 6px; }
+.account-section-heading p { font-size: 13px; margin-top: 0; }
+.historical-research { margin-top: 30px; }
+.historical-research > summary { cursor: pointer; font-size: 20px; font-weight: 600; padding: 18px 0; }
+.historical-research > summary:focus-visible { outline: 2px solid var(--accent); }
+@media (max-width: 1100px) {
+  .parallel-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  [data-account-group="btc"] .parallel-card dl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 650px) {
+  .account-home { padding-top: 28px; }
+  .account-entry-grid, .parallel-cards { grid-template-columns: 1fr; }
+  .account-entry { padding: 24px; }
+  .parallel-heading { display: block; }
+  [data-account-group="btc"] .parallel-card dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workspace-nav { flex-wrap: wrap; }
+  .workspace-tab { flex-wrap: wrap; }
+  .workspace-tab span { display: none; }
+  .account-topbar .brand small { font-size: 10px; letter-spacing: .03em; }
+  .account-topbar .mode-badge { font-size: 10px; letter-spacing: 0; }
+}
