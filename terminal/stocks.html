@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="MU、SNDK、SKHYNIX 独立股票模拟账户与策略研究"><title>股票账户 · BTC AUTO</title><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./accounts.css"></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="MU、SNDK、SKHYNIX 独立股票模拟账户与策略研究"><title>股票账户 · BTC AUTO</title><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./accounts.css?v=20261006-stock-details"></head>
 <body><header class="topbar account-topbar"><div class="brand"><span class="brand-mark">股</span><div><strong>股票账户</strong><small>MEMORY STOCK ACCOUNTS</small></div></div><span class="mode-badge">SIMULATION · 3 STOCKS</span></header>
 <main><nav class="workspace-nav" aria-label="账户入口">
 <a class="workspace-tab" href="./">账户首页</a>
@@ -7,12 +7,17 @@
 <a class="workspace-tab active" href="./stocks.html" aria-current="page">股票账户 <span>MU / SNDK / SKHYNIX</span></a>
 </nav><section class="paper-accounts" data-account-group="stocks">
 <div class="parallel-heading"><div><small>真实行情 · 独立资金 · 前瞻记录</small><h1>股票模拟账户</h1><p data-paper-field="start">读取账户起点…</p><div class="parallel-total" data-paper-field="total">账户权益 —</div></div><p data-paper-field="heartbeat" class="parallel-age" role="status">连接中</p></div>
-<div class="parallel-cards" data-paper-field="cards" aria-live="polite"></div>
+<div class="parallel-cards" data-paper-field="cards" aria-live="polite"><article class="panel parallel-card"><h2>美光 · MU</h2><p>读取账户数据…</p></article><article class="panel parallel-card"><h2>闪迪 · SNDK</h2><p>读取账户数据…</p></article><article class="panel parallel-card"><h2>海力士 · SKHYNIX</h2><p>读取账户数据…</p></article></div>
+<noscript><p class="parallel-warning">请启用 JavaScript 以查看账户和成交数据。</p></noscript>
+<p data-paper-field="trade-status" class="parallel-age" role="status">正在读取持仓与成交账本…</p>
+<section class="panel stock-trading-panel"><div class="panel-heading"><div><small>OPEN POSITIONS</small><h2>当前持仓</h2></div><span>三个账户独立持仓</span></div><div class="table-wrap"><table><thead><tr><th>账户</th><th>方向</th><th>数量</th><th>开仓均价</th><th>标记价</th><th>未实现盈亏 · USDT</th><th>保护价</th></tr></thead><tbody data-paper-field="positions"><tr><td colspan="7">读取持仓…</td></tr></tbody></table></div></section>
+<section class="panel stock-trading-panel"><div class="panel-heading"><div><small>RECENT FILLS</small><h2>最近模拟成交</h2></div><span>价格与费用按账本记录</span></div><div class="table-wrap"><table><thead><tr><th>时间 · 北京</th><th>账户</th><th>买卖</th><th>成交价</th><th>数量</th><th>手续费 · USDT</th><th>成交原因</th></tr></thead><tbody data-paper-field="trades"><tr><td colspan="7">读取成交记录…</td></tr></tbody></table></div></section>
 <section class="parallel-note panel" data-paper-field="comparison" hidden><h2>分批止盈 · 原规则对照</h2><p data-paper-field="comparison-start"></p><p>新规则：达到1R先退出约一半，余仓扣费保本，并按自身信号周期的1.5ATR跟踪。R为入场到初始止损的价格距离。已有持仓从生效后报价开始观察；原规则对照从相同余额和持仓开始。部分退出不计作完整平仓。</p><div style="overflow-x:auto"><table style="width:100%;text-align:left;white-space:nowrap"><thead><tr><th>账户</th><th>新规则净值变化</th><th>原规则净值变化</th><th>新−原</th><th>新规则现金变化</th><th>原规则现金变化</th></tr></thead><tbody data-paper-field="comparison-rows"></tbody></table></div></section>
 
-</section><section class="parallel-note panel"><h2>SNDK 新数据验证</h2><p>已冻结1小时趋势、4小时方向、成交量与纳指期货过滤，另建正常成本和双倍成本两个模拟账户。盈利目标为扣费后初始保证金的60%；原账户准入和已有仓位继续按各自规则处理。</p><a href="./stock-shadow.html">查看独立模拟与纳指状态 ↗</a></section>
+</section><details class="stock-explanations"><summary>股票规则与验证说明</summary><section class="parallel-note panel"><h2>SNDK 新数据验证</h2><p>已冻结1小时趋势、4小时方向、成交量与纳指期货过滤，另建正常成本和双倍成本两个模拟账户。盈利目标为扣费后初始保证金的60%；原账户准入和已有仓位继续按各自规则处理。</p><a href="./stock-shadow.html">查看独立模拟与纳指状态 ↗</a></section>
 <section class="parallel-note panel"><h2>三股票隔夜验证</h2><p>MU、SNDK、SKHYNIX分别冻结一个候选，各配正常和双倍成本账户，运行至10月6日北京时间10:00并自动生成报告。</p><a href="./stock-overnight.html">查看隔夜三个策略与验证结果 ↗</a></section>
 <section class="parallel-note panel"><h2>股票账户规则</h2><p>MU、SNDK、SKHYNIX各从1,000 USDT开始，分别核算余额、持仓、手续费和资金费，杠杆上限10×。MU与SKHYNIX使用15分钟均线交叉，SNDK使用5分钟趋势突破，均允许做多和做空。</p><p>按用户授权继续模拟验证，历史筛查不作为开仓前提。已启用1R分批止盈、扣费保本与余仓1.5ATR跟踪，并保留原退出规则对照。每30秒观察新鲜行情和保护退出；退出后冷却3根自身信号线。</p><p>单笔计划风险为自身权益的0.25%，入场受此前五分钟成交量、盘口数量和10bp价差上限约束，计入手续费、价差、滑点和资金费。8%回撤限制新增风险，15%回撤触发账户停止。仅记录本地模拟成交。</p></section>
+</details>
 <details class="historical-research"><summary>历史策略研究与回测</summary>      <section id="stockWorkspace" aria-label="股票历史研究">
         <div class="research-heading">
           <div><p class="research-eyebrow">MEMORY STOCKS / STRATEGY RESEARCH</p><h1>存储股策略研究</h1><p>美光、闪迪、海力士 · 四小时信号 · 五分钟回放</p></div>
@@ -53,4 +58,4 @@
         </div>
       </section>
 </details>
-</main><script type="module" src="./parallel.js"></script><script type="module" src="./stocks.js"></script></body></html>
+</main><script type="module" src="./parallel.js?v=20261006-stock-details"></script><script type="module" src="./stocks.js?v=20261006-stock-details"></script><script>if (location.protocol === 'file:') { document.querySelector('[data-paper-field="heartbeat"]').textContent = '本地文件无法加载交易服务，请打开 http://127.0.0.1:8766/terminal/stocks.html'; }</script></body></html>

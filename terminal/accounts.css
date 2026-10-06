@@ -57,3 +57,11 @@ a.workspace-tab { text-decoration: none; }
   .account-topbar .brand small { font-size: 10px; letter-spacing: .03em; }
   .account-topbar .mode-badge { font-size: 10px; letter-spacing: 0; }
 }
+
+.stock-trading-panel { margin-top: 16px; overflow: hidden; }
+.stock-trading-panel .panel-heading { padding: 20px 22px 8px; }
+.stock-trading-panel table { min-width: 720px; }
+.stock-explanations { margin-top: 24px; }
+.stock-explanations > summary { cursor: pointer; font-size: 16px; color: var(--muted); padding: 14px 0; }
+.account-signal-details { margin-top: 14px; }
+.account-signal-details > summary { color: var(--muted); cursor: pointer; font-size: 12px; }

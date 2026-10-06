@@ -444,7 +444,10 @@ python scripts\run_trading_terminal.py --port 8766
 Open `http://127.0.0.1:8766/terminal/` and choose one of the two account entries.
 `/terminal/btc.html` shows the BTC forward account and the separate BTC execution
 account with its existing controls. `/terminal/stocks.html` shows only MU/SNDK/SKHYNIX
-accounts, their combined stock equity, exit-rule comparisons and historical research.
+accounts, their combined stock equity, current position details and the latest 50
+simulated fills (price, quantity, fees and reason), refreshed every 10 seconds.
+Exit-rule comparisons remain visible; rules and historical research are collapsed.
+Trading data is read from the local runtime ledgers and is not included in Git.
 Existing balances, positions and ledgers are preserved. `/terminal/parallel.html` now
 offers the same two entries; old `#btc` and `#stocks` bookmarks open the corresponding
 account page. The read-only

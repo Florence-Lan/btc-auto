@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
-import { createPaperAccounts } from '../terminal/parallel.js';
+import { createPaperAccounts, stockTradingMarkup } from '../terminal/parallel.js';
 
 const html = name => readFileSync(new URL(`../terminal/${name}`, import.meta.url), 'utf8');
 function root(group) {
-  const fields = Object.fromEntries(['start', 'heartbeat', 'total', 'cards', ...(group === 'stocks' ? ['comparison', 'comparison-start', 'comparison-rows'] : [])]
+  const fields = Object.fromEntries(['start', 'heartbeat', 'total', 'cards', ...(group === 'stocks' ? ['comparison', 'comparison-start', 'comparison-rows', 'positions', 'trades', 'trade-status'] : [])]
     .map(name => [name, {textContent: '', innerHTML: '', hidden: false, classList: {add() {}, toggle() {}}}]));
   return {fields, dataset: {accountGroup: group}, querySelector(selector) {
     return fields[selector.match(/"([^"]+)"/)[1]] || null;
@@ -29,8 +29,8 @@ test('home and former combined page offer two distinct account destinations', ()
     assert.equal((html(page).match(/class="panel account-entry"/g) || []).length, 2);
     assert.doesNotMatch(html(page), /src="\.\/(app|parallel|stocks)\.js"/);
   }
-  assert.doesNotMatch(html('btc.html'), /id="stockWorkspace"|src="\.\/stocks\.js"/);
-  assert.doesNotMatch(html('stocks.html'), /id="btcWorkspace"|id="startButton"|src="\.\/app\.js"/);
+  assert.doesNotMatch(html('btc.html'), /id="stockWorkspace"|src="\.\/stocks\.js(?:\?[^"]*)?"/);
+  assert.doesNotMatch(html('stocks.html'), /id="btcWorkspace"|id="startButton"|src="\.\/app\.js(?:\?[^"]*)?"/);
 });
 
 test('BTC equity and cards exclude every stock account and stock comparison', async () => {
@@ -90,4 +90,57 @@ test('former workspace bookmarks go directly to their dedicated pages', () => {
     runInNewContext(script, {location: {hash, replace(url) {destination = url;}}});
     assert.equal(destination, expected);
   }
+});
+
+function ledger(id) {
+  return {mode: 'simulation', places_orders: false, symbol: {mu: 'MUUSDT', sndk: 'SNDKUSDT', skhynix: 'SKHYNIXUSDT'}[id],
+    equity: 1001, wallet_balance: 1000, last_mark_price: 105,
+    position: id === 'mu' ? {direction: -1, qty: .07, entry: 106, stop: 108} : null,
+    fills: [{time_ms: 1000, side: 'SELL', price: 106, qty: .07, fee: .01, reason: 'fresh_closed_15m_signal'}]};
+}
+
+test('stock page loads its three real ledgers and shows positions and fills', async () => {
+  const page = root('stocks'), requests = [];
+  const view = createPaperAccounts(page, async url => {
+    requests.push(url);
+    const id = url.match(/\/(mu|sndk|skhynix)\/state\.json/)?.[1];
+    return {ok: true, json: async () => id ? ledger(id) : status()};
+  });
+  await view.ready;
+  assert.equal(requests.length, 4);
+  assert.ok(!requests.some(url => url.includes('/btc/state.json') || url.includes('/control')));
+  assert.match(page.fields.positions.innerHTML, /做空/);
+  assert.match(page.fields.positions.innerHTML, /0\.0700/);
+  assert.match(page.fields.trades.innerHTML, /106\.0000/);
+  assert.match(page.fields.trades.innerHTML, /15分钟信号入场/);
+  assert.match(page.fields['trade-status'].textContent, /最近3笔模拟成交/);
+  view.destroy();
+});
+
+test('one failed ledger keeps other positions and trades visible without inventing an empty position', async () => {
+  const page = root('stocks');
+  const view = createPaperAccounts(page, async url => {
+    if (url.includes('/sndk/state.json')) return {ok: false};
+    const id = url.match(/\/(mu|skhynix)\/state\.json/)?.[1];
+    return {ok: true, json: async () => id ? ledger(id) : status()};
+  });
+  await view.ready;
+  assert.match(page.fields.positions.innerHTML, /闪迪 · SNDK<\/td><td colspan="6">持仓明细暂不可用/);
+  assert.match(page.fields.positions.innerHTML, /做空/);
+  assert.match(page.fields.trades.innerHTML, /美光 · MU/);
+  assert.match(page.fields['trade-status'].textContent, /部分账本读取失败/);
+  assert.match(page.fields.total.textContent, /9,000/);
+  view.destroy();
+});
+
+test('trade rows are newest first, escape ledger strings and distinguish absent records', () => {
+  const state = ledger('mu');
+  state.fills.push({time_ms: 2000, side: 'BUY', price: 99, qty: .02, fee: .01, reason: '<script>x</script>'});
+  const markup = stockTradingMarkup([{id: 'mu', state}]);
+  assert.ok(markup.trades.indexOf('99.0000') < markup.trades.indexOf('106.0000'));
+  assert.ok(markup.trades.includes('&lt;script&gt;'));
+  assert.ok(!markup.trades.includes('<script>'));
+  state.fills = [];
+  assert.match(stockTradingMarkup([{id: 'mu', state}]).trades, /暂无模拟成交记录/);
+  assert.match(stockTradingMarkup([{id: 'mu', error: 'unavailable'}]).trades, /成交明细暂不可用/);
 });
