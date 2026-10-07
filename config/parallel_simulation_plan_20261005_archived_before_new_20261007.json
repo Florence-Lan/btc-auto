@@ -1,0 +1,353 @@
+{
+  "schema_version": 1,
+  "plan_id": "btc_memory_stocks_1000_each_10x_20261005",
+  "status": "user_authorized_latest_strategy_configured_pending_runtime_access",
+  "execution_mode": "simulation",
+  "live_orders_allowed": false,
+  "user_authorized_start_condition": "User explicitly requested immediate four-account prospective simulation on 2026-10-05; historical profitability screening is not a prerequisite for paper research.",
+  "initial_balance_usdt_per_account": 1000,
+  "max_leverage": 10,
+  "total_initial_balance_usdt": 4000,
+  "capital_transfers_between_accounts": false,
+  "start_policy": "Create a new comparison generation with a common prospective start timestamp; preserve existing accounts and histories.",
+  "prospective_start_utc": "2026-10-05T04:42:03.609000+00:00",
+  "historical_warmup_counts_as_forward_performance": false,
+  "stock_research_profile": "config/stock_hourly_aligned_breakout_paper_20261007.json",
+  "accounts": [
+    {
+      "account_id": "btc",
+      "symbol": "BTCUSDT",
+      "venue": "binance_usdm",
+      "initial_balance_usdt": 1000,
+      "max_leverage": 10,
+      "strategy_selection_status": "user_authorized_paper_validation_not_profitability_qualified",
+      "strategy_path": "config/multifactor_regular_10x_20261004.json",
+      "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/btc/state.json",
+      "entry_qualification": {
+        "approved_for_forward_simulation": true,
+        "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+        "results_path": "data/research/btc_bidirectional_regimes_20261005/results.json",
+        "price_only_proxy_replay": true,
+        "forward_validated": false,
+        "authorization_basis": "explicit_user_instruction",
+        "historical_screen_passed": false
+      }
+    },
+    {
+      "account_id": "mu",
+      "symbol": "MUUSDT",
+      "venue": "aster",
+      "initial_balance_usdt": 1000,
+      "max_leverage": 10,
+      "strategy_selection_status": "user_authorized_paper_validation_not_profitability_qualified",
+      "strategy_path": "config/stock_hourly_aligned_breakout_paper_20261007.json",
+      "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/mu/state.json"
+    },
+    {
+      "account_id": "sndk",
+      "symbol": "SNDKUSDT",
+      "venue": "aster",
+      "initial_balance_usdt": 1000,
+      "max_leverage": 10,
+      "strategy_selection_status": "user_authorized_latest_paper_strategy_retrospective_production_passed_not_forward_proven",
+      "strategy_path": "config/stock_hourly_aligned_breakout_paper_20261007.json",
+      "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/sndk/state.json"
+    },
+    {
+      "account_id": "skhynix",
+      "symbol": "SKHYNIXUSDT",
+      "venue": "aster",
+      "initial_balance_usdt": 1000,
+      "max_leverage": 10,
+      "strategy_selection_status": "user_authorized_paper_validation_not_profitability_qualified",
+      "strategy_path": "config/stock_hourly_aligned_breakout_paper_20261007.json",
+      "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/skhynix/state.json"
+    }
+  ],
+  "market_data_policy": {
+    "source": "real_public_venue_market_data",
+    "required_inputs": [
+      "completed_candles",
+      "observed_bid_ask_and_depth",
+      "mark_price",
+      "index_price",
+      "funding_events",
+      "contract_filters"
+    ],
+    "missing_or_stale_inputs": "pause_new_entries_and_record_degraded_status",
+    "fees_funding_and_slippage_included": true,
+    "price_changes_without_supported_fills_are_not_executed_trades": true,
+    "partial_fills_and_protective_stop_latency_required_for_stock_paper": true
+  },
+  "launch_readiness": {
+    "stock_strategy_selection_complete": true,
+    "four_account_forward_runner_verified": true,
+    "common_start_timestamp_set": true,
+    "all_accounts_started": true,
+    "all_accounts_approved_for_new_exposure": true
+  },
+  "stock_rule_selection": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+  "runner_script": "scripts/run_parallel_simulation.py",
+  "status_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/status.json",
+  "activation": {
+    "pid": 11500,
+    "stock_accounts_market_status": "healthy",
+    "btc_market_status": "degraded_binance_public_cooldown",
+    "btc_retry_at_utc": "2026-10-05T08:35:04.858000+00:00",
+    "related_tests_passed": 155,
+    "places_orders": false
+  },
+  "stock_rule_revision": {
+    "candidate_id": "stock_one_r_half_atr_paper_20261006",
+    "previous_profile": "config/stock_unrestricted_paper_validation_20261005.json",
+    "report_path": "docs/stock_profit_exits_20261006.md",
+    "account_ledgers_preserved": true,
+    "forward_profitability_verified": false,
+    "profit_exit_policy": {
+      "mode": "one_r_half_atr",
+      "first_target_r": 1.0,
+      "first_close_fraction": 0.5,
+      "trail_atr": 1.5
+    },
+    "activated_at_utc": "2026-10-06T05:06:47.652000+00:00",
+    "runner_pid": 53983,
+    "related_tests_passed": 771,
+    "activation_verification_path": "data/runtime/stock_profit_exits_activation_20261006.json"
+  },
+  "account_strategy_policy": {
+    "user_authorization": "User permits distinct account strategies and explicitly requires both long and short stock entries; objective is net profitability.",
+    "strategy_family_must_match": false,
+    "signal_timeframe_must_match": false,
+    "entry_direction_must_match": false,
+    "exit_model_must_match": false,
+    "profit_assessed_per_account": true,
+    "allow_cross_account_loss_offset": false,
+    "rank_by": "closed net PnL after fees, slippage and funding with drawdown and execution checks",
+    "requires_fixed_net120_target_count": false,
+    "do_not_guarantee_future_profit": true,
+    "live_orders_allowed": false,
+    "stock_entry_direction": "both",
+    "new_entry_requires_declared_screen_pass": false,
+    "profit_guaranteed": false,
+    "stock_user_admission_requirements": {
+      "minimum_target_net_return_on_initial_margin": 0.6,
+      "minimum_closed_net_win_rate": null,
+      "return_denominator": "initial_margin_of_this_trade",
+      "net_pnl_includes": [
+        "entry_and_exit_fees",
+        "adverse_execution_slippage",
+        "funding"
+      ],
+      "win_definition": "closed_net_pnl > 0",
+      "every_trade_profit_guaranteed": false,
+      "future_win_rate_guaranteed": false,
+      "known_history_is_independent_validation": false,
+      "new_entries_allowed_before_qualification": true,
+      "minimum_net60_success_rate": null,
+      "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+      "minimum_closed_trades_by_window": {
+        "development": 30,
+        "validation": 10,
+        "recent": 10,
+        "full": 50
+      },
+      "both_normal_and_double_cost_required": true,
+      "positive_net_with_estimated_open_close_required": true,
+      "positive_full_net_without_best_winner_required": true,
+      "maximum_sampled_drawdown_pct": 6,
+      "no_modeled_liquidation": true,
+      "future_positive_expectancy_guaranteed": false,
+      "enforced_for_paper_entries": false
+    },
+    "paper_validation_authorization": {
+      "requested_at_utc": "2026-10-05T15:24:24.518904+00:00",
+      "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+      "historical_research_gates_block_paper_entries": false,
+      "execution_and_account_risk_controls_preserved": true
+    }
+  },
+  "previous_stock_rule_revisions": [
+    {
+      "candidate_id": "memory_stock_per_symbol_15m_forward_20261005",
+      "signal_timeframe": "15m",
+      "entry_retry_seconds": 30,
+      "entry_signal_validity": "until_next_15m_close",
+      "cooldown_signal_bars": 3,
+      "activated_at_utc": "2026-10-05T07:58:07.497000+00:00",
+      "runner_pid": 12835,
+      "related_tests_passed": 124,
+      "prior_4h_results_transferable": false,
+      "account_ledgers_preserved": true,
+      "runner_source_hash": "4329976afc5dde91a601c0fa69410c5648c4d112884eec0d7c70f7814d25519b"
+    },
+    {
+      "candidate_id": "independent_stock_shortcycle_forward_20261005",
+      "signal_timeframes": {
+        "MUUSDT": "15m",
+        "SNDKUSDT": "5m",
+        "SKHYNIXUSDT": "15m"
+      },
+      "entry_retry_seconds": 30,
+      "entry_signal_validity": "until_next_close_of_own_signal_timeframe",
+      "cooldown_signal_bars": 3,
+      "activated_at_utc": "2026-10-05T08:15:02.019000+00:00",
+      "runner_pid": 19390,
+      "related_tests_passed": 157,
+      "independent_unseen_validation_claim": false,
+      "account_ledgers_preserved": true,
+      "research_path": "data/research/stock_independent_short_cycle_20261005/results.json",
+      "report_path": "docs/stock_independent_strategies_20261005.md",
+      "runner_source_hash": "a6fee36015f933661ac6573cc4e90de4d45aa9a656293a3d40180688801f7e2f"
+    },
+    {
+      "candidate_id": "stock_bidirectional_forward_20261005",
+      "signal_timeframes": {
+        "MUUSDT": "15m",
+        "SNDKUSDT": "5m",
+        "SKHYNIXUSDT": "15m"
+      },
+      "entry_directions": {
+        "MUUSDT": "both",
+        "SNDKUSDT": "both",
+        "SKHYNIXUSDT": "both"
+      },
+      "entry_retry_seconds": 30,
+      "execution_volume_refresh_seconds": 30,
+      "entry_signal_validity": "until_next_close_of_own_signal_timeframe",
+      "cooldown_signal_bars": 3,
+      "activated_at_utc": "2026-10-05T08:54:12.541000+00:00",
+      "runner_pid": 40141,
+      "related_tests_passed": 173,
+      "account_ledgers_preserved": true,
+      "previous_profile": "config/stock_independent_shortcycle_forward_20261005.json",
+      "report_path": "docs/stock_entry_fix_20261005.md",
+      "runner_source_hash": "c456c0c5ff159b177c4b7152797703eb5f4259e78125a1173821e91a2c13b689",
+      "historical_long_only_results_validate_bidirectional_revision": false
+    },
+    {
+      "candidate_id": "stock_screened_bidirectional_forward_20261005",
+      "activated_at_utc": "2026-10-05T09:34:56.278000+00:00",
+      "runner_pid": 61363,
+      "related_tests_passed": 300,
+      "entry_directions": {
+        "MUUSDT": "both",
+        "SNDKUSDT": "both",
+        "SKHYNIXUSDT": "both"
+      },
+      "new_entry_enabled": {
+        "btc": false,
+        "mu": false,
+        "sndk": true,
+        "skhynix": false
+      },
+      "stock_risk_fraction_per_new_trade": 0.0025,
+      "entry_retry_seconds": 30,
+      "execution_volume_refresh_seconds": 30,
+      "account_ledgers_preserved": true,
+      "report_path": "docs/strategy_screen_20261005.md",
+      "research_paths": [
+        "data/research/bidirectional_regimes_20261005/results.json",
+        "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+        "data/research/btc_bidirectional_regimes_20261005/results.json"
+      ],
+      "runner_source_hash": "03034b639dfc8715f5f9302f9e1cfd029b76898a59a6d18167c4d0c530df402d",
+      "forward_profitability_verified": false
+    },
+    {
+      "candidate_id": "stock_spread_guarded_forward_20261005",
+      "report_path": "docs/stock_execution_refinement_20261005.md",
+      "research_paths": [
+        "data/research/stock_execution_refinement_verified_20261005/results.json"
+      ],
+      "max_entry_spread_fraction": 0.001,
+      "account_ledgers_preserved": true,
+      "forward_profitability_verified": false,
+      "related_tests_passed": 723,
+      "activated_at_utc": "2026-10-05T10:57:43.090000+00:00",
+      "runner_pid": 5159,
+      "runner_source_hash": "c9dc454c923973ddfca9cea80b63e793b4515bd86f1366acbbd62fe76b79770d"
+    },
+    {
+      "candidate_id": "stock_high_winrate_admission_20261005",
+      "report_path": "docs/stock_user_requirements_20261005.md",
+      "research_paths": [
+        "data/research/stock_user_requirements_20261005/evaluation.json"
+      ],
+      "new_entry_enabled": {
+        "btc": false,
+        "mu": false,
+        "sndk": false,
+        "skhynix": false
+      },
+      "account_ledgers_preserved": true,
+      "forward_profitability_verified": false,
+      "return_denominator": "initial_margin_of_this_trade",
+      "minimum_target_net_return_on_initial_margin": 0.6,
+      "minimum_closed_net_win_rate": 0.7,
+      "runner_source_hash": "c9dc454c923973ddfca9cea80b63e793b4515bd86f1366acbbd62fe76b79770d",
+      "activated_at_utc": "2026-10-05T11:31:26.037000+00:00",
+      "runner_pid": 22542,
+      "activation_verification_path": "data/runtime/stock_user_requirements_verification.json"
+    },
+    {
+      "candidate_id": "stock_expectancy_admission_20261005",
+      "report_path": "docs/stock_expectancy_20261005.md",
+      "research_paths": [
+        "data/research/stock_expectancy_review_20261005/results.json"
+      ],
+      "account_ledgers_preserved": true,
+      "forward_profitability_verified": false,
+      "minimum_closed_net_win_rate": null,
+      "minimum_net60_success_rate": null,
+      "minimum_target_net_return_on_initial_margin": 0.6,
+      "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+      "new_entry_enabled": {
+        "btc": false,
+        "mu": false,
+        "sndk": false,
+        "skhynix": false
+      },
+      "runner_source_hash": "c9dc454c923973ddfca9cea80b63e793b4515bd86f1366acbbd62fe76b79770d",
+      "runner_pid": 99771,
+      "activated_at_utc": "2026-10-05T14:06:14.803000+00:00",
+      "activation_verification_path": "data/runtime/stock_expectancy_activation.json"
+    }
+  ],
+  "stock_rule_revision_reason": "User explicitly requested all four paper accounts use the latest strategy on 2026-10-07. SNDK hourly Donchian/EMA60 with net60 exits; latest BTC/MU/SKHYNIX rules preserved. Migrate existing ledgers without resetting balances or fills.",
+  "stock_rule_revision_scope": "entry_and_exit",
+  "profit_exit_comparison": {
+    "directory": "profit_exit_comparison_20261006",
+    "control_profile_path": "config/stock_unrestricted_paper_validation_20261005.json",
+    "status": "running_forward_comparison",
+    "performance_basis": "cash/equity changes from identical activation inventory, not the 1000 USDT inception balance"
+  },
+  "stock_rule_revision_history": [
+    {
+      "candidate_id": "stock_one_r_half_atr_paper_20261006",
+      "previous_profile": "config/stock_unrestricted_paper_validation_20261005.json",
+      "report_path": "docs/stock_profit_exits_20261006.md",
+      "account_ledgers_preserved": true,
+      "forward_profitability_verified": false,
+      "profit_exit_policy": {
+        "mode": "one_r_half_atr",
+        "first_target_r": 1.0,
+        "first_close_fraction": 0.5,
+        "trail_atr": 1.5
+      },
+      "activated_at_utc": "2026-10-06T05:06:47.652000+00:00",
+      "runner_pid": 53983,
+      "related_tests_passed": 771,
+      "activation_verification_path": "data/runtime/stock_profit_exits_activation_20261006.json"
+    },
+    {
+      "candidate_id": "stock_hourly_aligned_breakout_paper_20261007",
+      "previous_profile": "config/stock_one_r_half_atr_paper_20261006.json",
+      "report_path": "docs/latest_four_account_switch_20261007.md",
+      "account_ledgers_preserved": true,
+      "forward_profitability_verified": false,
+      "activation_status": "configured_pending_original_service_access",
+      "switch_authorization": "explicit_user_instruction_20261007",
+      "runtime_verified": false
+    }
+  ]
+}

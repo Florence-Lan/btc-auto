@@ -1,0 +1,72 @@
+{
+  "plan_id": "btc_memory_stocks_latest_1000_each_20261007",
+  "verified_at_utc": "2026-10-07T13:53:47.209000+00:00",
+  "common_start_utc": "2026-10-07T13:50:09.264000+00:00",
+  "mode": "simulation",
+  "places_orders": false,
+  "runner_pid": 8836,
+  "signal_producer_pid": 15992,
+  "poll_seconds": 30,
+  "running": true,
+  "btc_signal_producer_status": "healthy",
+  "btc_signal_evaluations": 1,
+  "accounts": {
+    "skhynix": {
+      "symbol": "SKHYNIXUSDT",
+      "status": "healthy",
+      "observations": 8,
+      "wallet_balance": 1000.0,
+      "equity": 1000.0,
+      "fill_count_total": 0,
+      "position_qty": 0,
+      "signal_status": "waiting_for_first_forward_candle",
+      "signal_timeframe": "15m",
+      "errors": {}
+    },
+    "sndk": {
+      "symbol": "SNDKUSDT",
+      "status": "healthy",
+      "observations": 8,
+      "wallet_balance": 1000.0,
+      "equity": 1000.0,
+      "fill_count_total": 0,
+      "position_qty": 0,
+      "signal_status": "waiting_for_first_forward_candle",
+      "signal_timeframe": "1h",
+      "errors": {}
+    },
+    "mu": {
+      "symbol": "MUUSDT",
+      "status": "healthy",
+      "observations": 8,
+      "wallet_balance": 1000.0,
+      "equity": 1000.0,
+      "fill_count_total": 0,
+      "position_qty": 0,
+      "signal_status": "waiting_for_first_forward_candle",
+      "signal_timeframe": "15m",
+      "errors": {}
+    },
+    "btc": {
+      "symbol": "BTCUSDT",
+      "status": "waiting_for_first_forward_candle",
+      "observations": null,
+      "wallet_balance": 1000.0,
+      "equity": 1000.0,
+      "fill_count_total": 0,
+      "position_qty": 0.0,
+      "signal_status": "no_signal",
+      "signal_timeframe": null,
+      "errors": {}
+    }
+  },
+  "python_tests_passed": 898,
+  "python_tests_skipped": 2,
+  "ui_tests_passed": 24,
+  "old_generations_preserved": true,
+  "forward_validated": false,
+  "runtime_source_sha256": {
+    "run_parallel_simulation.py": "f33d4ea123d1ba3963185fd349f978f3a6f324d0836570ca1459723af23aa65b",
+    "run_parallel_btc_signals.py": "2d99f39fedb9893a6a3b1c0c8555afe97c1057a713e20cfe5fcf688cc9bcbfd2"
+  }
+}

@@ -83,6 +83,7 @@ def test_bootstrap_common_epoch_and_preserves_restart(tmp_path, monkeypatch):
 def stock_fixture(tmp_path, monkeypatch, opened=False):
     stamp = 10 * runner.FOUR_HOURS + 100_000
     monkeypatch.setattr(runner, 'now_ms', lambda: stamp)
+    monkeypatch.setattr(runner.time, 'monotonic', lambda: stamp / 1000)
     cfg = json.loads((Path(__file__).resolve().parents[1] / 'config/stock_swing_120_candidate_20261004.json').read_text())
     path = tmp_path / 'state.json'
     state = runner.initial_stock('MUUSDT', stamp - 10_000, cfg)

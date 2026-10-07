@@ -714,8 +714,8 @@ def bootstrap(plan):
     start = now_ms()
     manifest = {'plan_id': plan['plan_id'], 'start_ms': start, 'start_utc': arithmetic.iso(start),
         'places_orders': False, 'initial_balance_each': 1000, 'total_initial_balance': 4000,
-        'max_leverage': 10, 'stock_rule': 'prior5m_per_symbol_existing_both_directions',
-        'stock_selection_reason': 'User authorized starting prospective research now; use existing declared baseline without refitting.',
+        'max_leverage': 10, 'stock_rule': plan.get('stock_research_profile', 'not_applicable'),
+        'stock_selection_reason': 'User authorized a fresh four-account generation using the latest declared rules.',
         'independent_holdout_after_start_only': True, 'forward_validated': False,
         'btc_signal_source': 'existing selected BTC supervisor, forward targets only',
         'btc_execution_model': 'existing verified mark_price_slippage_model',
@@ -743,7 +743,8 @@ def btc_step(account, root, manifest, client):
     health = simulation_risk_monitor.monitor(client, clock['time_ms'], account=execution,
         status_path=path.with_name('risk_monitor.json'), clock_source=clock['source'])
     profile = json.loads((ROOT / account['strategy_path']).read_text())
-    report_path = ROOT / 'data/paper_trading' / (profile['candidate_id'] + '_report.json')
+    report_path = ROOT / account.get('strategy_report_path',
+        'data/paper_trading/' + profile['candidate_id'] + '_report.json')
     report = json.loads(report_path.read_text())
     if 'entry_qualification' in account:
         report['strategy_qualification'] = account['entry_qualification']
@@ -881,6 +882,10 @@ def _run_locked(plan, root, args):
                     'last_mark_price', 'signal_status', 'signal_timeframe', 'signal_family', 'entry_direction', 'next_signal_time_ms',
                     'last_signal_time_ms', 'signal_active_after_ms', 'entry_checks', 'entry_blockers', 'entry_qualification', 'errors', 'observations',
                     'profit_exit_status', 'realized_pnl')}
+                # Heartbeats share the host clock used by the local UI. Market
+                # timestamps keep their exchange clock for freshness validation.
+                view['market_checked_at_utc'] = result.get('checked_at_utc')
+                view['checked_at_utc'] = arithmetic.iso(now_ms())
                 with mutex:
                     shared[account_id] = view
             except Exception as exc:

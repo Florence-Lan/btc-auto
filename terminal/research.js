@@ -94,7 +94,7 @@ export function createResearchView(root, fetcher = globalThis.fetch) {
       $("#stockForwardState").textContent = data.forward_start_utc ? `前瞻记录起于 ${beijingTime(data.forward_start_utc)}` : data.forward_status === "prepared_not_started" ? "尚未启动，历史数据不计入前瞻样本" : "尚未取得前瞻运行记录";
       $("#stockResearchContext").textContent = data.forward_start_utc ? "历史回放 · 前瞻记录需独立评估" : data.forward_status === "prepared_not_started" ? "历史回放，前瞻观察尚未启动" : "历史回放 · 前瞻状态未取得";
       try {
-        const forwardResponse = await fetcher(`/data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/status.json?v=${Date.now()}`);
+        const forwardResponse = await fetcher(`/data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/status.json?v=${Date.now()}`);
         if (forwardResponse.ok) {
           const forward = await forwardResponse.json();
           if (forward?.mode !== "SIMULATION" || forward.places_orders !== false

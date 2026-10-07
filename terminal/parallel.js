@@ -17,7 +17,7 @@ signalNames.direction_filtered = '本根信号不符合账户的方向规则';
 const blockerNames = {prior_5m_volume:'此前5分钟成交量为0或缺失', funding:'资金费超限',
   mark_index_basis:'标记价与指数价偏离超限', book_mark_basis:'盘口与标记价偏离超限',
   entry_gap:'追价距离超限', bid_ask_spread:'买卖价差超过入场上限'};
-const dataRoot = '/data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005';
+const dataRoot = '/data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007';
 const stockSymbols = {mu: 'MUUSDT', sndk: 'SNDKUSDT', skhynix: 'SKHYNIXUSDT'};
 const reasonName = reason => ({protective_stop: '保护止损', one_r_partial: '1R分批止盈',
   profit_target: '目标止盈', fresh_closed_5m_signal: '5分钟信号入场',
