@@ -6,7 +6,7 @@ depth fills and protective exits through a process-local signal adapter; no
 historical source file is edited and no exchange order endpoint is available.
 """
 import argparse
-import fcntl
+from process_lock import exclusive_process_lock
 import gzip
 import hashlib
 import json
@@ -167,8 +167,11 @@ def run(once=False,poll_seconds=30):
         raise ValueError('Only separate paper research is permitted')
     root=ROOT/'data/paper_trading'/profile['candidate_id']
     root.mkdir(parents=True,exist_ok=True)
-    lock=(root/'runner.lock').open('a')
-    fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    with exclusive_process_lock(root / 'runner.lock'):
+        _run_locked(profile, root, once, poll_seconds)
+
+
+def _run_locked(profile, root, once, poll_seconds):
     files=[PROFILE,Path(__file__),ROOT/'scripts/stock_external_context.py',
         ROOT/'scripts/research_selective_stock_entries.py',ROOT/'scripts/run_parallel_simulation.py',
         ROOT/'scripts/stock_swing_signals.py',ROOT/'scripts/backtest_stock_swing_120.py',

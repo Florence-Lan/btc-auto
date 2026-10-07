@@ -20,6 +20,8 @@ import macro_regime
 import multifactor
 import portfolio_risk
 import public_context
+import world_event_risk
+import market_intelligence
 import simulate_range_swing as sim
 import timeseries_execution
 
@@ -77,6 +79,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--research-profile", type=Path, help="Frozen reentry candidate; isolated paper state only")
     parser.add_argument("--market-cache", type=Path, help="Incremental verified public market-data cache")
     parser.add_argument("--asof-ms", type=int, help="Validated simulation decision cutoff")
+    parser.add_argument("--world-event-snapshot", type=Path,
+                        help="Opt-in research news journal; use separate shadow state paths")
+    parser.add_argument("--intelligence-db", type=Path,
+                        help="Opt-in archived public-flow research filter; separate shadow state required")
     return parser.parse_args()
 
 
@@ -202,6 +208,19 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
         "drawdown_min_multiplier": args.drawdown_min_multiplier,
         "event_snapshot": str(args.event_snapshot.resolve()) if args.event_snapshot else None,
     }
+    world_path = getattr(args, "world_event_snapshot", None)
+    intelligence_path = getattr(args, "intelligence_db", None)
+    if intelligence_path:
+        if not intelligence_path.is_file():
+            raise ValueError("Intelligence database does not exist")
+        profile["intelligence_db"] = str(intelligence_path.resolve())
+        profile["intelligence_rule_version"] = market_intelligence.VERSION
+    world_snapshot = world_event_risk.load_snapshot(world_path) if world_path else None
+    if world_snapshot is not None:
+        if world_snapshot.get("synthetic"):
+            raise ValueError("Synthetic world events cannot be used in prospective shadow tracking")
+        profile["world_event_snapshot"] = str(world_path.resolve())
+        profile["world_event_rule_version"] = world_event_risk.RULE_VERSION
     custom_profile = bool(
         args.strategy_modes_override
         or args.macro_snapshot
@@ -209,6 +228,8 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
         or args.event_snapshot
         or factor_profile
         or research_profile
+        or world_path
+        or intelligence_path
     )
     if factor_profile:
         profile["factor_profile_sha256"] = multifactor.profile_hash(factor_profile)
@@ -330,6 +351,24 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             block_score=args.macro_block_score,
         )
     event_diagnostics = None
+    world_diagnostics = None
+    intelligence_diagnostics = None
+    if factor_diagnostics is not None and (world_snapshot is not None or intelligence_path):
+        # Preserve the factor's existing cap without changing its frozen engine.
+        factor_limits = {
+            (row["entry_time_utc"], row["side"]): row["risk_multiplier"]
+            for row in factor_diagnostics["decision_log"] if row["allowed"]
+        }
+        for sleeve in sleeves:
+            for trade in sleeve.get("trades", []):
+                trade["multifactor_risk_multiplier"] = factor_limits[
+                    (trade["entry_time_utc"], trade["side"])
+                ]
+    if world_snapshot is not None:
+        sleeves, world_diagnostics = world_event_risk.apply_overlay(sleeves, world_snapshot)
+        world_diagnostics["current"] = world_event_risk.report_at(world_snapshot, now_ms)
+    if intelligence_path:
+        sleeves, intelligence_diagnostics = market_intelligence.apply_shadow_overlay(sleeves, intelligence_path)
     if args.event_snapshot:
         events = event_risk.load_event_snapshot(args.event_snapshot)
         sleeves, event_diagnostics = event_risk.apply_event_overlay(sleeves, events)
@@ -393,7 +432,7 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             "shadow_profile": profile,
             "event_overlay": event_diagnostics,
             "multifactor_overlay": factor_diagnostics,
-            "research_only": bool(factor_profile or research_profile),
+            "research_only": bool(factor_profile or research_profile or world_path or intelligence_path),
             "research_candidate": research_profile["candidate_id"] if research_profile else None,
             "execution_entry_context": {
                 "factor_profile": str(factor_profile_path.resolve()) if factor_profile_path else None,
@@ -408,6 +447,8 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             "hourly_startup": core.get("hourly_startup") if causal_hourly else None,
             "market_data": market_data.diagnostics if market_data is not None else None,
             "decision_asof_ms": now_ms,
+            "world_event_overlay": world_diagnostics,
+            "intelligence_overlay": intelligence_diagnostics,
         }
     )
     state["observations"] = int(state["observations"]) + 1

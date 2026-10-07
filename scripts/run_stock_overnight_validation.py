@@ -3,7 +3,7 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-import fcntl
+from process_lock import exclusive_process_lock
 import gzip
 import hashlib
 import json
@@ -105,8 +105,11 @@ def run(once=False,poll_seconds=30):
         raise ValueError('Only public-data overnight simulation allowed')
     root=ROOT/'data/paper_trading'/profile['experiment_id']
     root.mkdir(parents=True,exist_ok=True)
-    lock=(root/'runner.lock').open('a')
-    fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    with exclusive_process_lock(root / 'runner.lock'):
+        _run_locked(profile, root, once, poll_seconds)
+
+
+def _run_locked(profile, root, once, poll_seconds):
     manifest=frozen_manifest(profile,root)
     if (root/'completed.json').exists():
         return

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import copy
 from concurrent.futures import ThreadPoolExecutor
-import fcntl
+from process_lock import exclusive_process_lock
 import hashlib
 import json
 import os
@@ -152,8 +152,11 @@ def run(once=False, poll_seconds=30):
     profile = paper.read_json(PROFILE)
     root = ROOT / 'data/paper_trading' / profile['experiment_id']
     root.mkdir(parents=True, exist_ok=True)
-    lock = (root / 'runner.lock').open('a')
-    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    with exclusive_process_lock(root / 'runner.lock'):
+        _run_locked(profile, root, once, poll_seconds)
+
+
+def _run_locked(profile, root, once, poll_seconds):
     manifest = prepare(profile, root)
     venue = paper.PublicAster()
     workers = {}

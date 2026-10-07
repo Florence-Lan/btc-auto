@@ -413,6 +413,17 @@ news. An event cannot affect a decision before `published_at_utc`; severity only
 blocks entries and never creates a directional trade. Keep the template empty until a timestamped,
 auditable event feed is available.
 
+An opt-in world-event research prototype now supports timestamped news discovery,
+append-only evidence reviews, decaying risk scores, feed-health checks, and a
+`--world-event-snapshot` shadow overlay. See [the workflow and limitations](docs/world_event_indicator.md).
+It is disabled by default and does not modify live execution or existing shadow state.
+
+The [market intelligence monitor](docs/market_intelligence.md) adds public spot/futures
+flows, OI, long/short ratios, large trade samples, order books, Hyperliquid BTC
+positions, and Bitcoin mempool observations. Run `python scripts/monitor_market_intelligence.py --loop`
+and open `/terminal/intelligence.html`. An optional `--intelligence-db` shadow filter
+reads only archived observations available at each entry; the monitor itself never trades.
+
 An optional higher-coverage profile adds the range module and reduces tactical risk to 0.75%.
 It is frozen separately because it trades more often but had lower historical CAGR than the
 default risk-controlled profile:

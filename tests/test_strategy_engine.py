@@ -90,6 +90,11 @@ class StrategyEngineTests(unittest.TestCase):
 
     def test_trading_terminal_defaults_to_mainnet_simulation(self) -> None:
         with (
+            tempfile.TemporaryDirectory() as temporary,
+            mock.patch.object(
+                trading_terminal, "SimulationAccount",
+                return_value=trading_execution.SimulationAccount(Path(temporary) / "simulation.json"),
+            ),
             mock.patch.object(trading_terminal.CONTROLLER, "mode", return_value="simulation"),
             mock.patch.object(trading_terminal.BINANCE, "mark_price", return_value=65_000.0),
         ):

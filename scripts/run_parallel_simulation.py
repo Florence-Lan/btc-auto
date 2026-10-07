@@ -6,7 +6,7 @@ import argparse
 from dataclasses import asdict
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal, ROUND_DOWN
-import fcntl
+from process_lock import exclusive_process_lock
 import hashlib
 import json
 import math
@@ -739,8 +739,11 @@ def main():
         raise ValueError('Only simulation plans are accepted')
     root = ROOT / 'data/parallel_simulation' / plan['plan_id']
     root.mkdir(parents=True, exist_ok=True)
-    lock = (root / 'runner.lock').open('a')
-    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    with exclusive_process_lock(root / 'runner.lock'):
+        _run_locked(plan, root, args)
+
+
+def _run_locked(plan, root, args):
     root, manifest = bootstrap(plan)
     comparison = prepare_profit_comparison(plan, root)
     synchronize_stock_rules(plan, root, manifest)
