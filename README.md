@@ -1,5 +1,12 @@
 # BTC Auto
 
+October 7 strategy review: two fixed stock candidates now have reproducible
+current-account replays with normal and double execution costs. Neither improves
+the declared per-account return/drawdown criteria, so the four-account defaults
+remain selected. Optional confirmed trend exits and directional efficiency/cost
+entry checks are available for explicit paper research. Arithmetic tests no longer
+inherit a user's enabled LLM gate. See [results and validation](docs/strategy_review_20261007.md).
+
 October 6, 22:15 Beijing time: a separate six-ledger stock experiment now
 compares two-closed-bar trend invalidation exits against the existing 1R/ATR
 rules. Original accounts continue running. Each pair starts from matching

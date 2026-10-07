@@ -1,0 +1,1393 @@
+{
+  "review_id": "four_account_strategy_review_20261007",
+  "places_orders": false,
+  "simulation_only": true,
+  "decision": "retain_incumbent_no_candidate_passed",
+  "active_stock_profile": "config/stock_one_r_half_atr_paper_20261006.json",
+  "active_btc_profile": "config/multifactor_regular_10x_20261004.json",
+  "candidates": {
+    "confirmed_trend_exit_20261007": {
+      "declaration": {
+        "candidate": {
+          "candidate_id": "stock_confirmed_trend_exit_candidate_20261007",
+          "status": "fixed_rule_paper_candidate_pending_validation",
+          "base_config": "config/stock_swing_120_candidate_20261004.json",
+          "execution_timeframe": "5m",
+          "capital_weights": {
+            "MUUSDT": 0.3333333333333333,
+            "SNDKUSDT": 0.3333333333333333,
+            "SKHYNIXUSDT": 0.3333333333333333
+          },
+          "max_positions_per_capital_bucket": 1,
+          "risk_fraction_per_bucket_trade": 0.0025,
+          "symbol_profiles": {
+            "MUUSDT": {
+              "signal_family": "ema_transition",
+              "ema_fast": 8,
+              "ema_mid": 24,
+              "ema_slow": 60,
+              "warmup_bars": 60,
+              "require_price_slow": true,
+              "stop_atr": 2.0,
+              "target_margin_return": 1.2,
+              "max_holding_calendar_days": 15,
+              "trail_activation_underlying_return": 0.08,
+              "trail_locked_underlying_return": 0.03,
+              "trail_atr": 2.0,
+              "signal_timeframe": "15m",
+              "entry_direction": "both",
+              "entry_signal_validity_minutes": 15,
+              "cooldown_signal_bars": 3,
+              "research_variant": "cross_8_24_60_15m_both_swing_net120",
+              "candidate_id": "muusdt_confirmed_trend_exit_20261007",
+              "entry_enabled": true,
+              "taker_fee_rate_assumption": 0.000125,
+              "entry_qualification": {
+                "approved_for_forward_simulation": true,
+                "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+                "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+                "minimum_closed_net_win_rate": null,
+                "minimum_net60_success_rate": null,
+                "minimum_target_net_return_on_initial_margin": 0.6,
+                "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+                "known_retrospective_history": true,
+                "forward_validated": false,
+                "authorization_basis": "explicit_user_instruction",
+                "historical_screen_passed": false
+              }
+            },
+            "SNDKUSDT": {
+              "signal_family": "breakout",
+              "ema_fast": 8,
+              "ema_mid": 24,
+              "ema_slow": 60,
+              "warmup_bars": 60,
+              "breakout_bars": 6,
+              "stop_atr": 2.0,
+              "target_margin_return": 1.2,
+              "max_holding_calendar_days": 15,
+              "trail_activation_underlying_return": 0.08,
+              "trail_locked_underlying_return": 0.03,
+              "trail_atr": 2.0,
+              "signal_timeframe": "5m",
+              "entry_direction": "both",
+              "entry_signal_validity_minutes": 5,
+              "cooldown_signal_bars": 3,
+              "research_variant": "breakout_8_24_60_5m_both_swing_net120",
+              "candidate_id": "sndkusdt_confirmed_trend_exit_20261007",
+              "entry_enabled": true,
+              "taker_fee_rate_assumption": 0.000125,
+              "entry_qualification": {
+                "approved_for_forward_simulation": true,
+                "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+                "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+                "minimum_closed_net_win_rate": null,
+                "minimum_net60_success_rate": null,
+                "minimum_target_net_return_on_initial_margin": 0.6,
+                "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+                "known_retrospective_history": true,
+                "forward_validated": false,
+                "authorization_basis": "explicit_user_instruction",
+                "historical_screen_passed": false
+              }
+            },
+            "SKHYNIXUSDT": {
+              "signal_family": "ema_transition",
+              "research_variant": "transition_8_24_60_slow1",
+              "ema_fast": 8,
+              "ema_mid": 24,
+              "ema_slow": 60,
+              "warmup_bars": 60,
+              "require_price_slow": true,
+              "stop_atr": 2.0,
+              "candidate_id": "skhynixusdt_confirmed_trend_exit_20261007",
+              "entry_direction": "both",
+              "entry_enabled": true,
+              "taker_fee_rate_assumption": 0.001,
+              "entry_qualification": {
+                "approved_for_forward_simulation": true,
+                "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+                "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+                "minimum_closed_net_win_rate": null,
+                "minimum_net60_success_rate": null,
+                "minimum_target_net_return_on_initial_margin": 0.6,
+                "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+                "known_retrospective_history": true,
+                "forward_validated": false,
+                "authorization_basis": "explicit_user_instruction",
+                "historical_screen_passed": false
+              }
+            }
+          },
+          "selection_provenance": {
+            "known_history_previously_reviewed": true,
+            "independent_unseen_validation": false,
+            "results_path": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+            "previous_selection_preserved_in_profile": "config/stock_bidirectional_forward_20261005.json",
+            "development_selected": {
+              "MUUSDT": null,
+              "SNDKUSDT": "current_control",
+              "SKHYNIXUSDT": "current_control"
+            },
+            "audit_passed": {
+              "MUUSDT": false,
+              "SNDKUSDT": true,
+              "SKHYNIXUSDT": false
+            },
+            "new_user_screen_passed": {
+              "MUUSDT": false,
+              "SNDKUSDT": false,
+              "SKHYNIXUSDT": false
+            },
+            "expectancy_review_passed": {
+              "MUUSDT": false,
+              "SNDKUSDT": false,
+              "SKHYNIXUSDT": false
+            }
+          },
+          "notes": [
+            "Entry signals, risk sizing and execution costs match the previous paper profile.",
+            "1R is the immutable entry-to-initial-stop price distance. Half quantity rounds down to the contract lot step.",
+            "After a first scale-out fill, remaining inventory receives cost-aware break-even protection and 1.5 ATR trailing on its own closed signal timeframe.",
+            "The original net120 target and 8% trail activation are superseded in this arm; inherited fields describe the control only.",
+            "The previous 60% initial-margin target is historical evaluation metadata, not this experiment exit threshold.",
+            "Current holdings begin tracking favorable executable quotes after activation; no past high/low or paper fills are replayed.",
+            "The old exit-rule control is cloned from the same cash/inventory and uses the same observed market responses.",
+            "If two executable minimum lots/notionals cannot be formed, skip scale-out and protect the whole residual at 1R.",
+            "Research simulation only; no profitability qualification or live orders.",
+            "Fixed candidate: confirmed opposite EMA8/24 and close opposite EMA60 for two post-entry/post-activation closed bars. No entry/risk tuning."
+          ],
+          "signal_timeframe": "15m",
+          "cooldown_signal_bars": 3,
+          "user_revision": {
+            "reason": "用户要求更新策略、推送仓库并验证；先验证固定的两根收盘线趋势反转退出，不改变入场与风险预算。",
+            "previous_profile": "config/stock_one_r_half_atr_paper_20261006.json",
+            "scope": "paper_exit_rules_only",
+            "live_orders_allowed": false,
+            "historical_profitability_qualified": false
+          },
+          "fee_assumption_source": "https://docs.asterdex.com/trading/perpetuals/fees-and-specs/fees",
+          "max_entry_spread_fraction": 0.001,
+          "admission_requirements": {
+            "minimum_target_net_return_on_initial_margin": null,
+            "minimum_closed_net_win_rate": null,
+            "return_denominator": "initial_margin_of_this_trade",
+            "net_pnl_includes": [
+              "entry_and_exit_fees",
+              "adverse_execution_slippage",
+              "funding"
+            ],
+            "win_definition": "closed_net_pnl > 0",
+            "every_trade_profit_guaranteed": false,
+            "future_win_rate_guaranteed": false,
+            "known_history_is_independent_validation": false,
+            "new_entries_allowed_before_qualification": true,
+            "minimum_net60_success_rate": null,
+            "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+            "minimum_closed_trades_by_window": {
+              "development": 30,
+              "validation": 10,
+              "recent": 10,
+              "full": 50
+            },
+            "both_normal_and_double_cost_required": true,
+            "positive_net_with_estimated_open_close_required": true,
+            "positive_full_net_without_best_winner_required": true,
+            "maximum_sampled_drawdown_pct": 6,
+            "no_modeled_liquidation": true,
+            "future_positive_expectancy_guaranteed": false,
+            "enforced_for_paper_entries": false
+          },
+          "profit_exit_policy": {
+            "mode": "one_r_half_atr",
+            "first_target_r": 1.0,
+            "first_close_fraction": 0.5,
+            "trail_atr": 1.5
+          },
+          "trend_exit_policy": {
+            "mode": "opposite_ema_two_closed_bars",
+            "confirmation_bars": 2,
+            "require_price_slow": true
+          }
+        },
+        "start_utc": "2026-09-07T09:00:00+00:00",
+        "end_utc_exclusive": "2026-10-07T09:00:00+00:00",
+        "known_history_previously_reviewed": true,
+        "independent_holdout": false,
+        "parameter_sweep": false,
+        "scope": "one fixed exit policy; entries, sizing and costs unchanged",
+        "criteria": {
+          "net_return_improves_at_both_costs": true,
+          "max_drawdown_increase_percentage_points": 0.25,
+          "minimum_closed_positions_each_cost": 10
+        },
+        "places_orders": false,
+        "live_orders_allowed": false,
+        "input_sha256": {
+          "BTCUSDT.json.gz": "6f74a380c3487a239d1c0e45322ca22f661481326bcf2d30bd2037890c52895b",
+          "MUUSDT.json.gz": "8a05331f62248ec38313e6cbd1be0d9096c6207e4dc541217edde1b568c6e9a8",
+          "SKHYNIXUSDT.json.gz": "25d15b69f14515de06b1328e05c6de80546fda95eba36e440d29663e3b9c329d",
+          "SNDKUSDT.json.gz": "6ab4818bab641eeddff2f2a8641b062bf8aaf7dafad96e7a0c54f75a33f95e12"
+        },
+        "code_sha256": {
+          "account_risk.py": "c3992b276241147c81678abf06571fe4af3412654728720a5b8fbb0bb88e0f90",
+          "active_strategy.py": "479ca96bdf206b7ef02205ea864fde59d08893619a82d70c36460c5483892ca8",
+          "analyze_stock_expectancy.py": "589645e65f0d3812b9e36678b1061aa56163931bcb8da35d8f83df5434aacb64",
+          "analyze_stock_klines.py": "696314cf144c006ba83d0810337df2021843735f2408a83040a62d524358a2a7",
+          "analyze_strategy_expectancy.py": "462c2dca5baa0475e252c8e603b233624b815787d4d73fee21102fb8956961a3",
+          "backtest_current_accounts.py": "57d2c163b2f3deb3d6bec5d511ab8056861fba864ce692c86e6ccaf869b8397f",
+          "backtest_execution.py": "c44469a82cc5a1baddbb44beaa5cc76ea9a9e2502640029b9ee03602d1415a37",
+          "backtest_funding_carry.py": "b487b9f7a7af3918a181dca66ea55ca9d0110d1ca96dfdc0306ae1dd56ee3375",
+          "backtest_stock_swing_120.py": "0e338a02e57d5c293e204927602ecd4024ff56b81b156de856b5b36ffd1d949e",
+          "binance_terminal_client.py": "5edc72ffb356218b721edb9a098b1c58347b11ce0fc5e6051f7b1efbc6b9ad21",
+          "collect_stock_execution_evidence.py": "6cd706e0a7ffd6c53e6314d83bb04f8d94d2bdd51e25bfe1c714d4ce1e0ab214",
+          "decision_runtime.py": "aa458ea65c49e981133926d3da67ab43707c0d7bbe34eb0ab4f787855dfa25e4",
+          "diagnose_execution_profit.py": "df5ea59648b30576f16b1adaa253d897ac63f41669117973a49c4f138007508b",
+          "diagnose_strategy_losses.py": "b522931821ab0b1d191d91f2cf823fbd4475d7c58fbc7b9918c578ff9e66e4c5",
+          "download_macro_snapshot.py": "df964de20839b973b4d083edf52c178c94c3c50639f3c294ccee6891930ed513",
+          "download_market_snapshot.py": "9e5dd64fc1fdb57c0714a291264a34fd8f7a73b3def37f769d3c82888891561c",
+          "download_multifactor_snapshot.py": "9115b0d41c26175f4fa27ef8cdf92b02c32bdc603967334b1763bbe88d98c7db",
+          "download_spot_snapshot.py": "f8768637d6c4353cebf9f292492d856594dc47f7cd02dd980c48bb8bf0814388",
+          "download_stock_swing_snapshot.py": "b59a50d4f24a33a33e6303c350c4b625be883ae2d418ce10f2f5c0be33244a4a",
+          "event_risk.py": "d4ec83456ed87c6b384c0cd3e53dcdb7962be1b720934b94058b793f5ffc11bc",
+          "execution_entry_gate.py": "8b8bbadcd6535225c06724e18483d2d25b3764c258d49183441714b71272fd1c",
+          "execution_ledger.py": "868902db070e93aa21139dc8f92d222a7439332e587e5d011501586108ddbd52",
+          "execution_portfolio.py": "8c90f330308e146ce592c75b65af99a361ee5bb4219779a40b15407f19595471",
+          "execution_targets.py": "3ee6c42530ca596c832029914180ec8df3c5be7ba3fab235187defcdebcfb886",
+          "extend_stock_swing_snapshot_5m.py": "48aae105e2b1e3d86171aed3ac72ed1a54a7580284f5dcb1cfaf1525073877f1",
+          "forward_macro.py": "855b0115063670215a7dd970f9b20d8d141ac52f0490fa4aa9542d0c2d785042",
+          "freeze_strategy.py": "2b171eb07a177316dc0442c64f1150071727128cbd1668a39869e0046c3a0802",
+          "frozen_strategy.py": "6c176fd8d6b9b86a127f18334b8cb0c4b8ebd5cf02ffd00e429db385da2b5242",
+          "information_runtime.py": "e8668d8b97961a8da6fd207294a9eff942879b239dd9f7c40e7f392454a912de",
+          "llm_trade_gate.py": "3e59926eb413752eb4ca62d40ff6d303b41dacaaa5950dc742d96fb851880d17",
+          "macro_regime.py": "3dbb8d14d4690519529875de71d1828a4a35a539360980fb3e4dddfa599aa8b5",
+          "market_data_runtime.py": "5b43d37ce98519d97d6125bf4e1fdc3f39dd465edf57bd738ab92632fa9f2715",
+          "market_intelligence.py": "8fe5d53f0588f431fdf60dea97c3b14c0c8330c9a728d15a6d1c917b392b86ce",
+          "monitor_market_intelligence.py": "dcbde68fad564e01723e91c9d15fe212b3a312df8d60595e4035f38574b099c3",
+          "multifactor.py": "1a6bac95ecaa62f88aaa2b53bad16a76cd8104922b639a19f663dd8c28d54f25",
+          "paper_trade_frozen_portfolio.py": "34d293dbe41bbbcf142e50e32d0ee290e90acf9b43412805d9a5b3beb3350d2c",
+          "paper_trade_range_swing.py": "a768cc6121e91884c7bc492ae156139f45ce6ecd714154d1cba8e99d6be0c187",
+          "paper_trade_timeseries_trend.py": "632d6beaba80469d413aa7e1c6d2c95e1a87a35b470c0e22d912861225ab7492",
+          "portfolio_risk.py": "638c4217621507a5204eadb746997d6252d5be4f5f43ee143fbfccee13e87f25",
+          "process_lock.py": "b8413752561bba6eada6a2d057aa3a752866621aac49f33fdc6a809469c6d18e",
+          "public_context.py": "48fe3cad4a9b8117b534c9d8eb0191d4585c4b31fce3e9fa60fbd3f7997f312b",
+          "reentry_candidate.py": "ca8fa9f27b4bac46a34789dc9b03d2983681e702891be08b7b55a3d067d23d6c",
+          "replay_stock_swing_per_symbol.py": "a5afdfc3e91a5627baa9a1e2e93da72e6d333c14eb11ad705b1a03771ee2add3",
+          "report_external_experiments.py": "97f441e050a5be81e89d0ba2fa25e5846422b5e4af357e35c81584d04458a92f",
+          "report_forward_progress.py": "c4508c116aa5c99147244d86678e090c2a9f3f8f20181727a64057ffad799c7e",
+          "research_bidirectional_regimes.py": "12d6243edb4771e27815a1fc0dbe1a1dcac913229fd6473e828edd6d2fb12b51",
+          "research_exits.py": "f7acccf7fe2240bd818580b6dfb3fe06d0a8b826d5de577206f469ca9946c508",
+          "research_external_signals.py": "898e3948e5695395e58a83d6bd09f52a9de7d01169a9588c196fd7aa9070b6fc",
+          "research_external_strategies.py": "8935351a5fd95c5521d19b026630b5f1954f28c026b5959fd03f8621dad8f426",
+          "research_hourly_exit_comparison.py": "5dc85e52b2633922c371af96e13eb4fa96eda8f2b47dc6f0ec1301074c049066",
+          "research_parallel_simulation_capital.py": "553660a12ef6d6413df23730c6e00193099476638a165f5db30390b1a69aec00",
+          "research_reentry.py": "bf4d6053f782b3ef80dc6053c0c935e0a48092508d05547771a852fac24e7ce2",
+          "research_selective_stock_entries.py": "089447bdc4f94103a084adddb03d8d5985fa6f284294cc07ba5d5d148b962157",
+          "research_signal_engine.py": "0dc3dd787ca4851e7637b154ad28317ca6500bb0a1c4f0a28df8fe4ce09ba66e",
+          "research_stock_external_context.py": "1666c1333c34eadee8ae6eb0cef0a00629c7a022e290fefa468181fb7bb7aa9c",
+          "research_stock_independent_strategies.py": "bfed6cff44e55ff4094d75681838aaf66a82006cc520a340cfa7bbd530e6518a",
+          "research_stock_mechanisms.py": "3d84c0105d1a1d75e39c59e6eeb5471a8650dae52f7a77428b2041571230ee0c",
+          "research_stock_profit_candidate.py": "03741326d548d0e4d090228d9f74bb5cf7fae713a00b072a56ca52ec72789a1e",
+          "research_stock_swing_robustness.py": "15631a9e53c009fe892af67922b88fd510dc9188c398622ef764cf34fd73970c",
+          "research_trend_filter.py": "67a4a1fc08d38bb3a7ce2d959e6cb9d10722f198d202ddd749efe86965c11bb1",
+          "research_world_events.py": "2e55651c17c741f18403487876e5a34eb11500c204fc6faf2a692d8d2ebbaa7e",
+          "run_execution_supervisor.py": "cc49d09cf82e2f368020b0848b3a8207fb8ef3a371302893f5cb30b6cc57b038",
+          "run_macro_candidate_shadow.py": "d7f06114ca348f7909bc5ce466932bcccdf24ea97052a2c11ef00056b521e91d",
+          "run_multifactor_shadow.py": "55388f54cadb038f2dc6debeb1ad0a040b4b0557e5969596345bfbf07f5dd185",
+          "run_parallel_simulation.py": "595603a7ad4ed1b419edcee65e793e9c6e4134e7c0ecd040e572f20f13ae6964",
+          "run_stock_expectancy_shadow.py": "113c529f20d5f3f1c2527cbe45a14dededc050071a8d0533da2f7fec22282bac",
+          "run_stock_overnight_validation.py": "715a868db8a9f9f213249406224453ff508fc09a2b677fb9923e743c2a58ff14",
+          "run_stock_trend_experiment.py": "0099313cc0b1ca00229e617085327a99cb67d2fbaa5b12db2d44f0c9f7f6b95a",
+          "run_trading_terminal.py": "a095595a6586a767271449c3b1cdef8c8bd4b45c3a11facf3029cec9b935f2f8",
+          "simulate_range_swing.py": "f113b660a7630f47cb33c2fff47ef835acaee44f062bcdae6551857238dfb8c2",
+          "simulation_risk_monitor.py": "217897707f5022e7700e2c2dc10c87463ddd18772f311d06a438c1f23824ac4a",
+          "stock_external_context.py": "655315446c2cebe1d25a384a51915b0b86b0b0a62c59fec8af429b5d51d7d7c9",
+          "stock_overnight_report.py": "efdf52e293183fc1609423b6bf3535151e0c68eb3c65272cfddd43f086f07ee3",
+          "stock_profit_candidate.py": "d77baa542486f1d43a0677b281cc03797db539e26f85ab11448cc605bb785e40",
+          "stock_profit_exits.py": "05043e13669f0a626849c8b2a8761027f1754f2283cbf3761f8d16a868a702f3",
+          "stock_research_entry_policy.py": "b7f67d7a0c29f2e08e10fb9f9a84465da71b5d4c214e1926bd4fcee8b2776f56",
+          "stock_research_status.py": "a3f639b08ec57a7c469c66b57e075ba0c576915220956fb15cc1f23c990b6faf",
+          "stock_swing_profiles.py": "202862a843ea901cc282178dbee1b79f4941670dd880d11df49a3ad3390f859a",
+          "stock_swing_signals.py": "114dc653d5972fdb2fa61ba3e22dde41960601b2e418b8a67e6934eb5bb4b54d",
+          "stock_trend_exits.py": "cf0a639bc87b9dc932cfa61f957ebfadb8970217c3421450d9ff659c927e7634",
+          "supplemental_market_data.py": "ab817e804b47e7660398c67abb28ac9e90e777fc0992ba442990828057ad387c",
+          "timeseries_execution.py": "4da25d942ca1975ad0a1cf65cd05fd0e164ce0a2d3fd25894006d29e7d186fd6",
+          "trading_execution.py": "23a16eb603281211f402c46d4c84f77c84a1b238ca4e9547046b1d1831a756bd",
+          "validate_candidate_portfolio.py": "af10690c8d0d518f9974f580bae3286aa4b11df3768c583e808e1547b4d8a3ec",
+          "validate_carry_trend_portfolio.py": "4cb91165b05e05244aaac0ca958a49c58f0f89b72a4c2fd561a76da230651b0e",
+          "validate_confirmed_trend_strategy.py": "962affc6827f59faf1ac0bb5c866dc896d3185c497a8b63aa5ee69b33dd3688f",
+          "validate_cost_control.py": "d53050a978e00fa0afa7fc42f7ae04a1d81092b7295a83c041822b3284f20e85",
+          "validate_execution_integrity.py": "ee3a0819a428a5b69df42ccdb242a18626c52fbba9bf79a31c9d46d1900829f5",
+          "validate_execution_model.py": "0a6b2e5c061593781919b43fb2299b305ad60c987137b658fa1c7aa184253452",
+          "validate_exit_research.py": "e7c61fea71e0d96a30c630f20844c967d4851786b09f181ade300523aa800825",
+          "validate_frozen_strategy.py": "00e8e1f618958636743b229bde0dff50668340d885fe6d594fb56ad40706f28f",
+          "validate_intelligence_observations.py": "18b7900439a50a118ba43b6438d4f7ae404529f7375b329b47fd8146e7e38d7a",
+          "validate_macro_overlay.py": "8be85daadf53fb767fb7816e12719fa33e3efbb493c39c2110b5576dea8f616f",
+          "validate_multifactor.py": "316e4f2684f84419a679ee775b9646674a0fad53610d5967e9485eb09881b860",
+          "validate_reentry_research.py": "d74a6ebf50bfe50a0e4a1d8cceecb64f2b48020bda034f92ded66dc198722a98",
+          "validate_signal_coverage.py": "414107af1c679e94c9185b3cb959aa72a2c95a33c04138cda9e04fde94bd4db7",
+          "validate_strategies.py": "361166ac77ace705725daa12eafda88ed0b6736f824228e9e95769ca5f4b60aa",
+          "validate_world_event_returns.py": "50e018271f2c3df04446ac8d5e0e08af60e232376eedd9e80532d34119f0faa0",
+          "verify_execution_refinement.py": "5042069f3c27249bffa6b54e0ae0eb3cb68e29b1cb6ded6fe6a4f4af3a49a183",
+          "verify_shadow_candidate.py": "cef89acd18418d96c20fd791ef606bf2e8480f3623875d1a1cc2c13a74acc163",
+          "verify_stock_mechanism_research.py": "22847f90758c156ac75d6c6e002153ae08f23bd447e271379f294e93bb14682a",
+          "world_event_risk.py": "6c4308359dc11143a3023ac942665ddaa94819849d483a6c6a407c5ccd28fda8"
+        }
+      },
+      "accounts": {
+        "mu": {
+          "symbol": "MUUSDT",
+          "control": {
+            "cost1": {
+              "initial_equity": 1000,
+              "final_equity": 1004.0452962548759,
+              "net_pnl": 4.045296254875893,
+              "total_return_pct": 0.40452962548758187,
+              "estimated_liquidated_return_pct": 0.40452962548758187,
+              "max_drawdown_pct": 0.554473336393102,
+              "fees": 0.32361595151000005,
+              "funding_pnl": -0.052902073614325536,
+              "unrealized_pnl": 0,
+              "fills": 43,
+              "closed_positions": 15,
+              "closed_net_win_rate_pct": 60.0,
+              "open_quantity": 0,
+              "observations": 8640
+            },
+            "cost2": {
+              "initial_equity": 1000,
+              "final_equity": 1003.2681865244541,
+              "net_pnl": 3.2681865244541086,
+              "total_return_pct": 0.3268186524454153,
+              "estimated_liquidated_return_pct": 0.3268186524454153,
+              "max_drawdown_pct": 0.5521484510992769,
+              "fees": 0.6319496042800001,
+              "funding_pnl": -0.04594371126596301,
+              "unrealized_pnl": 0,
+              "fills": 44,
+              "closed_positions": 15,
+              "closed_net_win_rate_pct": 60.0,
+              "open_quantity": 0,
+              "observations": 8640
+            }
+          },
+          "candidate": {
+            "cost1": {
+              "initial_equity": 1000,
+              "final_equity": 1003.0875297055541,
+              "net_pnl": 3.0875297055540614,
+              "total_return_pct": 0.30875297055541484,
+              "estimated_liquidated_return_pct": 0.30875297055541484,
+              "max_drawdown_pct": 1.0972527196806081,
+              "fees": 0.5365697006574999,
+              "funding_pnl": 0.008911106211722912,
+              "unrealized_pnl": 0,
+              "fills": 67,
+              "closed_positions": 25,
+              "closed_net_win_rate_pct": 40.0,
+              "open_quantity": 0,
+              "observations": 8640
+            },
+            "cost2": {
+              "initial_equity": 1000,
+              "final_equity": 1001.8874332561729,
+              "net_pnl": 1.8874332561729261,
+              "total_return_pct": 0.188743325617291,
+              "estimated_liquidated_return_pct": 0.188743325617291,
+              "max_drawdown_pct": 1.1339301394143964,
+              "fees": 1.05328708848,
+              "funding_pnl": 0.01078042465235865,
+              "unrealized_pnl": 0,
+              "fills": 67,
+              "closed_positions": 25,
+              "closed_net_win_rate_pct": 40.0,
+              "open_quantity": 0,
+              "observations": 8640
+            }
+          },
+          "chronological_audit": {
+            "cost1": {
+              "candidate": {
+                "first20d_net_pnl": 5.911011882515822,
+                "last10d_net_pnl_with_carried_inventory": -2.823482176961761
+              },
+              "control": {
+                "first20d_net_pnl": 6.808794202420927,
+                "last10d_net_pnl_with_carried_inventory": -2.7634979475450336
+              },
+              "exit_reasons": [
+                "one_r_partial",
+                "protective_stop",
+                "trend_reversal_exit"
+              ]
+            },
+            "cost2": {
+              "candidate": {
+                "first20d_net_pnl": 5.245893871247063,
+                "last10d_net_pnl_with_carried_inventory": -3.3584606150741365
+              },
+              "control": {
+                "first20d_net_pnl": 6.083818843984204,
+                "last10d_net_pnl_with_carried_inventory": -2.8156323195300956
+              },
+              "exit_reasons": [
+                "one_r_partial",
+                "protective_stop",
+                "trend_reversal_exit"
+              ]
+            }
+          },
+          "assessment": {
+            "paper_exit_improvement_passed": false,
+            "failures": [
+              "cost1:net_return_not_improved",
+              "cost1:drawdown_increased_over_0.25_percentage_points",
+              "cost2:net_return_not_improved",
+              "cost2:drawdown_increased_over_0.25_percentage_points"
+            ],
+            "positive_at_both_costs": true,
+            "future_profitability_proven": false
+          }
+        },
+        "sndk": {
+          "symbol": "SNDKUSDT",
+          "control": {
+            "cost1": {
+              "initial_equity": 1000,
+              "final_equity": 994.4530016087039,
+              "net_pnl": -5.5469983912961425,
+              "total_return_pct": -0.5546998391296132,
+              "estimated_liquidated_return_pct": -0.5546998391296132,
+              "max_drawdown_pct": 1.7436301320432945,
+              "fees": 0.8004856546925001,
+              "funding_pnl": 0.22196416339705116,
+              "unrealized_pnl": 0,
+              "fills": 86,
+              "closed_positions": 34,
+              "closed_net_win_rate_pct": 47.05882352941176,
+              "open_quantity": 0,
+              "observations": 8640
+            },
+            "cost2": {
+              "initial_equity": 1000,
+              "final_equity": 993.7666170206528,
+              "net_pnl": -6.233382979347198,
+              "total_return_pct": -0.6233382979347168,
+              "estimated_liquidated_return_pct": -0.6275834249307333,
+              "max_drawdown_pct": 1.7200514101804676,
+              "fees": 1.54958563759,
+              "funding_pnl": 0.22104973824205115,
+              "unrealized_pnl": 1.4892737600000054,
+              "fills": 87,
+              "closed_positions": 33,
+              "closed_net_win_rate_pct": 45.45454545454545,
+              "open_quantity": -0.04,
+              "observations": 8640
+            }
+          },
+          "candidate": {
+            "cost1": {
+              "initial_equity": 1000,
+              "final_equity": 967.0101065013686,
+              "net_pnl": -32.98989349863143,
+              "total_return_pct": -3.298989349863146,
+              "estimated_liquidated_return_pct": -3.30270355029888,
+              "max_drawdown_pct": 3.5767431548571205,
+              "fees": 2.9045563280599995,
+              "funding_pnl": -0.04134349057248866,
+              "unrealized_pnl": 1.0815242200000057,
+              "fills": 296,
+              "closed_positions": 128,
+              "closed_net_win_rate_pct": 21.875,
+              "open_quantity": -0.07,
+              "observations": 8640
+            },
+            "cost2": {
+              "initial_equity": 1000,
+              "final_equity": 959.4564507929069,
+              "net_pnl": -40.543549207093065,
+              "total_return_pct": -4.054354920709303,
+              "estimated_liquidated_return_pct": -4.060722611203305,
+              "max_drawdown_pct": 4.263124104560512,
+              "fees": 5.7538049841299985,
+              "funding_pnl": -0.04294466296431782,
+              "unrealized_pnl": 0.9072415199999977,
+              "fills": 296,
+              "closed_positions": 128,
+              "closed_net_win_rate_pct": 21.09375,
+              "open_quantity": -0.06,
+              "observations": 8640
+            }
+          },
+          "chronological_audit": {
+            "cost1": {
+              "candidate": {
+                "first20d_net_pnl": -20.6900529317046,
+                "last10d_net_pnl_with_carried_inventory": -12.299840566926832
+              },
+              "control": {
+                "first20d_net_pnl": -14.140131363285377,
+                "last10d_net_pnl_with_carried_inventory": 8.593132971989235
+              },
+              "exit_reasons": [
+                "one_r_partial",
+                "protective_stop",
+                "trend_reversal_exit"
+              ]
+            },
+            "cost2": {
+              "candidate": {
+                "first20d_net_pnl": -25.78702691598221,
+                "last10d_net_pnl_with_carried_inventory": -14.756522291110855
+              },
+              "control": {
+                "first20d_net_pnl": -14.077378759617204,
+                "last10d_net_pnl_with_carried_inventory": 7.843995780270006
+              },
+              "exit_reasons": [
+                "one_r_partial",
+                "protective_stop",
+                "trend_reversal_exit"
+              ]
+            }
+          },
+          "assessment": {
+            "paper_exit_improvement_passed": false,
+            "failures": [
+              "cost1:net_return_not_improved",
+              "cost1:drawdown_increased_over_0.25_percentage_points",
+              "cost2:net_return_not_improved",
+              "cost2:drawdown_increased_over_0.25_percentage_points"
+            ],
+            "positive_at_both_costs": false,
+            "future_profitability_proven": false
+          }
+        },
+        "skhynix": {
+          "symbol": "SKHYNIXUSDT",
+          "control": {
+            "cost1": {
+              "initial_equity": 1000,
+              "final_equity": 1003.1591932432761,
+              "net_pnl": 3.1591932432761496,
+              "total_return_pct": 0.31591932432761816,
+              "estimated_liquidated_return_pct": 0.31852992154521864,
+              "max_drawdown_pct": 0.9544660857242149,
+              "fees": 4.489458416672001,
+              "funding_pnl": -0.08535299075250243,
+              "unrealized_pnl": 0.5315134067000008,
+              "fills": 58,
+              "closed_positions": 21,
+              "closed_net_win_rate_pct": 57.14285714285714,
+              "open_quantity": -0.086,
+              "observations": 8640
+            },
+            "cost2": {
+              "initial_equity": 1000,
+              "final_equity": 998.800025376133,
+              "net_pnl": -1.1999746238669786,
+              "total_return_pct": -0.11999746238670062,
+              "estimated_liquidated_return_pct": -0.12969769359748584,
+              "max_drawdown_pct": 0.8905749647733163,
+              "fees": 8.193321030528,
+              "funding_pnl": -0.0692347644386035,
+              "unrealized_pnl": 0.46183772310000587,
+              "fills": 57,
+              "closed_positions": 21,
+              "closed_net_win_rate_pct": 57.14285714285714,
+              "open_quantity": -0.078,
+              "observations": 8640
+            }
+          },
+          "candidate": {
+            "cost1": {
+              "initial_equity": 1000,
+              "final_equity": 983.3795260628668,
+              "net_pnl": -16.62047393713317,
+              "total_return_pct": -1.6620473937133173,
+              "estimated_liquidated_return_pct": -1.6594671522773052,
+              "max_drawdown_pct": 1.9705558332606676,
+              "fees": 6.959531981428004,
+              "funding_pnl": -0.2676728299557685,
+              "unrealized_pnl": 0.5253330182500009,
+              "fills": 103,
+              "closed_positions": 35,
+              "closed_net_win_rate_pct": 22.857142857142858,
+              "open_quantity": -0.085,
+              "observations": 8640
+            },
+            "cost2": {
+              "initial_equity": 1000,
+              "final_equity": 977.3078687611954,
+              "net_pnl": -22.692131238804564,
+              "total_return_pct": -2.2692131238804536,
+              "estimated_liquidated_return_pct": -2.2787889931526584,
+              "max_drawdown_pct": 2.524432909766572,
+              "fees": 12.687636641855995,
+              "funding_pnl": -0.24457561959845692,
+              "unrealized_pnl": 0.45591672665000577,
+              "fills": 103,
+              "closed_positions": 35,
+              "closed_net_win_rate_pct": 17.142857142857142,
+              "open_quantity": -0.077,
+              "observations": 8640
+            }
+          },
+          "chronological_audit": {
+            "cost1": {
+              "candidate": {
+                "first20d_net_pnl": -11.967502717190996,
+                "last10d_net_pnl_with_carried_inventory": -4.652971219942174
+              },
+              "control": {
+                "first20d_net_pnl": 0.9763727001101188,
+                "last10d_net_pnl_with_carried_inventory": 2.182820543166031
+              },
+              "exit_reasons": [
+                "one_r_partial",
+                "protective_stop",
+                "trend_reversal_exit"
+              ]
+            },
+            "cost2": {
+              "candidate": {
+                "first20d_net_pnl": -15.354670212325459,
+                "last10d_net_pnl_with_carried_inventory": -7.3374610264791045
+              },
+              "control": {
+                "first20d_net_pnl": -1.886792521945722,
+                "last10d_net_pnl_with_carried_inventory": 0.6868178980787434
+              },
+              "exit_reasons": [
+                "one_r_partial",
+                "protective_stop",
+                "trend_reversal_exit"
+              ]
+            }
+          },
+          "assessment": {
+            "paper_exit_improvement_passed": false,
+            "failures": [
+              "cost1:net_return_not_improved",
+              "cost1:drawdown_increased_over_0.25_percentage_points",
+              "cost2:net_return_not_improved",
+              "cost2:drawdown_increased_over_0.25_percentage_points"
+            ],
+            "positive_at_both_costs": false,
+            "future_profitability_proven": false
+          }
+        }
+      },
+      "result_sha256": "8912b4f7945d647c228d0f83e89c50de635827a956ba6b200c32b23588a80013",
+      "supplemental_input_sha256": {
+        "funding_marks_1m_MUUSDT.json": "cf67d298f1feb70b17a50d887313e6197ff8608dae1844d1271c202361d0de15",
+        "funding_marks_1m_SKHYNIXUSDT.json": "8733cf84511f871d41bc29b094c039a282e5c6a882fd55422b1ac29b4cf80a03",
+        "funding_marks_1m_SNDKUSDT.json": "75570431c9c6f406746cfd3da27959dab2106b84732b677a8d17805731ced299"
+      }
+    },
+    "directional_quality_20261007": {
+      "declaration": {
+        "candidate": {
+          "candidate_id": "stock_directional_quality_candidate_20261007",
+          "status": "fixed_rule_paper_candidate_pending_validation",
+          "base_config": "config/stock_swing_120_candidate_20261004.json",
+          "execution_timeframe": "5m",
+          "capital_weights": {
+            "MUUSDT": 0.3333333333333333,
+            "SNDKUSDT": 0.3333333333333333,
+            "SKHYNIXUSDT": 0.3333333333333333
+          },
+          "max_positions_per_capital_bucket": 1,
+          "risk_fraction_per_bucket_trade": 0.0025,
+          "symbol_profiles": {
+            "MUUSDT": {
+              "signal_family": "ema_transition",
+              "ema_fast": 8,
+              "ema_mid": 24,
+              "ema_slow": 60,
+              "warmup_bars": 60,
+              "require_price_slow": true,
+              "stop_atr": 2.0,
+              "target_margin_return": 1.2,
+              "max_holding_calendar_days": 15,
+              "trail_activation_underlying_return": 0.08,
+              "trail_locked_underlying_return": 0.03,
+              "trail_atr": 2.0,
+              "signal_timeframe": "15m",
+              "entry_direction": "both",
+              "entry_signal_validity_minutes": 15,
+              "cooldown_signal_bars": 3,
+              "research_variant": "cross_8_24_60_15m_both_swing_net120",
+              "candidate_id": "muusdt_directional_quality_20261007",
+              "entry_enabled": true,
+              "taker_fee_rate_assumption": 0.000125,
+              "entry_qualification": {
+                "approved_for_forward_simulation": true,
+                "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+                "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+                "minimum_closed_net_win_rate": null,
+                "minimum_net60_success_rate": null,
+                "minimum_target_net_return_on_initial_margin": 0.6,
+                "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+                "known_retrospective_history": true,
+                "forward_validated": false,
+                "authorization_basis": "explicit_user_instruction",
+                "historical_screen_passed": false
+              }
+            },
+            "SNDKUSDT": {
+              "signal_family": "breakout",
+              "ema_fast": 8,
+              "ema_mid": 24,
+              "ema_slow": 60,
+              "warmup_bars": 60,
+              "breakout_bars": 6,
+              "stop_atr": 2.0,
+              "target_margin_return": 1.2,
+              "max_holding_calendar_days": 15,
+              "trail_activation_underlying_return": 0.08,
+              "trail_locked_underlying_return": 0.03,
+              "trail_atr": 2.0,
+              "signal_timeframe": "5m",
+              "entry_direction": "both",
+              "entry_signal_validity_minutes": 5,
+              "cooldown_signal_bars": 3,
+              "research_variant": "breakout_8_24_60_5m_both_swing_net120",
+              "candidate_id": "sndkusdt_directional_quality_20261007",
+              "entry_enabled": true,
+              "taker_fee_rate_assumption": 0.000125,
+              "entry_qualification": {
+                "approved_for_forward_simulation": true,
+                "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+                "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+                "minimum_closed_net_win_rate": null,
+                "minimum_net60_success_rate": null,
+                "minimum_target_net_return_on_initial_margin": 0.6,
+                "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+                "known_retrospective_history": true,
+                "forward_validated": false,
+                "authorization_basis": "explicit_user_instruction",
+                "historical_screen_passed": false
+              }
+            },
+            "SKHYNIXUSDT": {
+              "signal_family": "ema_transition",
+              "research_variant": "transition_8_24_60_slow1",
+              "ema_fast": 8,
+              "ema_mid": 24,
+              "ema_slow": 60,
+              "warmup_bars": 60,
+              "require_price_slow": true,
+              "stop_atr": 2.0,
+              "candidate_id": "skhynixusdt_directional_quality_20261007",
+              "entry_direction": "both",
+              "entry_enabled": true,
+              "taker_fee_rate_assumption": 0.001,
+              "entry_qualification": {
+                "approved_for_forward_simulation": true,
+                "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+                "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+                "minimum_closed_net_win_rate": null,
+                "minimum_net60_success_rate": null,
+                "minimum_target_net_return_on_initial_margin": 0.6,
+                "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+                "known_retrospective_history": true,
+                "forward_validated": false,
+                "authorization_basis": "explicit_user_instruction",
+                "historical_screen_passed": false
+              }
+            }
+          },
+          "selection_provenance": {
+            "known_history_previously_reviewed": true,
+            "independent_unseen_validation": false,
+            "results_path": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+            "previous_selection_preserved_in_profile": "config/stock_bidirectional_forward_20261005.json",
+            "development_selected": {
+              "MUUSDT": null,
+              "SNDKUSDT": "current_control",
+              "SKHYNIXUSDT": "current_control"
+            },
+            "audit_passed": {
+              "MUUSDT": false,
+              "SNDKUSDT": true,
+              "SKHYNIXUSDT": false
+            },
+            "new_user_screen_passed": {
+              "MUUSDT": false,
+              "SNDKUSDT": false,
+              "SKHYNIXUSDT": false
+            },
+            "expectancy_review_passed": {
+              "MUUSDT": false,
+              "SNDKUSDT": false,
+              "SKHYNIXUSDT": false
+            }
+          },
+          "notes": [
+            "Entry signals, risk sizing and execution costs match the previous paper profile.",
+            "1R is the immutable entry-to-initial-stop price distance. Half quantity rounds down to the contract lot step.",
+            "After a first scale-out fill, remaining inventory receives cost-aware break-even protection and 1.5 ATR trailing on its own closed signal timeframe.",
+            "The original net120 target and 8% trail activation are superseded in this arm; inherited fields describe the control only.",
+            "The previous 60% initial-margin target is historical evaluation metadata, not this experiment exit threshold.",
+            "Current holdings begin tracking favorable executable quotes after activation; no past high/low or paper fills are replayed.",
+            "The old exit-rule control is cloned from the same cash/inventory and uses the same observed market responses.",
+            "If two executable minimum lots/notionals cannot be formed, skip scale-out and protect the whole residual at 1R.",
+            "Research simulation only; no profitability qualification or live orders.",
+            "One predeclared entry-quality policy, not a parameter sweep. Known retrospective history; no claimed unseen validation."
+          ],
+          "signal_timeframe": "15m",
+          "cooldown_signal_bars": 3,
+          "user_revision": {
+            "reason": "用户要求更新策略并验证；固定12根价格方向效率至少0.35、均线排列一致、ATR至少覆盖配置往返费用。",
+            "previous_profile": "config/stock_one_r_half_atr_paper_20261006.json",
+            "scope": "paper_entry_quality_only",
+            "live_orders_allowed": false,
+            "historical_profitability_qualified": false
+          },
+          "fee_assumption_source": "https://docs.asterdex.com/trading/perpetuals/fees-and-specs/fees",
+          "max_entry_spread_fraction": 0.001,
+          "admission_requirements": {
+            "minimum_target_net_return_on_initial_margin": null,
+            "minimum_closed_net_win_rate": null,
+            "return_denominator": "initial_margin_of_this_trade",
+            "net_pnl_includes": [
+              "entry_and_exit_fees",
+              "adverse_execution_slippage",
+              "funding"
+            ],
+            "win_definition": "closed_net_pnl > 0",
+            "every_trade_profit_guaranteed": false,
+            "future_win_rate_guaranteed": false,
+            "known_history_is_independent_validation": false,
+            "new_entries_allowed_before_qualification": true,
+            "minimum_net60_success_rate": null,
+            "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+            "minimum_closed_trades_by_window": {
+              "development": 30,
+              "validation": 10,
+              "recent": 10,
+              "full": 50
+            },
+            "both_normal_and_double_cost_required": true,
+            "positive_net_with_estimated_open_close_required": true,
+            "positive_full_net_without_best_winner_required": true,
+            "maximum_sampled_drawdown_pct": 6,
+            "no_modeled_liquidation": true,
+            "future_positive_expectancy_guaranteed": false,
+            "enforced_for_paper_entries": false
+          },
+          "profit_exit_policy": {
+            "mode": "one_r_half_atr",
+            "first_target_r": 1.0,
+            "first_close_fraction": 0.5,
+            "trail_atr": 1.5
+          },
+          "entry_quality_policy": {
+            "mode": "directional_efficiency_cost_v1",
+            "lookback_bars": 12,
+            "minimum_directional_efficiency": 0.35,
+            "minimum_atr_roundtrip_cost_ratio": 1.0,
+            "require_ema_ordering": true
+          },
+          "validation_scope": "One fixed entry-quality policy; original 1R/ATR exits, risk budget and fees unchanged"
+        },
+        "start_utc": "2026-09-07T09:00:00+00:00",
+        "end_utc_exclusive": "2026-10-07T09:00:00+00:00",
+        "known_history_previously_reviewed": true,
+        "independent_holdout": false,
+        "parameter_sweep": false,
+        "scope": "One fixed entry-quality policy; original 1R/ATR exits, risk budget and fees unchanged",
+        "criteria": {
+          "net_return_improves_at_both_costs": true,
+          "max_drawdown_increase_percentage_points": 0.25,
+          "minimum_closed_positions_each_cost": 10
+        },
+        "places_orders": false,
+        "live_orders_allowed": false,
+        "input_sha256": {
+          "BTCUSDT.json.gz": "6f74a380c3487a239d1c0e45322ca22f661481326bcf2d30bd2037890c52895b",
+          "MUUSDT.json.gz": "8a05331f62248ec38313e6cbd1be0d9096c6207e4dc541217edde1b568c6e9a8",
+          "SKHYNIXUSDT.json.gz": "25d15b69f14515de06b1328e05c6de80546fda95eba36e440d29663e3b9c329d",
+          "SNDKUSDT.json.gz": "6ab4818bab641eeddff2f2a8641b062bf8aaf7dafad96e7a0c54f75a33f95e12"
+        },
+        "code_sha256": {
+          "account_risk.py": "c3992b276241147c81678abf06571fe4af3412654728720a5b8fbb0bb88e0f90",
+          "active_strategy.py": "479ca96bdf206b7ef02205ea864fde59d08893619a82d70c36460c5483892ca8",
+          "analyze_stock_expectancy.py": "589645e65f0d3812b9e36678b1061aa56163931bcb8da35d8f83df5434aacb64",
+          "analyze_stock_klines.py": "696314cf144c006ba83d0810337df2021843735f2408a83040a62d524358a2a7",
+          "analyze_strategy_expectancy.py": "462c2dca5baa0475e252c8e603b233624b815787d4d73fee21102fb8956961a3",
+          "backtest_current_accounts.py": "57d2c163b2f3deb3d6bec5d511ab8056861fba864ce692c86e6ccaf869b8397f",
+          "backtest_execution.py": "c44469a82cc5a1baddbb44beaa5cc76ea9a9e2502640029b9ee03602d1415a37",
+          "backtest_funding_carry.py": "b487b9f7a7af3918a181dca66ea55ca9d0110d1ca96dfdc0306ae1dd56ee3375",
+          "backtest_stock_swing_120.py": "0e338a02e57d5c293e204927602ecd4024ff56b81b156de856b5b36ffd1d949e",
+          "binance_terminal_client.py": "5edc72ffb356218b721edb9a098b1c58347b11ce0fc5e6051f7b1efbc6b9ad21",
+          "collect_stock_execution_evidence.py": "6cd706e0a7ffd6c53e6314d83bb04f8d94d2bdd51e25bfe1c714d4ce1e0ab214",
+          "decision_runtime.py": "aa458ea65c49e981133926d3da67ab43707c0d7bbe34eb0ab4f787855dfa25e4",
+          "diagnose_execution_profit.py": "df5ea59648b30576f16b1adaa253d897ac63f41669117973a49c4f138007508b",
+          "diagnose_strategy_losses.py": "b522931821ab0b1d191d91f2cf823fbd4475d7c58fbc7b9918c578ff9e66e4c5",
+          "download_macro_snapshot.py": "df964de20839b973b4d083edf52c178c94c3c50639f3c294ccee6891930ed513",
+          "download_market_snapshot.py": "9e5dd64fc1fdb57c0714a291264a34fd8f7a73b3def37f769d3c82888891561c",
+          "download_multifactor_snapshot.py": "9115b0d41c26175f4fa27ef8cdf92b02c32bdc603967334b1763bbe88d98c7db",
+          "download_spot_snapshot.py": "f8768637d6c4353cebf9f292492d856594dc47f7cd02dd980c48bb8bf0814388",
+          "download_stock_swing_snapshot.py": "b59a50d4f24a33a33e6303c350c4b625be883ae2d418ce10f2f5c0be33244a4a",
+          "event_risk.py": "d4ec83456ed87c6b384c0cd3e53dcdb7962be1b720934b94058b793f5ffc11bc",
+          "execution_entry_gate.py": "8b8bbadcd6535225c06724e18483d2d25b3764c258d49183441714b71272fd1c",
+          "execution_ledger.py": "868902db070e93aa21139dc8f92d222a7439332e587e5d011501586108ddbd52",
+          "execution_portfolio.py": "8c90f330308e146ce592c75b65af99a361ee5bb4219779a40b15407f19595471",
+          "execution_targets.py": "3ee6c42530ca596c832029914180ec8df3c5be7ba3fab235187defcdebcfb886",
+          "extend_stock_swing_snapshot_5m.py": "48aae105e2b1e3d86171aed3ac72ed1a54a7580284f5dcb1cfaf1525073877f1",
+          "forward_macro.py": "855b0115063670215a7dd970f9b20d8d141ac52f0490fa4aa9542d0c2d785042",
+          "freeze_strategy.py": "2b171eb07a177316dc0442c64f1150071727128cbd1668a39869e0046c3a0802",
+          "frozen_strategy.py": "6c176fd8d6b9b86a127f18334b8cb0c4b8ebd5cf02ffd00e429db385da2b5242",
+          "information_runtime.py": "e8668d8b97961a8da6fd207294a9eff942879b239dd9f7c40e7f392454a912de",
+          "llm_trade_gate.py": "3e59926eb413752eb4ca62d40ff6d303b41dacaaa5950dc742d96fb851880d17",
+          "macro_regime.py": "3dbb8d14d4690519529875de71d1828a4a35a539360980fb3e4dddfa599aa8b5",
+          "market_data_runtime.py": "5b43d37ce98519d97d6125bf4e1fdc3f39dd465edf57bd738ab92632fa9f2715",
+          "market_intelligence.py": "8fe5d53f0588f431fdf60dea97c3b14c0c8330c9a728d15a6d1c917b392b86ce",
+          "monitor_market_intelligence.py": "dcbde68fad564e01723e91c9d15fe212b3a312df8d60595e4035f38574b099c3",
+          "multifactor.py": "1a6bac95ecaa62f88aaa2b53bad16a76cd8104922b639a19f663dd8c28d54f25",
+          "paper_trade_frozen_portfolio.py": "34d293dbe41bbbcf142e50e32d0ee290e90acf9b43412805d9a5b3beb3350d2c",
+          "paper_trade_range_swing.py": "a768cc6121e91884c7bc492ae156139f45ce6ecd714154d1cba8e99d6be0c187",
+          "paper_trade_timeseries_trend.py": "632d6beaba80469d413aa7e1c6d2c95e1a87a35b470c0e22d912861225ab7492",
+          "portfolio_risk.py": "638c4217621507a5204eadb746997d6252d5be4f5f43ee143fbfccee13e87f25",
+          "process_lock.py": "b8413752561bba6eada6a2d057aa3a752866621aac49f33fdc6a809469c6d18e",
+          "public_context.py": "48fe3cad4a9b8117b534c9d8eb0191d4585c4b31fce3e9fa60fbd3f7997f312b",
+          "reentry_candidate.py": "ca8fa9f27b4bac46a34789dc9b03d2983681e702891be08b7b55a3d067d23d6c",
+          "replay_stock_swing_per_symbol.py": "a5afdfc3e91a5627baa9a1e2e93da72e6d333c14eb11ad705b1a03771ee2add3",
+          "report_external_experiments.py": "97f441e050a5be81e89d0ba2fa25e5846422b5e4af357e35c81584d04458a92f",
+          "report_forward_progress.py": "c4508c116aa5c99147244d86678e090c2a9f3f8f20181727a64057ffad799c7e",
+          "research_bidirectional_regimes.py": "12d6243edb4771e27815a1fc0dbe1a1dcac913229fd6473e828edd6d2fb12b51",
+          "research_exits.py": "f7acccf7fe2240bd818580b6dfb3fe06d0a8b826d5de577206f469ca9946c508",
+          "research_external_signals.py": "898e3948e5695395e58a83d6bd09f52a9de7d01169a9588c196fd7aa9070b6fc",
+          "research_external_strategies.py": "8935351a5fd95c5521d19b026630b5f1954f28c026b5959fd03f8621dad8f426",
+          "research_hourly_exit_comparison.py": "5dc85e52b2633922c371af96e13eb4fa96eda8f2b47dc6f0ec1301074c049066",
+          "research_parallel_simulation_capital.py": "553660a12ef6d6413df23730c6e00193099476638a165f5db30390b1a69aec00",
+          "research_reentry.py": "bf4d6053f782b3ef80dc6053c0c935e0a48092508d05547771a852fac24e7ce2",
+          "research_selective_stock_entries.py": "089447bdc4f94103a084adddb03d8d5985fa6f284294cc07ba5d5d148b962157",
+          "research_signal_engine.py": "0dc3dd787ca4851e7637b154ad28317ca6500bb0a1c4f0a28df8fe4ce09ba66e",
+          "research_stock_external_context.py": "1666c1333c34eadee8ae6eb0cef0a00629c7a022e290fefa468181fb7bb7aa9c",
+          "research_stock_independent_strategies.py": "bfed6cff44e55ff4094d75681838aaf66a82006cc520a340cfa7bbd530e6518a",
+          "research_stock_mechanisms.py": "3d84c0105d1a1d75e39c59e6eeb5471a8650dae52f7a77428b2041571230ee0c",
+          "research_stock_profit_candidate.py": "03741326d548d0e4d090228d9f74bb5cf7fae713a00b072a56ca52ec72789a1e",
+          "research_stock_swing_robustness.py": "15631a9e53c009fe892af67922b88fd510dc9188c398622ef764cf34fd73970c",
+          "research_trend_filter.py": "67a4a1fc08d38bb3a7ce2d959e6cb9d10722f198d202ddd749efe86965c11bb1",
+          "research_world_events.py": "2e55651c17c741f18403487876e5a34eb11500c204fc6faf2a692d8d2ebbaa7e",
+          "run_execution_supervisor.py": "cc49d09cf82e2f368020b0848b3a8207fb8ef3a371302893f5cb30b6cc57b038",
+          "run_macro_candidate_shadow.py": "d7f06114ca348f7909bc5ce466932bcccdf24ea97052a2c11ef00056b521e91d",
+          "run_multifactor_shadow.py": "55388f54cadb038f2dc6debeb1ad0a040b4b0557e5969596345bfbf07f5dd185",
+          "run_parallel_simulation.py": "296204dc0d96991efa10e1a4f2c488828cefa08e14a8093e139a569c49639146",
+          "run_stock_expectancy_shadow.py": "113c529f20d5f3f1c2527cbe45a14dededc050071a8d0533da2f7fec22282bac",
+          "run_stock_overnight_validation.py": "715a868db8a9f9f213249406224453ff508fc09a2b677fb9923e743c2a58ff14",
+          "run_stock_trend_experiment.py": "0099313cc0b1ca00229e617085327a99cb67d2fbaa5b12db2d44f0c9f7f6b95a",
+          "run_trading_terminal.py": "a095595a6586a767271449c3b1cdef8c8bd4b45c3a11facf3029cec9b935f2f8",
+          "simulate_range_swing.py": "f113b660a7630f47cb33c2fff47ef835acaee44f062bcdae6551857238dfb8c2",
+          "simulation_risk_monitor.py": "217897707f5022e7700e2c2dc10c87463ddd18772f311d06a438c1f23824ac4a",
+          "stock_entry_quality.py": "efc2ca0d6ad2d3dc04f5fb6c255b2eebcce3a57b47404ea423b3388481483016",
+          "stock_external_context.py": "655315446c2cebe1d25a384a51915b0b86b0b0a62c59fec8af429b5d51d7d7c9",
+          "stock_overnight_report.py": "efdf52e293183fc1609423b6bf3535151e0c68eb3c65272cfddd43f086f07ee3",
+          "stock_profit_candidate.py": "d77baa542486f1d43a0677b281cc03797db539e26f85ab11448cc605bb785e40",
+          "stock_profit_exits.py": "05043e13669f0a626849c8b2a8761027f1754f2283cbf3761f8d16a868a702f3",
+          "stock_research_entry_policy.py": "b7f67d7a0c29f2e08e10fb9f9a84465da71b5d4c214e1926bd4fcee8b2776f56",
+          "stock_research_status.py": "a3f639b08ec57a7c469c66b57e075ba0c576915220956fb15cc1f23c990b6faf",
+          "stock_swing_profiles.py": "00cfa8998385022ce9c07ba3b29d77b1538a8a1b3903c54add85377538d9390f",
+          "stock_swing_signals.py": "114dc653d5972fdb2fa61ba3e22dde41960601b2e418b8a67e6934eb5bb4b54d",
+          "stock_trend_exits.py": "cf0a639bc87b9dc932cfa61f957ebfadb8970217c3421450d9ff659c927e7634",
+          "supplemental_market_data.py": "ab817e804b47e7660398c67abb28ac9e90e777fc0992ba442990828057ad387c",
+          "timeseries_execution.py": "4da25d942ca1975ad0a1cf65cd05fd0e164ce0a2d3fd25894006d29e7d186fd6",
+          "trading_execution.py": "23a16eb603281211f402c46d4c84f77c84a1b238ca4e9547046b1d1831a756bd",
+          "validate_candidate_portfolio.py": "af10690c8d0d518f9974f580bae3286aa4b11df3768c583e808e1547b4d8a3ec",
+          "validate_carry_trend_portfolio.py": "4cb91165b05e05244aaac0ca958a49c58f0f89b72a4c2fd561a76da230651b0e",
+          "validate_confirmed_trend_strategy.py": "348389d690367aef27e6daee7e48389ef3f1f9676cca3c5bd3e2df0ea37c2d3e",
+          "validate_cost_control.py": "d53050a978e00fa0afa7fc42f7ae04a1d81092b7295a83c041822b3284f20e85",
+          "validate_execution_integrity.py": "ee3a0819a428a5b69df42ccdb242a18626c52fbba9bf79a31c9d46d1900829f5",
+          "validate_execution_model.py": "0a6b2e5c061593781919b43fb2299b305ad60c987137b658fa1c7aa184253452",
+          "validate_exit_research.py": "e7c61fea71e0d96a30c630f20844c967d4851786b09f181ade300523aa800825",
+          "validate_frozen_strategy.py": "00e8e1f618958636743b229bde0dff50668340d885fe6d594fb56ad40706f28f",
+          "validate_intelligence_observations.py": "18b7900439a50a118ba43b6438d4f7ae404529f7375b329b47fd8146e7e38d7a",
+          "validate_macro_overlay.py": "8be85daadf53fb767fb7816e12719fa33e3efbb493c39c2110b5576dea8f616f",
+          "validate_multifactor.py": "316e4f2684f84419a679ee775b9646674a0fad53610d5967e9485eb09881b860",
+          "validate_reentry_research.py": "d74a6ebf50bfe50a0e4a1d8cceecb64f2b48020bda034f92ded66dc198722a98",
+          "validate_signal_coverage.py": "414107af1c679e94c9185b3cb959aa72a2c95a33c04138cda9e04fde94bd4db7",
+          "validate_strategies.py": "361166ac77ace705725daa12eafda88ed0b6736f824228e9e95769ca5f4b60aa",
+          "validate_world_event_returns.py": "50e018271f2c3df04446ac8d5e0e08af60e232376eedd9e80532d34119f0faa0",
+          "verify_execution_refinement.py": "5042069f3c27249bffa6b54e0ae0eb3cb68e29b1cb6ded6fe6a4f4af3a49a183",
+          "verify_shadow_candidate.py": "cef89acd18418d96c20fd791ef606bf2e8480f3623875d1a1cc2c13a74acc163",
+          "verify_stock_mechanism_research.py": "22847f90758c156ac75d6c6e002153ae08f23bd447e271379f294e93bb14682a",
+          "world_event_risk.py": "6c4308359dc11143a3023ac942665ddaa94819849d483a6c6a407c5ccd28fda8"
+        }
+      },
+      "accounts": {
+        "mu": {
+          "symbol": "MUUSDT",
+          "control": {
+            "cost1": {
+              "initial_equity": 1000,
+              "final_equity": 1004.0452962548759,
+              "net_pnl": 4.045296254875893,
+              "total_return_pct": 0.40452962548758187,
+              "estimated_liquidated_return_pct": 0.40452962548758187,
+              "max_drawdown_pct": 0.554473336393102,
+              "fees": 0.32361595151000005,
+              "funding_pnl": -0.052902073614325536,
+              "unrealized_pnl": 0,
+              "fills": 43,
+              "closed_positions": 15,
+              "closed_net_win_rate_pct": 60.0,
+              "open_quantity": 0,
+              "observations": 8640
+            },
+            "cost2": {
+              "initial_equity": 1000,
+              "final_equity": 1003.2681865244541,
+              "net_pnl": 3.2681865244541086,
+              "total_return_pct": 0.3268186524454153,
+              "estimated_liquidated_return_pct": 0.3268186524454153,
+              "max_drawdown_pct": 0.5521484510992769,
+              "fees": 0.6319496042800001,
+              "funding_pnl": -0.04594371126596301,
+              "unrealized_pnl": 0,
+              "fills": 44,
+              "closed_positions": 15,
+              "closed_net_win_rate_pct": 60.0,
+              "open_quantity": 0,
+              "observations": 8640
+            }
+          },
+          "candidate": {
+            "cost1": {
+              "initial_equity": 1000,
+              "final_equity": 997.9265039447303,
+              "net_pnl": -2.073496055269743,
+              "total_return_pct": -0.20734960552697412,
+              "estimated_liquidated_return_pct": -0.20734960552697412,
+              "max_drawdown_pct": 0.298680790150363,
+              "fees": 0.0351805376925,
+              "funding_pnl": 0.025673262422536203,
+              "unrealized_pnl": 0,
+              "fills": 9,
+              "closed_positions": 4,
+              "closed_net_win_rate_pct": 25.0,
+              "open_quantity": 0,
+              "observations": 8640
+            },
+            "cost2": {
+              "initial_equity": 1000,
+              "final_equity": 998.5729295406753,
+              "net_pnl": -1.427070459324682,
+              "total_return_pct": -0.14270704593246641,
+              "estimated_liquidated_return_pct": -0.14270704593246641,
+              "max_drawdown_pct": 0.15450725556577227,
+              "fees": 0.031828183440000005,
+              "funding_pnl": -0.009917395884620962,
+              "unrealized_pnl": 0,
+              "fills": 4,
+              "closed_positions": 2,
+              "closed_net_win_rate_pct": 0.0,
+              "open_quantity": 0,
+              "observations": 8640
+            }
+          },
+          "chronological_audit": {
+            "cost1": {
+              "candidate": {
+                "first20d_net_pnl": -1.163613711017888,
+                "last10d_net_pnl_with_carried_inventory": -0.9098823442518551
+              },
+              "control": {
+                "first20d_net_pnl": 6.808794202420927,
+                "last10d_net_pnl_with_carried_inventory": -2.7634979475450336
+              },
+              "exit_reasons": [
+                "one_r_partial",
+                "protective_stop"
+              ]
+            },
+            "cost2": {
+              "candidate": {
+                "first20d_net_pnl": 0.0,
+                "last10d_net_pnl_with_carried_inventory": -1.427070459324682
+              },
+              "control": {
+                "first20d_net_pnl": 6.083818843984204,
+                "last10d_net_pnl_with_carried_inventory": -2.8156323195300956
+              },
+              "exit_reasons": [
+                "protective_stop"
+              ]
+            }
+          },
+          "assessment": {
+            "paper_exit_improvement_passed": false,
+            "failures": [
+              "cost1:net_return_not_improved",
+              "cost1:fewer_than_10_closed_positions",
+              "cost2:net_return_not_improved",
+              "cost2:fewer_than_10_closed_positions"
+            ],
+            "positive_at_both_costs": false,
+            "future_profitability_proven": false
+          }
+        },
+        "sndk": {
+          "symbol": "SNDKUSDT",
+          "control": {
+            "cost1": {
+              "initial_equity": 1000,
+              "final_equity": 994.4530016087039,
+              "net_pnl": -5.5469983912961425,
+              "total_return_pct": -0.5546998391296132,
+              "estimated_liquidated_return_pct": -0.5546998391296132,
+              "max_drawdown_pct": 1.7436301320432945,
+              "fees": 0.8004856546925001,
+              "funding_pnl": 0.22196416339705116,
+              "unrealized_pnl": 0,
+              "fills": 86,
+              "closed_positions": 34,
+              "closed_net_win_rate_pct": 47.05882352941176,
+              "open_quantity": 0,
+              "observations": 8640
+            },
+            "cost2": {
+              "initial_equity": 1000,
+              "final_equity": 993.7666170206528,
+              "net_pnl": -6.233382979347198,
+              "total_return_pct": -0.6233382979347168,
+              "estimated_liquidated_return_pct": -0.6275834249307333,
+              "max_drawdown_pct": 1.7200514101804676,
+              "fees": 1.54958563759,
+              "funding_pnl": 0.22104973824205115,
+              "unrealized_pnl": 1.4892737600000054,
+              "fills": 87,
+              "closed_positions": 33,
+              "closed_net_win_rate_pct": 45.45454545454545,
+              "open_quantity": -0.04,
+              "observations": 8640
+            }
+          },
+          "candidate": {
+            "cost1": {
+              "initial_equity": 1000,
+              "final_equity": 978.6251715149181,
+              "net_pnl": -21.374828485081935,
+              "total_return_pct": -2.1374828485081987,
+              "estimated_liquidated_return_pct": -2.1411970489439325,
+              "max_drawdown_pct": 3.004529095744457,
+              "fees": 0.8024310185924999,
+              "funding_pnl": 0.22949595351082075,
+              "unrealized_pnl": 2.339872500000006,
+              "fills": 79,
+              "closed_positions": 32,
+              "closed_net_win_rate_pct": 37.5,
+              "open_quantity": -0.07,
+              "observations": 8640
+            },
+            "cost2": {
+              "initial_equity": 1000,
+              "final_equity": 967.713016398449,
+              "net_pnl": -32.286983601551015,
+              "total_return_pct": -3.2286983601551023,
+              "estimated_liquidated_return_pct": -3.2286983601551023,
+              "max_drawdown_pct": 3.793433726436446,
+              "fees": 1.7804548561699995,
+              "funding_pnl": 0.1538945746185044,
+              "unrealized_pnl": 0,
+              "fills": 83,
+              "closed_positions": 35,
+              "closed_net_win_rate_pct": 34.285714285714285,
+              "open_quantity": 0,
+              "observations": 8640
+            }
+          },
+          "chronological_audit": {
+            "cost1": {
+              "candidate": {
+                "first20d_net_pnl": -27.890206175791604,
+                "last10d_net_pnl_with_carried_inventory": 6.51537769070967
+              },
+              "control": {
+                "first20d_net_pnl": -14.140131363285377,
+                "last10d_net_pnl_with_carried_inventory": 8.593132971989235
+              },
+              "exit_reasons": [
+                "one_r_partial",
+                "protective_stop"
+              ]
+            },
+            "cost2": {
+              "candidate": {
+                "first20d_net_pnl": -28.1944965434011,
+                "last10d_net_pnl_with_carried_inventory": -4.0924870581499135
+              },
+              "control": {
+                "first20d_net_pnl": -14.077378759617204,
+                "last10d_net_pnl_with_carried_inventory": 7.843995780270006
+              },
+              "exit_reasons": [
+                "one_r_partial",
+                "protective_stop"
+              ]
+            }
+          },
+          "assessment": {
+            "paper_exit_improvement_passed": false,
+            "failures": [
+              "cost1:net_return_not_improved",
+              "cost1:drawdown_increased_over_0.25_percentage_points",
+              "cost2:net_return_not_improved",
+              "cost2:drawdown_increased_over_0.25_percentage_points"
+            ],
+            "positive_at_both_costs": false,
+            "future_profitability_proven": false
+          }
+        },
+        "skhynix": {
+          "symbol": "SKHYNIXUSDT",
+          "control": {
+            "cost1": {
+              "initial_equity": 1000,
+              "final_equity": 1003.1591932432761,
+              "net_pnl": 3.1591932432761496,
+              "total_return_pct": 0.31591932432761816,
+              "estimated_liquidated_return_pct": 0.31852992154521864,
+              "max_drawdown_pct": 0.9544660857242149,
+              "fees": 4.489458416672001,
+              "funding_pnl": -0.08535299075250243,
+              "unrealized_pnl": 0.5315134067000008,
+              "fills": 58,
+              "closed_positions": 21,
+              "closed_net_win_rate_pct": 57.14285714285714,
+              "open_quantity": -0.086,
+              "observations": 8640
+            },
+            "cost2": {
+              "initial_equity": 1000,
+              "final_equity": 998.800025376133,
+              "net_pnl": -1.1999746238669786,
+              "total_return_pct": -0.11999746238670062,
+              "estimated_liquidated_return_pct": -0.12969769359748584,
+              "max_drawdown_pct": 0.8905749647733163,
+              "fees": 8.193321030528,
+              "funding_pnl": -0.0692347644386035,
+              "unrealized_pnl": 0.46183772310000587,
+              "fills": 57,
+              "closed_positions": 21,
+              "closed_net_win_rate_pct": 57.14285714285714,
+              "open_quantity": -0.078,
+              "observations": 8640
+            }
+          },
+          "candidate": {
+            "cost1": {
+              "initial_equity": 1000,
+              "final_equity": 999.9147923279422,
+              "net_pnl": -0.08520767205777702,
+              "total_return_pct": -0.008520767205777435,
+              "estimated_liquidated_return_pct": -0.008520767205777435,
+              "max_drawdown_pct": 0.3556166293600116,
+              "fees": 0.45393701978,
+              "funding_pnl": -0.04158322827776852,
+              "unrealized_pnl": 0,
+              "fills": 5,
+              "closed_positions": 2,
+              "closed_net_win_rate_pct": 50.0,
+              "open_quantity": 0,
+              "observations": 8640
+            },
+            "cost2": {
+              "initial_equity": 1000,
+              "final_equity": 1000.0,
+              "net_pnl": 0.0,
+              "total_return_pct": 0.0,
+              "estimated_liquidated_return_pct": 0.0,
+              "max_drawdown_pct": 0.0,
+              "fees": 0.0,
+              "funding_pnl": 0.0,
+              "unrealized_pnl": 0,
+              "fills": 0,
+              "closed_positions": 0,
+              "closed_net_win_rate_pct": null,
+              "open_quantity": 0,
+              "observations": 8640
+            }
+          },
+          "chronological_audit": {
+            "cost1": {
+              "candidate": {
+                "first20d_net_pnl": -0.08520767205777702,
+                "last10d_net_pnl_with_carried_inventory": 0.0
+              },
+              "control": {
+                "first20d_net_pnl": 0.9763727001101188,
+                "last10d_net_pnl_with_carried_inventory": 2.182820543166031
+              },
+              "exit_reasons": [
+                "one_r_partial",
+                "protective_stop"
+              ]
+            },
+            "cost2": {
+              "candidate": {
+                "first20d_net_pnl": 0.0,
+                "last10d_net_pnl_with_carried_inventory": 0.0
+              },
+              "control": {
+                "first20d_net_pnl": -1.886792521945722,
+                "last10d_net_pnl_with_carried_inventory": 0.6868178980787434
+              },
+              "exit_reasons": []
+            }
+          },
+          "assessment": {
+            "paper_exit_improvement_passed": false,
+            "failures": [
+              "cost1:net_return_not_improved",
+              "cost1:fewer_than_10_closed_positions",
+              "cost2:fewer_than_10_closed_positions"
+            ],
+            "positive_at_both_costs": false,
+            "future_profitability_proven": false
+          }
+        }
+      },
+      "result_sha256": "93bab2c75c36bca2ab6fff9212f92fd789038db1ddb785801b056885f84df486",
+      "supplemental_input_sha256": {
+        "funding_marks_1m_MUUSDT.json": "cf67d298f1feb70b17a50d887313e6197ff8608dae1844d1271c202361d0de15",
+        "funding_marks_1m_SKHYNIXUSDT.json": "8733cf84511f871d41bc29b094c039a282e5c6a882fd55422b1ac29b4cf80a03",
+        "funding_marks_1m_SNDKUSDT.json": "75570431c9c6f406746cfd3da27959dab2106b84732b677a8d17805731ced299"
+      }
+    }
+  },
+  "economic_profitability_proven": false,
+  "known_history_previously_reviewed": true,
+  "independent_holdout": false,
+  "initial_test_result": {
+    "passed": 860,
+    "failed": 4,
+    "skipped": 2,
+    "cause": "test_strategy_engine inherited LLM_TRADE_GATE_ENABLED=true from local .env; arithmetic unit tests called real LLM with empty signals"
+  },
+  "final_test_result": {
+    "python_passed": 866,
+    "python_skipped": 2,
+    "python_failed": 0,
+    "ui_passed": 9,
+    "ui_failed": 0,
+    "sndk_incumbent_regression_matches": true,
+    "candidate_runs": 12,
+    "observations_per_candidate_run": 8640,
+    "all_candidate_ledger_identities_checked": true
+  },
+  "incumbent_config_sha256": {
+    "config/parallel_simulation_plan_20261005.json": "7a494d7158a804f604f211d6b22ad6df43d9687c494e1d8f5119b1877ec04dc9",
+    "config/stock_one_r_half_atr_paper_20261006.json": "0763cb97e9308d73e23caed88c76572daa3c67267854ca8fa20b48225f056e10",
+    "config/multifactor_regular_10x_20261004.json": "dd3d6c10f5ae220f57eeab54300bc3278dd598830f1fac148dcf2c7a6ee72ce4"
+  },
+  "final_implementation_sha256": {
+    "scripts/run_parallel_simulation.py": "296204dc0d96991efa10e1a4f2c488828cefa08e14a8093e139a569c49639146",
+    "scripts/stock_swing_profiles.py": "00cfa8998385022ce9c07ba3b29d77b1538a8a1b3903c54add85377538d9390f",
+    "scripts/stock_entry_quality.py": "3595b16f44a6a3c89e2c5ec555c5eea21c25e37b35bfb57fcda9cafaa457e287",
+    "scripts/backtest_current_accounts.py": "66e428d31244c9f22f700f6801cc3db3c593fe144ec3564f22f4f06fbe767ae8",
+    "scripts/validate_confirmed_trend_strategy.py": "9fff3a00cacf4caf16070345575eef78c050d5a4837f3a1f84254e4a8ab55dfc"
+  }
+}

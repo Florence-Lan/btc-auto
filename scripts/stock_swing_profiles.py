@@ -10,6 +10,7 @@ import math
 from typing import Any, Mapping, Sequence
 
 import stock_swing_signals as baseline
+import stock_entry_quality as quality
 from stock_swing_signals import Candle, Signal
 
 
@@ -33,7 +34,16 @@ def signal_activity(candles: Sequence[Candle], index: int, config: Mapping[str, 
             'last_bar_time_ms': candles[index].time_ms}
 
 
-def signal_at(
+def signal_at(candles, indicators, index, config=None):
+    config = config or {}
+    quality.validate(config)
+    signal = raw_signal_at(candles, indicators, index, config)
+    if signal and not quality.evaluate(candles, indicators, index, config, signal.direction)['allowed']:
+        return None
+    return signal
+
+
+def raw_signal_at(
     candles: Sequence[Candle], indicators: Mapping[str, Sequence[float | None]],
     index: int, config: Mapping[str, Any] | None = None,
 ) -> Signal | None:

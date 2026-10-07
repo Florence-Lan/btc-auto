@@ -27,6 +27,8 @@ import simulation_risk_monitor
 import stock_swing_profiles
 import stock_swing_signals as signals
 import stock_profit_exits as profit_exits
+import stock_trend_exits as trend_exits
+import stock_entry_quality as entry_quality
 import stock_research_entry_policy as entry_policy
 from trading_execution import SimulationAccount, execute_report, read_json, write_json
 
@@ -142,6 +144,9 @@ class StockAccount:
         self.signal_interval_ms = SIGNAL_INTERVALS[self.signal_timeframe]
         entry_policy.validate({**config, 'symbols': [symbol]}, FIVE_MINUTES)
         profit_exits.validate(config)
+        entry_quality.validate(config)
+        if config.get('trend_exit_policy') is not None:
+            trend_exits.validate(config['trend_exit_policy'])
         self.signal_bars = []
         self.five = []
         self.candle_bucket = None
@@ -253,7 +258,26 @@ class StockAccount:
         return pos if remainder > 0 else None
 
     def additional_exit_reason(self, state, position, data, errors, timestamp):
-        """Optional paper-experiment extension after the existing full-exit guards."""
+        """Optional confirmed invalidation, after stop/account/funding guards."""
+        if self.config.get('trend_exit_policy') is None:
+            return None
+        outcome = {'status': 'unavailable', 'triggered': False}
+        try:
+            if data.get('clock') and not errors.get('signal') and self.signal_bars:
+                if any(int(r[6]) != int(r[0]) + self.signal_interval_ms - 1 for r in self.signal_bars):
+                    raise ValueError('Invalid candle closing time')
+                bars = [arithmetic.candle(r) for r in self.signal_bars]
+                outcome = trend_exits.evaluate(position, bars, self.config, timestamp,
+                    self.signal_interval_ms, state.get('trend_exit_active_after_ms', state['start_ms']))
+            if position.get('pending_exit') == 'trend_reversal_exit':
+                outcome['status'] = 'exit_pending'
+        except (ValueError, KeyError, IndexError, TypeError) as exc:
+            outcome = {'status': 'unavailable', 'triggered': False, 'reason': str(exc)[:180]}
+        state['trend_exit_status'] = {**outcome, 'checked_at_ms': now_ms()}
+        if outcome['triggered'] and not position.get('pending_exit'):
+            journal(self.path.with_name('trend_decisions.jsonl'), {
+                'observed_at_ms': now_ms(), 'position_direction': position['direction'], **outcome})
+            return 'trend_reversal_exit'
         return None
 
     def step(self, market_data=None):
@@ -550,6 +574,8 @@ class StockAccount:
         observation['entry_blockers'] = state['entry_blockers']
         state['profit_exit_status'] = ({**pos.get('profit_exit', {}), 'stop': pos['stop']}
             if pos and profit_exits.enabled(cfg) else None)
+        if cfg.get('trend_exit_policy') is not None and not pos:
+            state['trend_exit_status'] = {'status': 'flat', 'triggered': False, 'checked_at_ms': now_ms()}
         observation['profit_exit_status'] = state['profit_exit_status']
         if 'signal' in data:
             observation['signal_candles'] = self.signal_bars
@@ -564,13 +590,17 @@ def stock_config(plan, symbol):
     profile = json.loads((ROOT / plan['stock_research_profile']).read_text())
     base = json.loads((ROOT / profile['base_config']).read_text())
     common = {key: profile[key] for key in ('signal_timeframe', 'execution_timeframe', 'cooldown_signal_bars',
-                                          'max_entry_spread_fraction', 'profit_exit_policy') if key in profile}
+                                          'max_entry_spread_fraction', 'profit_exit_policy', 'trend_exit_policy',
+                                          'entry_quality_policy') if key in profile}
     cfg = {**base, **common, **profile['symbol_profiles'][symbol],
         'candidate_id': profile['symbol_profiles'][symbol].get('candidate_id', profile['candidate_id']),
         'risk_fraction_per_trade': profile['risk_fraction_per_bucket_trade'],
         'initial_equity_usdt': 1000, 'leverage': 10}
     SIGNAL_INTERVALS[cfg['signal_timeframe']]  # Validate before changing any account.
     profit_exits.validate(cfg)
+    entry_quality.validate(cfg)
+    if cfg.get('trend_exit_policy') is not None:
+        trend_exits.validate(cfg['trend_exit_policy'])
     return cfg
 
 
@@ -591,7 +621,7 @@ def synchronize_stock_rules(plan, root, manifest):
             continue
         exit_only = plan.get('stock_rule_revision_scope') == 'profit_exits_only'
         if exit_only:
-            ignored = {'profit_exit_policy', 'candidate_id'}
+            ignored = {'profit_exit_policy', 'trend_exit_policy', 'candidate_id'}
             if ({k: v for k, v in state['rule'].items() if k not in ignored}
                     != {k: v for k, v in cfg.items() if k not in ignored}):
                 raise ValueError('Exit-only migration cannot alter entry or risk settings')
@@ -602,6 +632,9 @@ def synchronize_stock_rules(plan, root, manifest):
             'reason': plan.get('stock_rule_revision_reason', 'User authorized independent per-account strategies and shorter stock signal cycles; closed-bar signals with 30s entry retries.')}
         state.setdefault('rule_history', []).append(revision)
         state.update(rule=cfg, signal_timeframe=cfg['signal_timeframe'])
+        if cfg.get('trend_exit_policy') != revision['previous_rule'].get('trend_exit_policy'):
+            state['trend_exit_active_after_ms'] = activated
+            state.pop('trend_exit_status', None)
         if not exit_only:
             state.update(signal_active_after_ms=activated, last_signal_time_ms=None,
                 last_signal_result=None, pending_signal=None, signal_status='waiting_for_first_forward_candle')

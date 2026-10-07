@@ -55,6 +55,17 @@ def config(**changes: object) -> sim.StrategyConfig:
 
 
 class StrategyEngineTests(unittest.TestCase):
+    def setUp(self) -> None:
+        # Execution arithmetic tests must not call a user's configured LLM or
+        # inherit personal exposure caps. Dedicated gate tests cover approvals.
+        environment = mock.patch.dict('os.environ', {
+            'LLM_TRADE_GATE_ENABLED': 'false',
+            'SIM_MAX_LEVERAGE': '',
+            'SIM_MAX_NOTIONAL_USDT': '0',
+        })
+        environment.start()
+        self.addCleanup(environment.stop)
+
     def test_funding_carry_short_receives_positive_funding(self) -> None:
         self.assertEqual(funding_carry.funding_credit(50.0, 0.0001), 0.005)
         self.assertEqual(funding_carry.funding_credit(50.0, -0.0001), -0.005)

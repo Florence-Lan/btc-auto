@@ -1,0 +1,204 @@
+{
+  "candidate_id": "stock_confirmed_trend_exit_candidate_20261007",
+  "status": "rejected_retrospective_validation_not_default",
+  "base_config": "config/stock_swing_120_candidate_20261004.json",
+  "execution_timeframe": "5m",
+  "capital_weights": {
+    "MUUSDT": 0.3333333333333333,
+    "SNDKUSDT": 0.3333333333333333,
+    "SKHYNIXUSDT": 0.3333333333333333
+  },
+  "max_positions_per_capital_bucket": 1,
+  "risk_fraction_per_bucket_trade": 0.0025,
+  "symbol_profiles": {
+    "MUUSDT": {
+      "signal_family": "ema_transition",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0,
+      "target_margin_return": 1.2,
+      "max_holding_calendar_days": 15,
+      "trail_activation_underlying_return": 0.08,
+      "trail_locked_underlying_return": 0.03,
+      "trail_atr": 2.0,
+      "signal_timeframe": "15m",
+      "entry_direction": "both",
+      "entry_signal_validity_minutes": 15,
+      "cooldown_signal_bars": 3,
+      "research_variant": "cross_8_24_60_15m_both_swing_net120",
+      "candidate_id": "muusdt_confirmed_trend_exit_20261007",
+      "entry_enabled": true,
+      "taker_fee_rate_assumption": 0.000125,
+      "entry_qualification": {
+        "approved_for_forward_simulation": true,
+        "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+        "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+        "minimum_closed_net_win_rate": null,
+        "minimum_net60_success_rate": null,
+        "minimum_target_net_return_on_initial_margin": 0.6,
+        "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+        "known_retrospective_history": true,
+        "forward_validated": false,
+        "authorization_basis": "explicit_user_instruction",
+        "historical_screen_passed": false
+      }
+    },
+    "SNDKUSDT": {
+      "signal_family": "breakout",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "breakout_bars": 6,
+      "stop_atr": 2.0,
+      "target_margin_return": 1.2,
+      "max_holding_calendar_days": 15,
+      "trail_activation_underlying_return": 0.08,
+      "trail_locked_underlying_return": 0.03,
+      "trail_atr": 2.0,
+      "signal_timeframe": "5m",
+      "entry_direction": "both",
+      "entry_signal_validity_minutes": 5,
+      "cooldown_signal_bars": 3,
+      "research_variant": "breakout_8_24_60_5m_both_swing_net120",
+      "candidate_id": "sndkusdt_confirmed_trend_exit_20261007",
+      "entry_enabled": true,
+      "taker_fee_rate_assumption": 0.000125,
+      "entry_qualification": {
+        "approved_for_forward_simulation": true,
+        "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+        "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+        "minimum_closed_net_win_rate": null,
+        "minimum_net60_success_rate": null,
+        "minimum_target_net_return_on_initial_margin": 0.6,
+        "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+        "known_retrospective_history": true,
+        "forward_validated": false,
+        "authorization_basis": "explicit_user_instruction",
+        "historical_screen_passed": false
+      }
+    },
+    "SKHYNIXUSDT": {
+      "signal_family": "ema_transition",
+      "research_variant": "transition_8_24_60_slow1",
+      "ema_fast": 8,
+      "ema_mid": 24,
+      "ema_slow": 60,
+      "warmup_bars": 60,
+      "require_price_slow": true,
+      "stop_atr": 2.0,
+      "candidate_id": "skhynixusdt_confirmed_trend_exit_20261007",
+      "entry_direction": "both",
+      "entry_enabled": true,
+      "taker_fee_rate_assumption": 0.001,
+      "entry_qualification": {
+        "approved_for_forward_simulation": true,
+        "reason": "用户明确要求四账户继续模拟验证，不以历史盈利筛查、胜率或样本量作为模拟开仓前提；策略尚未验证，按现有信号与执行风控积累前瞻样本。",
+        "results_path": "data/research/stock_expectancy_review_20261005/results.json",
+        "minimum_closed_net_win_rate": null,
+        "minimum_net60_success_rate": null,
+        "minimum_target_net_return_on_initial_margin": 0.6,
+        "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+        "known_retrospective_history": true,
+        "forward_validated": false,
+        "authorization_basis": "explicit_user_instruction",
+        "historical_screen_passed": false
+      }
+    }
+  },
+  "selection_provenance": {
+    "known_history_previously_reviewed": true,
+    "independent_unseen_validation": false,
+    "results_path": "data/research/bidirectional_regimes_current_fees_20261005/results.json",
+    "previous_selection_preserved_in_profile": "config/stock_bidirectional_forward_20261005.json",
+    "development_selected": {
+      "MUUSDT": null,
+      "SNDKUSDT": "current_control",
+      "SKHYNIXUSDT": "current_control"
+    },
+    "audit_passed": {
+      "MUUSDT": false,
+      "SNDKUSDT": true,
+      "SKHYNIXUSDT": false
+    },
+    "new_user_screen_passed": {
+      "MUUSDT": false,
+      "SNDKUSDT": false,
+      "SKHYNIXUSDT": false
+    },
+    "expectancy_review_passed": {
+      "MUUSDT": false,
+      "SNDKUSDT": false,
+      "SKHYNIXUSDT": false
+    }
+  },
+  "notes": [
+    "Entry signals, risk sizing and execution costs match the previous paper profile.",
+    "1R is the immutable entry-to-initial-stop price distance. Half quantity rounds down to the contract lot step.",
+    "After a first scale-out fill, remaining inventory receives cost-aware break-even protection and 1.5 ATR trailing on its own closed signal timeframe.",
+    "The original net120 target and 8% trail activation are superseded in this arm; inherited fields describe the control only.",
+    "The previous 60% initial-margin target is historical evaluation metadata, not this experiment exit threshold.",
+    "Current holdings begin tracking favorable executable quotes after activation; no past high/low or paper fills are replayed.",
+    "The old exit-rule control is cloned from the same cash/inventory and uses the same observed market responses.",
+    "If two executable minimum lots/notionals cannot be formed, skip scale-out and protect the whole residual at 1R.",
+    "Research simulation only; no profitability qualification or live orders.",
+    "Fixed candidate: confirmed opposite EMA8/24 and close opposite EMA60 for two post-entry/post-activation closed bars. No entry/risk tuning."
+  ],
+  "signal_timeframe": "15m",
+  "cooldown_signal_bars": 3,
+  "user_revision": {
+    "reason": "用户要求更新策略、推送仓库并验证；先验证固定的两根收盘线趋势反转退出，不改变入场与风险预算。",
+    "previous_profile": "config/stock_one_r_half_atr_paper_20261006.json",
+    "scope": "paper_exit_rules_only",
+    "live_orders_allowed": false,
+    "historical_profitability_qualified": false
+  },
+  "fee_assumption_source": "https://docs.asterdex.com/trading/perpetuals/fees-and-specs/fees",
+  "max_entry_spread_fraction": 0.001,
+  "admission_requirements": {
+    "minimum_target_net_return_on_initial_margin": null,
+    "minimum_closed_net_win_rate": null,
+    "return_denominator": "initial_margin_of_this_trade",
+    "net_pnl_includes": [
+      "entry_and_exit_fees",
+      "adverse_execution_slippage",
+      "funding"
+    ],
+    "win_definition": "closed_net_pnl > 0",
+    "every_trade_profit_guaranteed": false,
+    "future_win_rate_guaranteed": false,
+    "known_history_is_independent_validation": false,
+    "new_entries_allowed_before_qualification": true,
+    "minimum_net60_success_rate": null,
+    "minimum_sample_mean_closed_net_pnl_usdt_exclusive": 0,
+    "minimum_closed_trades_by_window": {
+      "development": 30,
+      "validation": 10,
+      "recent": 10,
+      "full": 50
+    },
+    "both_normal_and_double_cost_required": true,
+    "positive_net_with_estimated_open_close_required": true,
+    "positive_full_net_without_best_winner_required": true,
+    "maximum_sampled_drawdown_pct": 6,
+    "no_modeled_liquidation": true,
+    "future_positive_expectancy_guaranteed": false,
+    "enforced_for_paper_entries": false
+  },
+  "profit_exit_policy": {
+    "mode": "one_r_half_atr",
+    "first_target_r": 1.0,
+    "first_close_fraction": 0.5,
+    "trail_atr": 1.5
+  },
+  "trend_exit_policy": {
+    "mode": "opposite_ema_two_closed_bars",
+    "confirmation_bars": 2,
+    "require_price_slow": true
+  },
+  "validation_result": "docs/strategy_validation_20261007.json",
+  "historical_profitability_qualified": false
+}
