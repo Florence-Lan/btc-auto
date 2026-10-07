@@ -1,5 +1,13 @@
 # BTC Auto
 
+October 7 continued research: 64 fixed mechanism/period/exit combinations and
+three SNDK production-replay candidates yield an hourly Donchian/EMA60 paper
+candidate. Its recent 30-day return is +1.1571% at normal costs and +1.0787%
+at double costs; the continuous March–October replay also passes, with a thin
+profit margin after removing the best winner. An isolated public-data comparison
+runner has passed a one-shot market-data check. Original account defaults and
+ledgers are preserved. See [rules, evidence and reproduction](docs/broad_mechanism_review_20261007.md).
+
 October 7 strategy review: two fixed stock candidates now have reproducible
 current-account replays with normal and double execution costs. Neither improves
 the declared per-account return/drawdown criteria, so the four-account defaults

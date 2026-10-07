@@ -11,6 +11,7 @@ from typing import Any, Mapping, Sequence
 
 import stock_swing_signals as baseline
 import stock_entry_quality as quality
+import stock_mechanism_signals as mechanisms
 from stock_swing_signals import Candle, Signal
 
 
@@ -57,6 +58,8 @@ def raw_signal_at(
     if not signal_activity(candles, index, config)['allowed']:
         return None
     family = config.get("signal_family", "breakout")
+    if family in mechanisms.FAMILIES:
+        return mechanisms.signal_at(candles, indicators, index, config)
     if family == "breakout":
         return baseline.signal_at(candles, indicators, index, config)
     if family in ("trend_pullback", "range_reversion"):
