@@ -151,6 +151,8 @@ def fast_stock_fixture(tmp_path, monkeypatch):
     boundary = 200 * interval
     clock = {'now': boundary + 60_000, 'volume': 0, 'funding_error': False, 'stale_signal': False}
     monkeypatch.setattr(runner, 'now_ms', lambda: clock['now'])
+    # Advance both clock domains together in deterministic execution fixtures.
+    monkeypatch.setattr(runner.time, 'monotonic', lambda: clock['now'] / 1000)
     plan = json.loads(runner.PLAN.read_text())
     cfg = runner.stock_config(plan, 'MUUSDT')
     cfg = {**cfg, 'entry_enabled': True}  # Execution fixtures also exercise unqualified research signals.

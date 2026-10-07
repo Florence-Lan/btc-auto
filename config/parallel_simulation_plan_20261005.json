@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "plan_id": "btc_memory_stocks_1000_each_10x_20261005",
-  "status": "running_user_authorized_four_account_paper_validation",
+  "status": "user_authorized_latest_strategy_configured_pending_runtime_access",
   "execution_mode": "simulation",
   "live_orders_allowed": false,
   "user_authorized_start_condition": "User explicitly requested immediate four-account prospective simulation on 2026-10-05; historical profitability screening is not a prerequisite for paper research.",
@@ -12,7 +12,7 @@
   "start_policy": "Create a new comparison generation with a common prospective start timestamp; preserve existing accounts and histories.",
   "prospective_start_utc": "2026-10-05T04:42:03.609000+00:00",
   "historical_warmup_counts_as_forward_performance": false,
-  "stock_research_profile": "config/stock_one_r_half_atr_paper_20261006.json",
+  "stock_research_profile": "config/stock_hourly_aligned_breakout_paper_20261007.json",
   "accounts": [
     {
       "account_id": "btc",
@@ -40,7 +40,7 @@
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
       "strategy_selection_status": "user_authorized_paper_validation_not_profitability_qualified",
-      "strategy_path": "config/stock_one_r_half_atr_paper_20261006.json",
+      "strategy_path": "config/stock_hourly_aligned_breakout_paper_20261007.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/mu/state.json"
     },
     {
@@ -49,8 +49,8 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_selection_status": "user_authorized_paper_validation_not_profitability_qualified",
-      "strategy_path": "config/stock_one_r_half_atr_paper_20261006.json",
+      "strategy_selection_status": "user_authorized_latest_paper_strategy_retrospective_production_passed_not_forward_proven",
+      "strategy_path": "config/stock_hourly_aligned_breakout_paper_20261007.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/sndk/state.json"
     },
     {
@@ -60,7 +60,7 @@
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
       "strategy_selection_status": "user_authorized_paper_validation_not_profitability_qualified",
-      "strategy_path": "config/stock_one_r_half_atr_paper_20261006.json",
+      "strategy_path": "config/stock_hourly_aligned_breakout_paper_20261007.json",
       "state_path": "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/skhynix/state.json"
     }
   ],
@@ -313,8 +313,8 @@
       "activation_verification_path": "data/runtime/stock_expectancy_activation.json"
     }
   ],
-  "stock_rule_revision_reason": "用户认可1R平一半、余仓扣费保本及1.5ATR跟踪退出，落实到当前股票模拟并保留原退出规则前瞻对照。",
-  "stock_rule_revision_scope": "profit_exits_only",
+  "stock_rule_revision_reason": "User explicitly requested all four paper accounts use the latest strategy on 2026-10-07. SNDK hourly Donchian/EMA60 with net60 exits; latest BTC/MU/SKHYNIX rules preserved. Migrate existing ledgers without resetting balances or fills.",
+  "stock_rule_revision_scope": "entry_and_exit",
   "profit_exit_comparison": {
     "directory": "profit_exit_comparison_20261006",
     "control_profile_path": "config/stock_unrestricted_paper_validation_20261005.json",
@@ -338,6 +338,16 @@
       "runner_pid": 53983,
       "related_tests_passed": 771,
       "activation_verification_path": "data/runtime/stock_profit_exits_activation_20261006.json"
+    },
+    {
+      "candidate_id": "stock_hourly_aligned_breakout_paper_20261007",
+      "previous_profile": "config/stock_one_r_half_atr_paper_20261006.json",
+      "report_path": "docs/latest_four_account_switch_20261007.md",
+      "account_ledgers_preserved": true,
+      "forward_profitability_verified": false,
+      "activation_status": "configured_pending_original_service_access",
+      "switch_authorization": "explicit_user_instruction_20261007",
+      "runtime_verified": false
     }
   ]
 }

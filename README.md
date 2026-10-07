@@ -1,5 +1,11 @@
 # BTC Auto
 
+October 7 latest-strategy switch: the default four-account plan now selects
+the hourly aligned SNDK candidate, with the latest BTC/MU/SKHYNIX rules retained.
+Existing account migration preserves cash, fills and inventory. Startup with
+`--require-existing` refuses missing ledgers; access to the original runtime is
+still needed to complete the service switch. See [switch preparation and checks](docs/latest_four_account_switch_20261007.md).
+
 October 7 continued research: 64 fixed mechanism/period/exit combinations and
 three SNDK production-replay candidates yield an hourly Donchian/EMA60 paper
 candidate. Its recent 30-day return is +1.1571% at normal costs and +1.0787%

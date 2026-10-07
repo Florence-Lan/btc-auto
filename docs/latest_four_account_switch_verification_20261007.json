@@ -1,0 +1,76 @@
+{
+  "verified_at_utc": "2026-10-07T13:38:44.261713+00:00",
+  "runtime_switch_completed": false,
+  "configured_stock_profile": "config/stock_hourly_aligned_breakout_paper_20261007.json",
+  "btc_profile": "config/multifactor_regular_10x_20261004.json",
+  "original_plan_id_preserved": "btc_memory_stocks_1000_each_10x_20261005",
+  "ledger_paths": [
+    "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/btc/state.json",
+    "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/mu/state.json",
+    "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/sndk/state.json",
+    "data/parallel_simulation/btc_memory_stocks_1000_each_10x_20261005/skhynix/state.json"
+  ],
+  "require_existing_start_check": {
+    "refused_missing_generation": true,
+    "missing": [
+      "btc",
+      "mu",
+      "sndk",
+      "skhynix"
+    ],
+    "created_original_accounts": false
+  },
+  "tests": {
+    "command": ".venv/Scripts/python.exe -X utf8 -m pytest -q",
+    "passed": 894,
+    "skipped": 2,
+    "failed": 0
+  },
+  "market_probe": {
+    "places_orders": false,
+    "original_accounts_modified": false,
+    "stocks": {
+      "mu": {
+        "status": "healthy",
+        "errors": {},
+        "signal_timeframe": "15m",
+        "signal_family": "ema_transition",
+        "entry_direction": "both",
+        "equity": 1000.0,
+        "position_qty": 0,
+        "fill_count_total": 0,
+        "checked_at_utc": "2026-10-07T13:35:53.857000+00:00"
+      },
+      "sndk": {
+        "status": "healthy",
+        "errors": {},
+        "signal_timeframe": "1h",
+        "signal_family": "donchian20",
+        "entry_direction": "both",
+        "equity": 1000.0,
+        "position_qty": 0,
+        "fill_count_total": 0,
+        "checked_at_utc": "2026-10-07T13:35:55.662000+00:00"
+      },
+      "skhynix": {
+        "status": "healthy",
+        "errors": {},
+        "signal_timeframe": "15m",
+        "signal_family": "ema_transition",
+        "entry_direction": "both",
+        "equity": 1000.0,
+        "position_qty": 0,
+        "fill_count_total": 0,
+        "checked_at_utc": "2026-10-07T13:35:56.917000+00:00"
+      }
+    },
+    "btc_profile": "config/multifactor_regular_10x_20261004.json"
+  },
+  "blocking_input": "Original runtime machine/directory or SSH connection alias is unknown; no local original ledgers or process, no SSH config. User clarification requested.",
+  "places_orders": false,
+  "local_file_sha256": {
+    "config/parallel_simulation_plan_20261005.json": "1d65f3e7622b997d6bb8b06e49bd1bdfb350ca172e1b7112c247a9f3c2f0a599",
+    "scripts/run_parallel_simulation.py": "8652538c325bd5ce56acd77b3058e664713f099f146f453024c30f293cecd1b6",
+    "tests/test_latest_four_account_switch.py": "2dbcdc508e0f32aeeb0e9e15310a1d1d59b0281bc1b30e0db22da657ffc48ca1"
+  }
+}

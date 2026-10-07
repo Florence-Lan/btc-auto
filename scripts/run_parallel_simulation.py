@@ -150,6 +150,13 @@ class StockAccount:
         self.signal_bars = []
         self.five = []
         self.candle_bucket = None
+        self.exchange_clock_anchor = None
+
+    def now_ms(self):
+        if self.exchange_clock_anchor is None:
+            return now_ms()
+        server_ms, received = self.exchange_clock_anchor
+        return server_ms + int((time.monotonic() - received) * 1000)
 
     def funding(self, state, events, timestamp):
         known = set(state['settled_funding'])
@@ -207,7 +214,14 @@ class StockAccount:
         state = json.loads(self.path.read_text())  # Corrupt ledgers never reset silently.
         def fetch(label, endpoint, params):
             try:
-                return label, self.venue.get(endpoint, params), None
+                started = time.monotonic()
+                payload = self.venue.get(endpoint, params)
+                if label == 'clock':
+                    received = time.monotonic()
+                    if received - started > 5:
+                        raise ValueError('Exchange clock roundtrip exceeded five seconds')
+                    payload = {**payload, '_received_monotonic': received}
+                return label, payload, None
             except Exception as exc:
                 return label, None, type(exc).__name__ + ': ' + str(exc)[:160]
         requests_to_make = [('clock', 'time', {}), ('mark', 'premiumIndex', {'symbol': self.symbol}),
@@ -218,9 +232,9 @@ class StockAccount:
                             # Closed volumes can be revised after their first publication.
                             # Refresh execution liquidity on every poll, independently of signals.
                             ('five', 'klines', {'symbol': self.symbol, 'interval': '5m', 'limit': 12})]
-        if force_rules or self.rules is None or now_ms() - self.rules_at_ms >= 3_600_000:
+        if force_rules or self.rules is None or self.now_ms() - self.rules_at_ms >= 3_600_000:
             requests_to_make.append(('rules', 'exchangeInfo', {}))
-        if force_signal or self.candle_bucket != now_ms() // FIVE_MINUTES:
+        if force_signal or self.candle_bucket != self.now_ms() // FIVE_MINUTES:
             requests_to_make.append(('signal', 'klines', {'symbol': self.symbol, 'interval': self.signal_timeframe, 'limit': 500}))
         with ThreadPoolExecutor(max_workers=7) as pool:
             return list(pool.map(lambda args: fetch(*args), requests_to_make))
@@ -231,7 +245,7 @@ class StockAccount:
                            self.config['adverse_slippage_fraction_assumption'])
         if result['qty'] < min_qty:
             return pos
-        record = self.fill(state, result, now_ms(), -pos['direction'], reason, trigger_ms)
+        record = self.fill(state, result, self.now_ms(), -pos['direction'], reason, trigger_ms)
         gross = pos['direction'] * result['qty'] * (result['price'] - pos['entry'])
         state['wallet_balance'] += gross
         state['realized_pnl'] += gross
@@ -250,7 +264,7 @@ class StockAccount:
             pos[key] *= 1 - fraction
         if remainder <= 0:
             state['position'] = None
-            state['cooldown_until_ms'] = now_ms() + (
+            state['cooldown_until_ms'] = self.now_ms() + (
                 self.config['cooldown_signal_bars'] * self.signal_interval_ms
                 if 'cooldown_signal_bars' in self.config else self.config['cooldown_4h_bars'] * FOUR_HOURS)
         state['position_history'].append({'time_ms': record['time_ms'],
@@ -273,10 +287,10 @@ class StockAccount:
                 outcome['status'] = 'exit_pending'
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             outcome = {'status': 'unavailable', 'triggered': False, 'reason': str(exc)[:180]}
-        state['trend_exit_status'] = {**outcome, 'checked_at_ms': now_ms()}
+        state['trend_exit_status'] = {**outcome, 'checked_at_ms': self.now_ms()}
         if outcome['triggered'] and not position.get('pending_exit'):
             journal(self.path.with_name('trend_decisions.jsonl'), {
-                'observed_at_ms': now_ms(), 'position_direction': position['direction'], **outcome})
+                'observed_at_ms': self.now_ms(), 'position_direction': position['direction'], **outcome})
             return 'trend_reversal_exit'
         return None
 
@@ -291,19 +305,25 @@ class StockAccount:
             if error:
                 errors[label] = error
         clock = data.get('clock')
-        timestamp = int(clock['serverTime']) if clock else now_ms()
+        if clock and '_received_monotonic' in clock:
+            received = float(clock['_received_monotonic'])
+            elapsed = time.monotonic() - received
+            if not math.isfinite(received) or not 0 <= elapsed <= 15:
+                raise ValueError('Exchange clock observation is stale or invalid')
+            self.exchange_clock_anchor = (int(clock['serverTime']), received)
+        timestamp = int(clock['serverTime']) if clock else self.now_ms()
         if clock:
-            fresh(timestamp, now_ms(), 15_000)
+            fresh(timestamp, self.now_ms(), 15_000)
         mark = data.get('mark')
         book = data.get('book')
         state['observations'] += 1
-        state['checked_at_utc'] = arithmetic.iso(now_ms())
+        state['checked_at_utc'] = arithmetic.iso(self.now_ms())
         state['errors'] = errors
         if data.get('rules'):
             self.rules = next(row for row in data['rules']['symbols'] if row['symbol'] == self.symbol)
             if self.rules['status'] != 'TRADING':
                 errors['rules'] = 'Contract is not trading'
-            self.rules_at_ms = now_ms()
+            self.rules_at_ms = self.now_ms()
             write_json(self.path.with_name('contract_rules.json'), self.rules)
         for key in ('signal', 'five'):
             if data.get(key):
@@ -318,13 +338,13 @@ class StockAccount:
             if key in data and not errors.get(key) and not data.get(key):
                 errors[key] = 'Completed candle response is empty'
         if 'signal' in data and not errors.get('signal') and not errors.get('five'):
-            self.candle_bucket = now_ms() // FIVE_MINUTES
+            self.candle_bucket = self.now_ms() // FIVE_MINUTES
         if not mark:
             state['status'] = 'degraded'
             write_json(self.path, state)
             journal(self.path.with_name('observations.jsonl'), {'checked_at_utc': state['checked_at_utc'], 'errors': errors})
             return state
-        fresh(mark['time'], now_ms())
+        fresh(mark['time'], self.now_ms())
         price, index = float(mark['markPrice']), float(mark['indexPrice'])
         if not all(math.isfinite(p) and p > 0 for p in (price, index)):
             raise ValueError('Invalid mark/index price')
@@ -332,7 +352,7 @@ class StockAccount:
         try:
             if not book:
                 raise ValueError('No current depth')
-            fresh(book.get('T') or book.get('E'), now_ms())
+            fresh(book.get('T') or book.get('E'), self.now_ms())
             bid, ask = float(book['bids'][0][0]), float(book['asks'][0][0])
             if not 0 < bid <= ask or not math.isfinite(ask):
                 raise ValueError('Invalid crossed/empty book')
@@ -402,10 +422,10 @@ class StockAccount:
                 reason = self.additional_exit_reason(state, pos, data, errors, timestamp)
             if reason and not pos.get('pending_exit'):
                 pos['pending_exit'] = reason
-                pos['trigger_observed_at_ms'] = now_ms()
+                pos['trigger_observed_at_ms'] = self.now_ms()
             if pos.get('pending_exit') and fresh_book and lot:
-                fresh(book.get('T') or book.get('E'), now_ms())
-                fresh(mark['time'], now_ms())
+                fresh(book.get('T') or book.get('E'), self.now_ms())
+                fresh(mark['time'], self.now_ms())
                 result = book_fill(book, -side * pos['qty'], step, cfg['adverse_slippage_fraction_assumption'])
                 if result['qty'] >= float(lot['minQty']):
                     pos = self.close(state, pos, book, pos['qty'], pos['pending_exit'],
@@ -413,8 +433,8 @@ class StockAccount:
             elif managed and fresh_book and lot and not pos.get('pending_exit'):
                 requested = profit_exits.requested_qty(pos, step)
                 if requested >= float(lot['minQty']):
-                    fresh(book.get('T') or book.get('E'), now_ms())
-                    fresh(mark['time'], now_ms())
+                    fresh(book.get('T') or book.get('E'), self.now_ms())
+                    fresh(mark['time'], self.now_ms())
                     pos = self.close(state, pos, book, requested, 'one_r_partial',
                                      pos['profit_exit']['trigger_observed_at_ms'], step, float(lot['minQty']))
                     if pos:
@@ -519,18 +539,18 @@ class StockAccount:
                                     actual_risk = result['qty'] * signals.per_unit_stop_risk(result['price'], stop,
                                         cfg['taker_fee_rate_assumption'], cfg['adverse_slippage_fraction_assumption'])
                                     candidate = {'entry': result['price'], 'qty': result['qty'], 'direction': sig.direction,
-                                        'entry_time': now_ms(), 'signal_time': boundary, 'stop': stop,
+                                        'entry_time': self.now_ms(), 'signal_time': boundary, 'stop': stop,
                                         'initial_stop': stop,
                                         'entry_fee': result['qty'] * result['price'] * cfg['taker_fee_rate_assumption'],
                                         'margin': result['qty'] * result['price'] / 10, 'funding': 0.0, 'atr': sig.atr}
                                     liq = arithmetic.liquidation_price(candidate, cfg['maintenance_margin_fraction_assumption'])
-                                    if (now_ms() < pending['expires_at_ms']
+                                    if (self.now_ms() < pending['expires_at_ms']
                                             and actual_risk <= equity * cfg['risk_fraction_per_trade'] + 1e-9
                                             and abs(stop / result['price'] - 1) <= cfg['max_stop_fraction'] + 1e-12
                                             and sig.direction * (stop - liq) / result['price'] >= cfg['minimum_liquidation_distance_buffer']):
-                                        fresh(book.get('T') or book.get('E'), now_ms())
-                                        fresh(mark['time'], now_ms())
-                                        record = self.fill(state, result, now_ms(), sig.direction,
+                                        fresh(book.get('T') or book.get('E'), self.now_ms())
+                                        fresh(mark['time'], self.now_ms())
+                                        record = self.fill(state, result, self.now_ms(), sig.direction,
                                             'fresh_closed_' + self.signal_timeframe + '_signal')
                                         state['position'] = pos = candidate
                                         state['pending_signal'] = None
@@ -538,7 +558,7 @@ class StockAccount:
                                         state['signal_status'] = 'entered' if not result['partial'] else 'entered_partial_ioc_remainder_cancelled'
                                     else:
                                         state['signal_status'] = 'risk_or_liquidation_buffer_blocked'
-                                        if now_ms() >= pending['expires_at_ms']:
+                                        if self.now_ms() >= pending['expires_at_ms']:
                                             state['pending_signal'] = None
                                             state['signal_status'] = 'signal_expired'
                                 else:
@@ -557,7 +577,7 @@ class StockAccount:
         state['return_pct'] = (state['equity'] / 1000 - 1) * 100
         state['position_qty'] = pos['direction'] * pos['qty'] if pos else 0
         state['last_mark_price'] = price
-        state['updated_at_utc'] = arithmetic.iso(now_ms())
+        state['updated_at_utc'] = arithmetic.iso(self.now_ms())
         state['status'] = 'degraded' if errors else 'healthy'
         state['errors'] = errors
         # Exact independent cash identity, including late funding of already closed inventory.
@@ -575,7 +595,7 @@ class StockAccount:
         state['profit_exit_status'] = ({**pos.get('profit_exit', {}), 'stop': pos['stop']}
             if pos and profit_exits.enabled(cfg) else None)
         if cfg.get('trend_exit_policy') is not None and not pos:
-            state['trend_exit_status'] = {'status': 'flat', 'triggered': False, 'checked_at_ms': now_ms()}
+            state['trend_exit_status'] = {'status': 'flat', 'triggered': False, 'checked_at_ms': self.now_ms()}
         observation['profit_exit_status'] = state['profit_exit_status']
         if 'signal' in data:
             observation['signal_candles'] = self.signal_bars
@@ -764,6 +784,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--once', action='store_true')
     parser.add_argument('--poll-seconds', type=int, default=30)
+    parser.add_argument('--require-existing', action='store_true',
+                        help='Refuse to initialize accounts when switching an existing service')
     args = parser.parse_args()
     if args.poll_seconds < 5:
         raise ValueError('Poll interval must be at least five seconds')
@@ -771,9 +793,29 @@ def main():
     if plan['execution_mode'] != 'simulation' or plan['live_orders_allowed'] is not False:
         raise ValueError('Only simulation plans are accepted')
     root = ROOT / 'data/parallel_simulation' / plan['plan_id']
+    if args.require_existing:
+        require_existing_accounts(plan, root)
     root.mkdir(parents=True, exist_ok=True)
     with exclusive_process_lock(root / 'runner.lock'):
         _run_locked(plan, root, args)
+
+
+def require_existing_accounts(plan, root):
+    missing = [a['account_id'] for a in plan['accounts'] if not (ROOT / a['state_path']).exists()]
+    if not (root / 'manifest.json').exists() or missing:
+        raise RuntimeError('Original four-account generation unavailable; refusing to create/reset accounts. '
+                           'Missing ledgers: ' + ', '.join(missing))
+
+
+def comparison_responses(worker, responses):
+    """Share execution observations while honoring the control signal interval."""
+    try:
+        payload = worker.venue.get('klines', {'symbol':worker.symbol,
+            'interval':worker.signal_timeframe, 'limit':500})
+        signal_response = ('signal', payload, None)
+    except Exception as exc:
+        signal_response = ('signal', None, type(exc).__name__ + ': ' + str(exc)[:160])
+    return [row for row in responses if row[0] != 'signal'] + [signal_response]
 
 
 def _run_locked(plan, root, args):
@@ -818,7 +860,10 @@ def _run_locked(plan, root, args):
                         force_signal=controls[account_id].candle_bucket != now_ms() // FIVE_MINUTES)
                     # Read once for both arms, including contract rules and closed candles.
                     try:
-                        control = controls[account_id].step(responses)
+                        control_responses = (comparison_responses(controls[account_id], responses)
+                            if controls[account_id].signal_timeframe != workers[account_id].signal_timeframe
+                            else responses)
+                        control = controls[account_id].step(control_responses)
                         control_view = {k: control.get(k) for k in ('equity', 'wallet_balance',
                             'realized_pnl', 'fees_paid', 'funding_pnl', 'position_qty', 'fill_count_total',
                             'status', 'checked_at_utc', 'errors')}
