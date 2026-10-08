@@ -33,6 +33,15 @@ def load_profile(path: Path) -> dict[str, Any]:
         raise ValueError("Invalid alignment threshold")
     if profile["availability_mode"] not in {"first_seen", "reconstructed"}:
         raise ValueError("Invalid availability mode")
+    optional = profile.get("optional_features", [])
+    if (not isinstance(optional, list) or any(name != "oil" for name in optional)
+            or len(optional) != len(set(optional))):
+        raise ValueError("Only oil can be an optional factor feature")
+    effective = profile.get("optional_features_effective_at_ms")
+    if optional or "optional_features_effective_at_ms" in profile:
+        if (not optional or type(effective) is not int
+                or not 0 < effective <= 253_402_300_799_999):
+            raise ValueError("Optional factor features require a valid effective UTC timestamp")
     return profile
 
 
@@ -123,6 +132,7 @@ class Decision:
     missing_groups: tuple[str, ...]
     reasons: tuple[str, ...]
     features: dict[str, float | None]
+    ignored_features: tuple[str, ...] = ()
 
 
 def decision_at(snapshot: Snapshot, timestamp: int, side: str, profile: Mapping[str, Any], public=None) -> Decision:
@@ -208,12 +218,20 @@ def decision_at(snapshot: Snapshot, timestamp: int, side: str, profile: Mapping[
     vix = level("vix", 7 * DAY)
     oil = change("oil", 7 * DAY, 7 * DAY)
     gold = change("gold", 7 * DAY, 7 * DAY)
-    if all(v is not None for v in (stocks, nasdaq, vix, oil)):
+    # A dated profile change may omit unavailable oil only prospectively.
+    # Preserve strict historical decisions, first-seen availability and the
+    # remaining global-risk inputs; never fill missing oil with a stale value.
+    optional_oil = ("oil" in profile.get("optional_features", [])
+                    and timestamp >= profile["optional_features_effective_at_ms"])
+    ignored = ("oil",) if optional_oil and oil is None else ()
+    if all(v is not None for v in (stocks, nasdaq, vix)) and (oil is not None or ignored):
         scores["global_risk"] = .5 * clamp(stocks / .05) + .5 * clamp(nasdaq / .06)
         # Liquidity/geopolitical stress reduces BOTH sides, never rewards short leverage.
-        stress_components["global_risk"] = max(clamp((vix - 20) / 25, 0, 1),
-                     clamp((oil - .08) / .15, 0, 1),
-                     min(clamp((gold or 0) / .05, 0, 1), clamp(-stocks / .05, 0, 1)))
+        global_stress = [clamp((vix - 20) / 25, 0, 1),
+                        min(clamp((gold or 0) / .05, 0, 1), clamp(-stocks / .05, 0, 1))]
+        if oil is not None:
+            global_stress.append(clamp((oil - .08) / .15, 0, 1))
+        stress_components["global_risk"] = max(global_stress)
 
     weights = profile["groups"]
     stress = max((v for k, v in stress_components.items() if k in weights), default=0.0)
@@ -234,7 +252,7 @@ def decision_at(snapshot: Snapshot, timestamp: int, side: str, profile: Mapping[
     floor = profile["minimum_risk_multiplier"]
     multiplier = (floor + (1 - floor) * (alignment + 1) / 2) * (1 - .65 * stress)
     return Decision(not reasons, clamp(multiplier, 0, 1) if not reasons else 0.0,
-                    directional, alignment, stress, coverage, scores, missing, tuple(reasons), f)
+                    directional, alignment, stress, coverage, scores, missing, tuple(reasons), f, ignored)
 
 
 def apply_overlay(sleeves, snapshot, profile, public=None):

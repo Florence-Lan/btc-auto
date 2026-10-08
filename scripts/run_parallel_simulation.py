@@ -23,6 +23,7 @@ import requests
 import backtest_stock_swing_120 as arithmetic
 from binance_terminal_client import BinanceTerminalClient
 import decision_runtime
+import execution_entry_gate
 import simulation_risk_monitor
 import stock_swing_profiles
 import stock_swing_signals as signals
@@ -736,10 +737,39 @@ def bootstrap(plan):
     return root, manifest
 
 
+def btc_entry_view(report, point, timestamp, clock_source):
+    """Refresh entry diagnostics without executing or modifying an account."""
+    quantity = float(point.get('signed_qty') or 0)
+    sides = ('long', 'short') if not quantity else ('long' if quantity > 0 else 'short',)
+    decisions = {side: execution_entry_gate.decision_at(report, timestamp, side) for side in sides}
+    allowed = any(decision['allowed'] for decision in decisions.values())
+    reasons = list(dict.fromkeys(reason for decision in decisions.values()
+        for reason in decision.get('reasons', []))) if not allowed else []
+    gate = {'allowed': allowed, 'status': 'allowed' if allowed else 'blocked',
+            'checked_at_ms': timestamp, 'side': 'both' if len(sides) == 2 else sides[0],
+            'reasons': reasons, 'by_side': decisions}
+    unavailable = any(reason in ('execution_entry_context_missing', 'event_snapshot_missing',
+        'factor_profile_missing', 'macro_snapshot_missing', 'current_public_sources_unavailable',
+        'current_factor:missing_or_stale_factors') or reason.startswith('entry_context_unavailable:')
+        for reason in reasons)
+    signal_time = int(point.get('time_ms') or 0)
+    sources = next((decision['factor_source_status'] for decision in decisions.values()
+                    if decision.get('factor_source_status')), {})
+    return {'execution_entry_gate': gate, 'entry_blockers': reasons,
+            'entry_data_unavailable': unavailable,
+            'entry_source_status': {'checked_at_ms': timestamp, 'clock_source': clock_source,
+                'report_generated_at_utc': report.get('generated_at_utc'),
+                'signal_time_ms': point.get('time_ms'),
+                'signal_available_time_ms': point.get('available_time_ms'),
+                'signal_age_ms': timestamp - signal_time,
+                'signal_stale': signal_time < timestamp - 900_000, 'factors': sources}}
+
+
 def btc_step(account, root, manifest, client):
     path = ROOT / account['state_path']
     execution = SimulationAccount(path)
     clock = decision_runtime.resolve_clock(client)
+    clock_monotonic = time.monotonic()
     health = simulation_risk_monitor.monitor(client, clock['time_ms'], account=execution,
         status_path=path.with_name('risk_monitor.json'), clock_source=clock['source'])
     profile = json.loads((ROOT / account['strategy_path']).read_text())
@@ -769,15 +799,27 @@ def btc_step(account, root, manifest, client):
     snapshot = execution.snapshot(state.get('last_mark_price'))
     if (health or {}).get('monitor', {}).get('status') != 'healthy':
         status = 'degraded'
+    # Reports advance on candles; snapshot availability can change on every poll.
+    # Reevaluate current sources even when this target was already reconciled.
+    checked_ms = clock['time_ms'] + max(0, int((time.monotonic() - clock_monotonic) * 1000))
+    entry_view = btc_entry_view(report, point, checked_ms, clock['source'])
+    unavailable = entry_view.pop('entry_data_unavailable')
+    signal_status = 'no_signal' if not point.get('signed_qty') else 'signal_observed'
+    if 'strategy_not_qualified' in entry_view['entry_blockers']:
+        signal_status = 'strategy_not_qualified'
+    elif unavailable:
+        status, signal_status = 'degraded', 'entry_data_unavailable'
+    elif entry_view['entry_blockers']:
+        signal_status = 'entry_blocked'
     return {'symbol': 'BTCUSDT', 'status': status, 'checked_at_utc': arithmetic.iso(now_ms()),
             'equity': snapshot['account']['margin_balance'], 'wallet_balance': state['wallet_balance'],
             'return_pct': snapshot['account']['realized_return_pct'], 'position_qty': state['position_qty'],
             'fill_count_total': state['fill_count_total'], 'fees_paid': state['fees_paid'],
             'funding_pnl': state['funding_pnl'], 'max_drawdown_pct': state['max_drawdown_pct'],
             'last_mark_price': state.get('last_mark_price'), 'signal_time_ms': point.get('time_ms'),
-            'signal_status': ('strategy_not_qualified' if account.get('entry_qualification', {}).get('approved_for_forward_simulation') is False else 'no_signal' if not point.get('signed_qty') else 'signal_observed'),
+            'signal_status': signal_status,
             'entry_qualification': account.get('entry_qualification'),
-            'entry_blockers': ['strategy_not_qualified'] if account.get('entry_qualification', {}).get('approved_for_forward_simulation') is False else [],
+            **entry_view,
             'errors': (health or {}).get('monitor', {}).get('errors', {})}
 
 
@@ -880,7 +922,8 @@ def _run_locked(plan, root, args):
                 view = {k: result.get(k) for k in ('symbol', 'status', 'checked_at_utc', 'equity', 'wallet_balance',
                     'return_pct', 'position_qty', 'fill_count_total', 'fees_paid', 'funding_pnl', 'max_drawdown_pct',
                     'last_mark_price', 'signal_status', 'signal_timeframe', 'signal_family', 'entry_direction', 'next_signal_time_ms',
-                    'last_signal_time_ms', 'signal_active_after_ms', 'entry_checks', 'entry_blockers', 'entry_qualification', 'errors', 'observations',
+                    'last_signal_time_ms', 'signal_active_after_ms', 'entry_checks', 'entry_blockers', 'entry_qualification',
+                    'execution_entry_gate', 'entry_source_status', 'errors', 'observations',
                     'profit_exit_status', 'realized_pnl')}
                 # Heartbeats share the host clock used by the local UI. Market
                 # timestamps keep their exchange clock for freshness validation.

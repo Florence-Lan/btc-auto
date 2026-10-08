@@ -37,7 +37,8 @@
     "User requested a 10x simulation leverage ceiling on 2026-10-04; tactical, hourly and portfolio sizing ceilings use the same runtime override.",
     "Entry thresholds, risk per trade, annualized volatility target, hourly_startup_enabled=false, source/funding gates and 8%/15% account drawdown limits remain unchanged.",
     "The frozen base manifest and engine remain unchanged. Earlier 2x forward reports are preserved; this 10x generation does not inherit their performance evidence.",
-    "The simulated execution account retains its inception, balance, fills, fees, funding and drawdown history. The ceiling does not request a fixed 10x position."
+    "The simulated execution account retains its inception, balance, fills, fees, funding and drawdown history. The ceiling does not request a fixed 10x position.",
+    "User authorized optional oil on 2026-10-07: unavailable oil alone is omitted from stress after the recorded effective UTC time; other required factors and risk gates remain enforced."
   ],
   "strategy_modes": [
     "trend",
@@ -51,5 +52,9 @@
     "portfolio_leverage_cap": 10
   },
   "based_on_candidate": "btc_multifactor_regular_20261004",
-  "hourly_startup_enabled": false
+  "hourly_startup_enabled": false,
+  "optional_features": [
+    "oil"
+  ],
+  "optional_features_effective_at_ms": 1791387798608
 }

@@ -43,6 +43,167 @@ test('BTC equity and cards exclude every stock account and stock comparison', as
   view.destroy();
 });
 
+test('BTC explains blocked factor checks for each assessed side without inventing an outage', async () => {
+  const value = status();
+  const factor = {missing_groups: ['global_risk'], features: {oil_change: null}};
+  Object.assign(value.accounts.btc, {status: 'degraded', signal_status: 'entry_data_unavailable',
+    entry_blockers: ['current_factor:missing_or_stale_factors'],
+    execution_entry_gate: {allowed: false, side: 'both', by_side: {
+      long: {factor}, short: {factor},
+    }}});
+  const page = root('btc');
+  const view = createPaperAccounts(page, fetcher(value));
+  await view.ready;
+  const cards = page.fields.cards.innerHTML;
+  assert.match(cards, /等待完整入场数据/);
+  assert.match(cards, /必需因子数据缺失或过期，暂停新增/);
+  assert.match(cards, /多头：全球风险因子缺失或过期/);
+  assert.match(cards, /空头：全球风险因子缺失或过期/);
+  assert.match(cards, /油价变化数据缺失或过期/);
+  assert.doesNotMatch(cards, /current_factor:|SSLError|油价观测已过期/);
+  view.destroy();
+});
+
+test('BTC distinguishes an entry policy block from data failure and escapes diagnostic names', async () => {
+  const value = status();
+  Object.assign(value.accounts.btc, {signal_status: 'entry_blocked',
+    entry_blockers: ['current_factor:direction_conflict'],
+    execution_entry_gate: {allowed: false, side: 'short', by_side: {
+      short: {factor: {missing_groups: ['<script>x</script>'], features: {oil_change: 0.1}}},
+    }}});
+  const page = root('btc');
+  const view = createPaperAccounts(page, fetcher(value));
+  await view.ready;
+  const cards = page.fields.cards.innerHTML;
+  assert.match(cards, /运行正常/);
+  assert.match(cards, /入场条件未通过 · 暂停新增/);
+  assert.match(cards, /因子方向与开仓方向冲突/);
+  assert.match(cards, /空头：&lt;script&gt;x&lt;\/script&gt;/);
+  assert.doesNotMatch(cards, /<script>|油价变化数据/);
+  view.destroy();
+});
+
+test('BTC shows the actual stale oil observation without confusing a successful download with freshness', async () => {
+  const value = status();
+  Object.assign(value.accounts.btc, {status: 'degraded', signal_status: 'entry_data_unavailable',
+    entry_blockers: ['current_factor:missing_or_stale_factors'],
+    entry_source_status: {factors: {oil: {ok: false, status: 'stale',
+      latest_observed_at_ms: Date.parse('2026-09-29T00:00:00Z'),
+      age_ms: 8.6 * 86_400_000, max_age_ms: 7 * 86_400_000}}},
+    execution_entry_gate: {allowed: false, by_side: {
+      long: {factor: {missing_groups: ['global_risk'], features: {oil_change: null}}},
+    }}});
+  const page = root('btc');
+  const view = createPaperAccounts(page, fetcher(value));
+  await view.ready;
+  const cards = page.fields.cards.innerHTML;
+  assert.match(cards, /油价观测已过期/);
+  assert.match(cards, /油价最近观测：北京时间 2026\/9\/29 08:00:00/);
+  assert.match(cards, /观测距今 8.6 天 · 新鲜度上限 7 天/);
+  assert.doesNotMatch(cards, /Stale oil source|SSLError|油价来源暂不可用/);
+  view.destroy();
+});
+
+test('BTC prefers the current side source status and does not invent an expiry or provider error', async () => {
+  const value = status();
+  Object.assign(value.accounts.btc, {signal_status: 'entry_data_unavailable',
+    entry_source_status: {factors: {oil: {ok: false, status: 'stale',
+      latest_observed_at_ms: Date.parse('2026-09-29T00:00:00Z')}}},
+    execution_entry_gate: {allowed: false, by_side: {
+      short: {factor: {missing_groups: ['global_risk'], features: {oil_change: null}},
+        factor_source_status: {oil: {ok: false, status: 'unavailable'}}},
+    }}});
+  const page = root('btc');
+  const view = createPaperAccounts(page, fetcher(value));
+  await view.ready;
+  const cards = page.fields.cards.innerHTML;
+  assert.match(cards, /油价来源暂不可用/);
+  assert.doesNotMatch(cards, /SSLError|油价观测已过期|油价最近观测/);
+  view.destroy();
+});
+
+test('BTC hides an earlier blocked diagnostic after an allowed refresh', async () => {
+  const value = status();
+  Object.assign(value.accounts.btc, {signal_status: 'entry_data_unavailable',
+    entry_blockers: ['current_factor:missing_or_stale_factors'],
+    execution_entry_gate: {allowed: false, side: 'long',
+      factor: {missing_groups: ['global_risk'], features: {oil_change: null}}}});
+  const page = root('btc');
+  const view = createPaperAccounts(page, fetcher(value));
+  await view.ready;
+  assert.match(page.fields.cards.innerHTML, /多头：全球风险/);
+  Object.assign(value.accounts.btc, {signal_status: 'no_signal', entry_blockers: [],
+    execution_entry_gate: {allowed: true}});
+  await view.refresh();
+  assert.match(page.fields.cards.innerHTML, /本根未触发信号/);
+  assert.doesNotMatch(page.fields.cards.innerHTML, /因子缺失或过期|油价变化数据/);
+  view.destroy();
+});
+
+test('BTC shows ignored stale oil as information while both entry directions remain available', async () => {
+  const value = status();
+  const source = {ignored: true, applied: false, status: 'stale', ok: false,
+    latest_observed_at_ms: Date.parse('2026-09-29T00:00:00Z'),
+    age_ms: 8.6 * 86_400_000, max_age_ms: 7 * 86_400_000};
+  const decision = {allowed: true, factor: {allowed: true, missing_groups: [],
+    ignored_features: ['oil'], features: {oil_change: null, vix: 15.5}},
+    factor_source_status: {oil: source}};
+  Object.assign(value.accounts.btc, {signal_status: 'no_signal', entry_blockers: [],
+    execution_entry_gate: {allowed: true, by_side: {long: decision, short: decision}}});
+  const page = root('btc');
+  const view = createPaperAccounts(page, fetcher(value));
+  await view.ready;
+  const cards = page.fields.cards.innerHTML;
+  assert.match(cards, /运行正常/);
+  assert.match(cards, /本根未触发信号/);
+  assert.match(cards, /多头：油价缺失或过期，本轮未计入；其他因子继续判断/);
+  assert.match(cards, /空头：油价缺失或过期，本轮未计入；其他因子继续判断/);
+  assert.match(cards, /油价最近观测：北京时间 2026\/9\/29 08:00:00/);
+  assert.doesNotMatch(cards, /暂停新增|等待完整入场数据|因子缺失或过期/);
+  decision.factor.ignored_features = [];
+  decision.factor.features.oil_change = 0.01;
+  source.ignored = false;
+  source.applied = true;
+  source.status = 'ok';
+  await view.refresh();
+  assert.doesNotMatch(page.fields.cards.innerHTML, /本轮未计入|油价最近观测|暂停新增/);
+  view.destroy();
+});
+
+test('BTC identifies VIX as missing when oil is ignored and required global risk data still block entries', async () => {
+  const value = status();
+  Object.assign(value.accounts.btc, {status: 'degraded', signal_status: 'entry_data_unavailable',
+    entry_blockers: ['current_factor:missing_or_stale_factors'],
+    execution_entry_gate: {allowed: false, by_side: {
+      long: {allowed: false, factor: {missing_groups: ['global_risk'], ignored_features: ['oil'],
+        features: {oil_change: null, sp500_change: 0.02, nasdaq_change: 0.03, vix: null}},
+        factor_source_status: {oil: {ignored: true, applied: false, status: 'missing'}}},
+    }}});
+  const page = root('btc');
+  const view = createPaperAccounts(page, fetcher(value));
+  await view.ready;
+  const cards = page.fields.cards.innerHTML;
+  assert.match(cards, /必需因子数据缺失或过期，暂停新增/);
+  assert.match(cards, /全球风险（VIX）因子缺失或过期/);
+  assert.match(cards, /油价缺失或过期，本轮未计入；其他因子继续判断/);
+  assert.doesNotMatch(cards, /油价观测已过期|油价最近观测/);
+  view.destroy();
+});
+
+test('BTC reports ignored oil from actual factor diagnostics without inventing a source date', async () => {
+  const value = status();
+  Object.assign(value.accounts.btc, {signal_status: 'no_signal', entry_blockers: [],
+    execution_entry_gate: {allowed: true, by_side: {
+      long: {factor: {missing_groups: [], ignored_features: ['oil'], features: {oil_change: null}}},
+    }}});
+  const page = root('btc');
+  const view = createPaperAccounts(page, fetcher(value));
+  await view.ready;
+  assert.match(page.fields.cards.innerHTML, /本轮未计入；其他因子继续判断/);
+  assert.doesNotMatch(page.fields.cards.innerHTML, /油价最近观测|暂停新增/);
+  view.destroy();
+});
+
 test('stock equity excludes BTC and renders all three independent accounts and controls', async () => {
   const page = root('stocks');
   const view = createPaperAccounts(page, fetcher(status()));

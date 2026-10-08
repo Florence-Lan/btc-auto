@@ -4,9 +4,38 @@ import json
 from pathlib import Path
 
 import event_risk
+from factor_data_freshness import OIL_MAX_AGE_MS
 import macro_regime
 import multifactor
 import public_context
+
+
+def factor_source_status(snapshot, timestamp, decision=None):
+    """Small current-source diagnostics; these never change the entry decision."""
+    metadata = snapshot.metadata if isinstance(snapshot.metadata, dict) else {}
+    sources = metadata.get('source_status') or {}
+    raw = (sources.get('oil') or {}) if isinstance(sources, dict) else {}
+    raw = raw if isinstance(raw, dict) else {}
+    # Match Snapshot.window: future first-seen rows cannot update this date,
+    # and legacy collector metadata cannot override newer usable observations.
+    rows = snapshot.series.get('oil', ((), ()))[1]
+    available = [row for row in rows if row[0] <= timestamp]
+    observed = max((row[1] for row in available), default=None)
+    age = timestamp - observed if observed is not None else None
+    oil = {key: raw.get(key) for key in ('ok', 'next_retry_at_ms')}
+    oil.update(fetch_status=raw.get('status'), latest_observed_at_ms=observed, status='ok')
+    oil.update(age_ms=age, max_age_ms=OIL_MAX_AGE_MS,
+               stale=age is not None and age > OIL_MAX_AGE_MS)
+    ignored = 'oil' in getattr(decision, 'ignored_features', ())
+    applied = bool(decision is not None and not ignored
+        and decision.features.get('oil_change') is not None
+        and 'global_risk' in decision.contributions)
+    oil.update(applied=applied, ignored=ignored)
+    if oil['stale']:
+        oil['status'] = 'stale'
+    elif age is None:
+        oil['status'] = 'missing'
+    return {'oil': oil}
 
 
 def decision_at(report, timestamp, side):
@@ -55,6 +84,7 @@ def decision_at(report, timestamp, side):
             factor = multifactor.load_snapshot(Path(context["factor_snapshot"]), "first_seen")
             decision = multifactor.decision_at(factor, timestamp, side, profile, public)
             details["factor"] = asdict(decision)
+            details["factor_source_status"] = factor_source_status(factor, timestamp, decision)
             if not decision.allowed:
                 reasons.extend("current_factor:" + reason for reason in decision.reasons)
         elif report.get("multifactor_overlay") is not None:
@@ -69,7 +99,7 @@ def decision_at(report, timestamp, side):
                 reasons.append("current_macro_blocks_entries")
         elif report.get("macro_overlay") is not None:
             reasons.append("macro_snapshot_missing")
-    except (OSError, ValueError, TypeError, KeyError, OverflowError, AttributeError, IndexError) as exc:
+    except (OSError, EOFError, ValueError, TypeError, KeyError, OverflowError, AttributeError, IndexError) as exc:
         # A broken refresh/read only prevents new exposure, including old-target retries.
         reasons.append("entry_context_unavailable:" + type(exc).__name__)
     return {"allowed": not reasons, "status": "allowed" if not reasons else "blocked",

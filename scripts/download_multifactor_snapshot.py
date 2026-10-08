@@ -18,6 +18,7 @@ import requests
 import download_macro_snapshot as legacy
 import multifactor as mf
 from binance_terminal_client import BinanceApiError, BinanceTerminalClient
+from factor_data_freshness import OIL_MAX_AGE_MS
 
 # Conservative estimated release delays for reconstructed research ONLY.
 # Actual forward availability is max(estimate, first_seen). FRED latest is not ALFRED vintage data.
@@ -41,6 +42,7 @@ BINANCE = "https://fapi.binance.com"
 REFRESH_SECONDS = 3600
 RETRY_BASE_SECONDS = 60
 RETRY_MAX_SECONDS = 900
+STALE_RETRY_SECONDS = 60
 
 
 def now_ms():
@@ -171,6 +173,21 @@ def merge_rows(previous, incoming):
     return sorted(merged.values())
 
 
+def oil_freshness_error(rows, timestamp):
+    # Share the entry gate's age limit; HTTP success alone is not usable data.
+    available = [int(row[0]) for row in rows
+                 if max(int(row[1]), int(row[3])) <= timestamp]
+    latest = max(available, default=None)
+    if latest is None:
+        return "Stale oil source: no currently available observations"
+    age = timestamp - latest
+    if age <= OIL_MAX_AGE_MS:
+        return None
+    observed = datetime.fromtimestamp(latest / 1000, timezone.utc).isoformat()
+    return (f"Stale oil source: latest_observed_at_utc={observed} "
+            f"age_days={age / mf.DAY:.6f} max_age_days={OIL_MAX_AGE_MS / mf.DAY:g}")
+
+
 def collect(output: Path, start_ms: int, end_ms: int, *, only_due=False, force=False, sources=None):
     previous = {"series": {}}
     if output.exists():
@@ -203,6 +220,15 @@ def collect(output: Path, start_ms: int, end_ms: int, *, only_due=False, force=F
                 "next_retry_at_ms": archive_time + interval * 1000
                 if previous.get("series", {}).get(name) or error else 0,
             }
+        # Older archives considered an HTTP 200 healthy even when the oil data
+        # was already too old. Adopt the freshness policy without waiting for
+        # their next hourly download or rewriting any archived observations.
+        if name == "oil" and source_status[name].get("ok") is True:
+            stale = oil_freshness_error(previous.get("series", {}).get(name, []), end_ms)
+            if stale:
+                source_status[name].update(ok=False, status="stale", error=stale,
+                                           next_retry_at_ms=0)
+                errors[name] = stale
     if only_due and not force:
         timestamp = now_ms()
         jobs = {name: job for name, job in jobs.items()
@@ -246,15 +272,23 @@ def collect(output: Path, start_ms: int, end_ms: int, *, only_due=False, force=F
     with ThreadPoolExecutor(max_workers=4) as pool:
         for name, rows, error, received, provider_retry in pool.map(run, jobs.items()):
             state = source_status[name]
+            transport_error = error
             failures = int(state.get("consecutive_failures") or 0) + 1 if error else 0
+            series[name] = merge_rows(series.get(name, []), rows)
+            stale = None
+            if name == "oil" and not transport_error:
+                stale = oil_freshness_error(series[name], max(end_ms, received))
+                error = stale
             if error:
                 errors[name] = error
             else:
                 errors.pop(name, None)
-            series[name] = merge_rows(series.get(name, []), rows)
-            delay = retry_delay_ms(failures) if error else REFRESH_SECONDS * 1000
+            delay = (retry_delay_ms(failures) if transport_error else
+                     STALE_RETRY_SECONDS * 1000 if stale else REFRESH_SECONDS * 1000)
             source_status[name] = {
+                **state,
                 "ok": error is None, "error": error, "last_attempt_ms": received,
+                "status": "stale" if stale else "error" if error else "healthy",
                 "last_success_ms": state.get("last_success_ms") if error else received,
                 "consecutive_failures": failures,
                 "next_retry_at_ms": max(received + delay, provider_retry),
@@ -271,6 +305,7 @@ def collect(output: Path, start_ms: int, end_ms: int, *, only_due=False, force=F
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "errors": errors, "source_status": source_status, "fred_series": FRED,
             "refresh_policy": {"success_seconds": REFRESH_SECONDS,
+                               "stale_retry_seconds": STALE_RETRY_SECONDS,
                                "retry_base_seconds": RETRY_BASE_SECONDS,
                                "retry_max_seconds": RETRY_MAX_SECONDS,
                                "binance_cooldown": "shared persisted 418/429 pause takes precedence"},

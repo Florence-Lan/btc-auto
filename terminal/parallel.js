@@ -22,6 +22,54 @@ const stockSymbols = {mu: 'MUUSDT', sndk: 'SNDKUSDT', skhynix: 'SKHYNIXUSDT'};
 const reasonName = reason => ({protective_stop: '保护止损', one_r_partial: '1R分批止盈',
   profit_target: '目标止盈', fresh_closed_5m_signal: '5分钟信号入场',
   fresh_closed_15m_signal: '15分钟信号入场', account_hard_stop: '账户回撤退出'}[reason] || reason || '—');
+const btcBlockerName = reason => ({
+  'current_factor:missing_or_stale_factors': '必需因子数据缺失或过期，暂停新增',
+  'current_factor:direction_conflict': '因子方向与开仓方向冲突',
+  'current_factor:market_stress': '市场风险超过入场上限',
+  current_public_sources_unavailable: '新闻或日历来源暂不可用',
+  current_event_blocks_entries: '当前事件风险限制新增',
+  execution_entry_context_missing: '入场检查资料缺失',
+  execution_clock_unavailable: '交易所时间暂不可用',
+}[reason] || signalNames[reason] || reason);
+
+function btcEntryDetails(account) {
+  const gate = account.execution_entry_gate;
+  if (!gate) return '';
+  const groups = {btc_momentum: 'BTC动量', positioning: '持仓与资金流', fed: '美联储',
+    treasury: '美债', fx: '汇率', global_risk: '全球风险'};
+  const sides = gate.by_side || (gate.side ? {[gate.side]: gate} : {});
+  return Object.entries(sides).flatMap(([side, decision]) => {
+    const factor = decision?.factor;
+    const missing = factor?.missing_groups || [];
+    const oil = decision?.factor_source_status?.oil || account.entry_source_status?.factors?.oil;
+    const oilIgnored = factor?.ignored_features?.includes('oil') || oil?.ignored === true;
+    const direction = {long: '多头', short: '空头', both: '多空'}[side] || side;
+    const details = [];
+    if (missing.length) {
+      const missingNames = missing.map(name => {
+        if (name !== 'global_risk' || !oilIgnored) return groups[name] || name;
+        const features = factor.features || {};
+        const required = Object.entries({sp500_change: '标普500变化', nasdaq_change: '纳斯达克变化', vix: 'VIX'})
+          .filter(([key]) => Object.hasOwn(features, key) && features[key] === null).map(([, label]) => label);
+        return `全球风险（${required.length ? required.join('、') : '其他必需数据'}）`;
+      });
+      details.push(`${direction}：${missingNames.join('、')}因子缺失或过期`);
+    }
+    if (oilIgnored || missing.includes('global_risk') && factor.features?.oil_change === null) {
+      details.push(oilIgnored ? `${direction}：油价缺失或过期，本轮未计入；其他因子继续判断`
+        : oil?.status === 'stale' ? '油价观测已过期' : '油价变化数据缺失或过期');
+      if (Number.isFinite(oil?.latest_observed_at_ms)) {
+        details.push(`油价最近观测：北京时间 ${localTime(oil.latest_observed_at_ms)}`);
+      }
+      if (Number.isFinite(oil?.age_ms) && Number.isFinite(oil?.max_age_ms)) {
+        const days = ms => Number((ms / 86_400_000).toFixed(1));
+        details.push(`观测距今 ${days(oil.age_ms)} 天 · 新鲜度上限 ${days(oil.max_age_ms)} 天`);
+      }
+      if (oil?.ok === false && oil.status !== 'stale') details.push('油价来源暂不可用');
+    }
+    return details;
+  }).join('；');
+}
 
 export function stockTradingMarkup(ledgers) {
   const positions = [], trades = [], errors = [];
@@ -78,11 +126,13 @@ export function createPaperAccounts(root, fetcher = globalThis.fetch) {
         const error = Object.entries(a.errors || {}).map(([k,v]) => `${escape(k)}: ${escape(v)}`).join('<br>');
         const family = {breakout:'趋势突破', ema_transition:'均线交叉', trend_pullback:'趋势回调', range_reversion:'震荡回归'}[a.signal_family] || '策略更新中';
         const direction = {both:'双向', long:'只做多', short:'只做空'}[a.entry_direction] || '—';
-        const blockers = (a.entry_blockers || []).map(k => blockerNames[k] || signalNames[k] || k).join('；');
+        const blockers = (a.entry_blockers || []).map(k => id === 'btc' ? btcBlockerName(k) : blockerNames[k] || signalNames[k] || k).join('；');
+        const btcDetails = id === 'btc' ? btcEntryDetails(a) : '';
+        const signalLabel = id === 'btc' && a.signal_status === 'entry_blocked' ? '入场条件未通过 · 暂停新增' : signalNames[a.signal_status] || '等待状态更新';
         const volume = a.entry_checks ? `此前5分钟成交量 ${money(a.entry_checks.prior_5m_volume)} · 入场检查 ${localTime(a.entry_checks.checked_at_ms)}` : '';
         const spread = a.entry_checks?.max_spread_fraction != null ? `买卖价差 ${(a.entry_checks.spread_fraction * 100).toFixed(4)}% · 入场上限 ${(a.entry_checks.max_spread_fraction * 100).toFixed(4)}%` : '';
         const qualification = a.entry_qualification?.approved_for_forward_simulation === false ? a.entry_qualification.reason : '';
-        const signal = `<p class="parallel-age">${id !== 'btc' ? escape(family)+' · '+escape(direction)+' · '+escape(a.signal_timeframe || '—')+'<br>' : ''}${escape(signalNames[a.signal_status] || '等待状态更新')}${blockers && !blockers.includes(signalNames[a.signal_status]) ? '<br>'+escape(blockers) : ''}${qualification ? '<br>'+escape(qualification) : ''}${volume ? '<br>'+escape(volume) : ''}${spread ? '<br>'+escape(spread) : ''}${id !== 'btc' ? '<br>下一根收盘 '+localTime(a.next_signal_time_ms) : ''}</p>`;
+        const signal = `<p class="parallel-age">${id !== 'btc' ? escape(family)+' · '+escape(direction)+' · '+escape(a.signal_timeframe || '—')+'<br>' : ''}${escape(signalLabel)}${blockers && !blockers.includes(signalLabel) ? '<br>'+escape(blockers) : ''}${btcDetails ? '<br>'+escape(btcDetails) : ''}${qualification ? '<br>'+escape(qualification) : ''}${volume ? '<br>'+escape(volume) : ''}${spread ? '<br>'+escape(spread) : ''}${id !== 'btc' ? '<br>下一根收盘 '+localTime(a.next_signal_time_ms) : ''}</p>`;
         const p = a.profit_exit_status;
         const profit = p ? `<p class="parallel-age">分批止盈：${p.split_skipped ? '数量不足以拆分 · 整仓保护' : p.stage_done ? '首段完成 · 余仓跟踪保护' : p.armed ? '首段部分成交 · 继续完成减仓' : p.trigger_observed_at_ms ? '已触发1R · 等待可成交数量' : '等待达到1R'}<br>首段已退出 ${money(p.filled_qty)} · 当前保护价 ${money(p.stop)}</p>` : '';
         return `<article class="panel parallel-card"><h2>${name}</h2><span class="parallel-state ${healthy ? '' : 'parallel-warning'}">${status}</span><div class="parallel-equity">${money(a.equity)}</div><small>USDT · 收益 ${a.return_pct == null ? '—' : Number(a.return_pct).toFixed(4)+'%'}</small><dl><div><dt>仓位</dt><dd>${a.position_qty == null ? '—' : a.position_qty === 0 ? '空仓' : escape(a.position_qty)}</dd></div><div><dt>模拟成交次数</dt><dd>${a.fill_count_total ?? '—'}</dd></div><div><dt>累计手续费</dt><dd>${money(a.fees_paid)}</dd></div><div><dt>累计资金费损益</dt><dd>${money(a.funding_pnl)}</dd></div><div><dt>最大回撤</dt><dd>${a.max_drawdown_pct == null ? '—' : Number(a.max_drawdown_pct).toFixed(4)+'%'}</dd></div><div><dt>标记价</dt><dd>${money(a.last_mark_price)}</dd></div></dl>${profit}<details class="account-signal-details"><summary>策略与入场检查</summary>${signal}</details><p class="parallel-age">检查 ${localTime(a.checked_at_utc)}</p>${error ? `<p class="parallel-error">${error}</p>` : ''}</article>`;
