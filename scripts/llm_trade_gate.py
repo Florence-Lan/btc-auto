@@ -8,7 +8,7 @@ import statistics
 import subprocess
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -16,6 +16,7 @@ import requests
 
 
 DecisionProvider = Callable[[dict[str, Any]], dict[str, Any]]
+DECISION_CACHE_VERSION = 1
 
 
 DECISION_SCHEMA = {
@@ -295,6 +296,45 @@ def _safe_target_leverage(current_leverage: float, requested_leverage: float) ->
     return current_leverage
 
 
+def _rejection_cache_seconds() -> float:
+    seconds = _finite(os.getenv("LLM_REJECTION_CACHE_SECONDS", "900"))
+    if seconds is None or not 0 < seconds <= 3600:
+        raise ValueError("LLM_REJECTION_CACHE_SECONDS must be between 0 (exclusive) and 3600")
+    return seconds
+
+
+def _review_age_seconds(prior: Mapping[str, Any], checked_at_utc: str) -> float | None:
+    # Legacy decided_at_utc was overwritten on every cache hit, so it cannot
+    # establish the age of an actual review. Only the new immutable field can.
+    if prior.get("cache_version") != DECISION_CACHE_VERSION:
+        return None
+    try:
+        reviewed = datetime.fromisoformat(str(prior.get("reviewed_at_utc") or ""))
+        checked = datetime.fromisoformat(checked_at_utc)
+        if reviewed.tzinfo is None or checked.tzinfo is None:
+            return None
+        age = (checked - reviewed).total_seconds()
+    except (ValueError, TypeError, OverflowError):
+        return None
+    return age if age >= 0 else None
+
+
+def _review_metadata(cache_seconds: float | None) -> dict[str, Any]:
+    reviewed_at = utc_now()
+    expires_at = (
+        (datetime.fromisoformat(reviewed_at) + timedelta(seconds=cache_seconds)).isoformat()
+        if cache_seconds is not None else None
+    )
+    return {
+        "cache_version": DECISION_CACHE_VERSION,
+        "reviewed_at_utc": reviewed_at,
+        "decided_at_utc": reviewed_at,
+        "cache_age_seconds": 0.0,
+        "rejection_cache_seconds": cache_seconds,
+        "rejection_cache_expires_at_utc": expires_at,
+    }
+
+
 def apply_llm_trade_gate(
     report: Mapping[str, Any],
     target: Mapping[str, Any],
@@ -309,12 +349,13 @@ def apply_llm_trade_gate(
     gated = dict(target)
     requested = float(target.get("target_leverage") or 0)
     current_leverage = current_qty * mark_price / equity if equity > 0 and mark_price > 0 else 0.0
+    checked_at = utc_now()
     base = {
         "enabled": env_enabled("LLM_TRADE_GATE_ENABLED"),
         "current_leverage": current_leverage,
         "requested_target_leverage": requested,
         "effective_target_leverage": requested,
-        "decided_at_utc": utc_now(),
+        "checked_at_utc": checked_at,
     }
     if not base["enabled"]:
         return gated, {**base, "status": "disabled"}
@@ -330,28 +371,49 @@ def apply_llm_trade_gate(
     key = _decision_key(target)
     prior = previous_decision or {}
     prior_matches = prior.get("decision_key") == key
-    prior_allow = bool(prior.get("allow"))
-    prior_limit = abs(float(prior.get("approved_target_leverage") or 0))
-    if prior_matches and (not prior_allow or abs(requested) <= prior_limit + 1e-9):
-        allowed = prior_allow
-        effective = requested if allowed else _safe_target_leverage(current_leverage, requested)
-        gated["target_leverage"] = effective
-        return gated, {
-            **dict(prior),
-            **base,
-            "status": "cached_approved" if allowed else "cached_rejected",
-            "effective_target_leverage": effective,
-            "decision_key": key,
-        }
-
-    context = build_decision_context(
-        report,
-        target,
-        current_leverage=current_leverage,
-        mode=mode,
-    )
-    provider = decision_provider or request_llm_decision
+    prior_allow = prior.get("allow") is True
+    prior_limit = _finite(prior.get("approved_target_leverage"))
+    cache_seconds = None
+    review_trigger = "new_target"
     try:
+        cache_seconds = _rejection_cache_seconds()
+        age = _review_age_seconds(prior, checked_at)
+        reusable_approval = (
+            prior_allow and age is not None and prior_limit is not None
+            and abs(requested) <= abs(prior_limit) + 1e-9
+        )
+        reusable_rejection = not prior_allow and age is not None and age < cache_seconds
+        if prior_matches and (reusable_approval or reusable_rejection):
+            effective = requested if prior_allow else _safe_target_leverage(current_leverage, requested)
+            gated["target_leverage"] = effective
+            return gated, {
+                **dict(prior),
+                **base,
+                "status": "cached_approved" if prior_allow else "cached_rejected",
+                "cache_age_seconds": age,
+                "rejection_cache_seconds": cache_seconds,
+                "rejection_cache_expires_at_utc": (
+                    (datetime.fromisoformat(str(prior["reviewed_at_utc"]))
+                     + timedelta(seconds=cache_seconds)).isoformat()
+                    if not prior_allow else None
+                ),
+                "effective_target_leverage": effective,
+                "decision_key": key,
+            }
+        if prior_matches:
+            review_trigger = (
+                "untrusted_approval_cache" if prior_allow and age is None
+                else "approved_exposure_increase" if prior_allow
+                else "rejection_cache_expired" if age is not None
+                else "untrusted_rejection_cache"
+            )
+        context = build_decision_context(
+            report,
+            target,
+            current_leverage=current_leverage,
+            mode=mode,
+        )
+        provider = decision_provider or request_llm_decision
         decision = _validated_decision(provider(context))
         min_confidence = float(os.getenv("LLM_MIN_CONFIDENCE", "0.70") or 0.70)
         if not 0 <= min_confidence <= 1:
@@ -359,9 +421,11 @@ def apply_llm_trade_gate(
         allowed = bool(decision["allow"] and decision["confidence"] >= min_confidence)
         effective = requested if allowed else _safe_target_leverage(current_leverage, requested)
         gated["target_leverage"] = effective
+        review_metadata = _review_metadata(cache_seconds)
         return gated, {
             **base,
             **decision,
+            **review_metadata,
             "allow": allowed,
             "raw_allow": decision["allow"],
             "minimum_confidence": min_confidence,
@@ -369,12 +433,17 @@ def apply_llm_trade_gate(
             "decision_key": key,
             "approved_target_leverage": requested if allowed else 0.0,
             "effective_target_leverage": effective,
+            "review_trigger": review_trigger,
+            "rejection_cache_expires_at_utc": (
+                None if allowed else review_metadata["rejection_cache_expires_at_utc"]
+            ),
         }
     except Exception as exc:
         effective = _safe_target_leverage(current_leverage, requested)
         gated["target_leverage"] = effective
         return gated, {
             **base,
+            **_review_metadata(cache_seconds),
             "status": "error_blocked",
             "allow": False,
             "decision_key": key,
@@ -382,4 +451,5 @@ def apply_llm_trade_gate(
             "effective_target_leverage": effective,
             "reason": str(exc)[:500],
             "risk_flags": ["llm_unavailable_or_invalid"],
+            "review_trigger": review_trigger,
         }
