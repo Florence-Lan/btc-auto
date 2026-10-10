@@ -1,0 +1,943 @@
+{
+  "review_date_beijing": "2026-10-10",
+  "verified_at_utc": "2026-10-10T15:32:51.073318+00:00",
+  "plan_id": "btc_memory_stocks_latest_1000_each_20261007",
+  "paper_running": false,
+  "paper_restarted": false,
+  "production_account_and_history_files_unchanged": true,
+  "input_checks": {
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\status.json": {
+      "sha256": "9bb4a6d2c71554b50536157a72e88a7c812b2be85d9b19dbd5ca729e7e48875c",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\manifest.json": {
+      "sha256": "c3acf8f314fa545e544440e36f337bcbb5aef43ca0fd2771e6d4d146e62e7c30",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\btc\\state.json": {
+      "sha256": "6f9508ce03e91b1dff70bb330c105a3058906558b696d2b4afd487fdd0a4b05e",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\mu\\state.json": {
+      "sha256": "d6b4ae4e5824ba398f0c08b6655ec032e5484a670c852027142f2cd67f950e84",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\mu\\fills.jsonl": {
+      "sha256": "1ab264e50a36df2a58027e75984983ca35cce4b1ccd376a85ef8cef07a9bae86",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\mu\\closed_trades.jsonl": {
+      "sha256": "135ec7818a0632301366810ee430a46aec443b67d7886f2bdaa68d5120568d21",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\sndk\\state.json": {
+      "sha256": "45399a83011678079f375309d490de4d602eb8462d8d103af1b2fdbf1276d285",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\sndk\\fills.jsonl": {
+      "sha256": "6ec65384c2425a1aef0869e977e88c5ca37f677951197d9f856dec12b952a858",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\sndk\\closed_trades.jsonl": {
+      "sha256": "4bb6201c637f2086c9943ccc9588ef534d72aea63bdde033d21f2f4ef417a8f6",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\sndk\\funding.jsonl": {
+      "sha256": "975d6f17d8b1a073b1b72dd95bf2a65c190127710645c57bfbdc1c610b87e606",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\skhynix\\state.json": {
+      "sha256": "a92df2897c7a163d87536add7aa459b9ae344c0658ba73552576b1aded2fe170",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\skhynix\\fills.jsonl": {
+      "sha256": "c628379b8b71977e1a781b0cf1c9fd10024c73d10f63fd3fa0f765e9c5ebb95a",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\skhynix\\closed_trades.jsonl": {
+      "sha256": "162b3c9e3b1873f038d6f49ae2a0e4f27552f027e19b57bf18c2997dedb4ccd4",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\skhynix\\funding.jsonl": {
+      "sha256": "ffa468986d73a5ea5eeae954aac2c82de2e2f5cb78599009325d1d127bff9a82",
+      "unchanged": true
+    },
+    "data\\parallel_simulation\\btc_memory_stocks_latest_1000_each_20261007\\btc_signals\\state.json": {
+      "sha256": "e3a785879e58cba0a32ad488c1deeb5d0b66465edd4b99311fee77fa1abbf1c2",
+      "unchanged": true
+    }
+  },
+  "last_recorded_account_values": {
+    "btc": {
+      "initial_balance_usdt": 1000.0,
+      "wallet_balance_usdt": 1000.0,
+      "equity_usdt": 1000.0,
+      "net_pnl_usdt": 0.0,
+      "return_pct": 0.0,
+      "realized_gross_pnl_usdt": 0.0,
+      "fees_paid_usdt": 0.0,
+      "funding_pnl_usdt": 0.0,
+      "unrealized_gross_pnl_usdt": 0.0,
+      "complete_closed_net_pnl_usdt": 0,
+      "open_net_contribution_usdt": 0.0,
+      "future_exit_costs_excluded": true,
+      "position_qty": 0.0,
+      "entry_price": 0.0,
+      "last_mark_price": 83038.88786957,
+      "sampled_max_drawdown_pct": 0.0,
+      "fill_count": 0,
+      "closed_exit_legs": 0,
+      "complete_trade_count": 0,
+      "complete_win_count": 0,
+      "complete_loss_count": 0,
+      "complete_trades": [],
+      "open_position": null,
+      "last_heartbeat_at_beijing": "2026-10-09T22:58:51.233000+08:00",
+      "last_heartbeat_at_utc": "2026-10-09T14:58:51.233000+00:00",
+      "stored_status_is_fresh_health_evidence": false,
+      "ledger_identities": {
+        "wallet_error_usdt": 0.0,
+        "closed_plus_open_net_error_usdt": 0.0,
+        "fill_fee_error_usdt": 0.0,
+        "closed_gross_error_usdt": 0.0
+      }
+    },
+    "mu": {
+      "initial_balance_usdt": 1000.0,
+      "wallet_balance_usdt": 997.578865026335,
+      "equity_usdt": 997.578865026335,
+      "net_pnl_usdt": -2.421134973664948,
+      "return_pct": -0.2421134973664918,
+      "realized_gross_pnl_usdt": -2.392467639999977,
+      "fees_paid_usdt": 0.028667333665,
+      "funding_pnl_usdt": 0.0,
+      "unrealized_gross_pnl_usdt": 0.0,
+      "complete_closed_net_pnl_usdt": -2.421134973664977,
+      "open_net_contribution_usdt": 0.0,
+      "future_exit_costs_excluded": true,
+      "position_qty": 0,
+      "entry_price": 0,
+      "last_mark_price": 1036.49222641,
+      "sampled_max_drawdown_pct": 0.2421134973664918,
+      "fill_count": 2,
+      "closed_exit_legs": 1,
+      "complete_trade_count": 1,
+      "complete_win_count": 0,
+      "complete_loss_count": 1,
+      "complete_trades": [
+        {
+          "entry_time_ms": 1791552608488,
+          "net_pnl": -2.421134973664977,
+          "gross_pnl": -2.392467639999977,
+          "exit_legs": 1,
+          "position_closed": true,
+          "last_exit_time_utc": "2026-10-09T14:39:50.248000+00:00",
+          "exit_reasons": [
+            "protective_stop"
+          ]
+        }
+      ],
+      "open_position": null,
+      "last_heartbeat_at_beijing": "2026-10-10T23:18:21.444000+08:00",
+      "last_heartbeat_at_utc": "2026-10-10T15:18:21.444000+00:00",
+      "stored_status_is_fresh_health_evidence": false,
+      "ledger_identities": {
+        "wallet_error_usdt": 0.0,
+        "closed_plus_open_net_error_usdt": 2.886579864025407e-14,
+        "fill_fee_error_usdt": 0.0,
+        "closed_gross_error_usdt": 0.0,
+        "funding_error_usdt": 0.0
+      },
+      "observations": {
+        "rows": 8581,
+        "first_at_utc": "2026-10-07T13:50:21.678000+00:00",
+        "last_at_utc": "2026-10-10T15:18:21.338000+00:00",
+        "first_at_beijing": "2026-10-07T21:50:21.678000+08:00",
+        "last_at_beijing": "2026-10-10T23:18:21.338000+08:00",
+        "maximum_gap_between_recorded_observations": {
+          "seconds": 51.245,
+          "before_utc": "2026-10-07T15:43:11.886000+00:00",
+          "after_utc": "2026-10-07T15:44:03.131000+00:00"
+        },
+        "sampled_max_drawdown_pct": 0.2421134973664918,
+        "signal_status_counts": {
+          "waiting_for_first_forward_candle": 19,
+          "no_signal": 8205,
+          "entry_data_gap_basis_funding_or_volume_blocked": 79,
+          "missing_signal_status": 83,
+          "waiting_for_new_closed_bar": 52,
+          "entered": 1,
+          "holding": 133,
+          "insufficient_observed_liquidity_or_minimum_quantity": 9
+        },
+        "error_counts": [
+          {
+            "field": "funding",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 84
+          },
+          {
+            "field": "clock",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 83
+          },
+          {
+            "field": "mark",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 83
+          },
+          {
+            "field": "five",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 83
+          },
+          {
+            "field": "book",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 82
+          },
+          {
+            "field": "clock",
+            "message": "ValueError: Exchange clock roundtrip exceeded five seconds",
+            "count": 53
+          },
+          {
+            "field": "signal",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 23
+          },
+          {
+            "field": "rules",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 7
+          },
+          {
+            "field": "funding",
+            "message": "Settlement publication pending",
+            "count": 1
+          },
+          {
+            "field": "book",
+            "message": "No current depth",
+            "count": 1
+          }
+        ],
+        "entry_blocker_observation_counts": {
+          "entry_gap": 59,
+          "prior_5m_volume": 49
+        },
+        "pending_signal_windows": {
+          "1791382500000": {
+            "observations": 30,
+            "statuses": {
+              "entry_data_gap_basis_funding_or_volume_blocked": 30
+            },
+            "blockers": {
+              "entry_gap": 30
+            }
+          },
+          "1791619200000": {
+            "observations": 29,
+            "statuses": {
+              "entry_data_gap_basis_funding_or_volume_blocked": 29
+            },
+            "blockers": {
+              "prior_5m_volume": 29,
+              "entry_gap": 29
+            }
+          },
+          "1791639900000": {
+            "observations": 29,
+            "statuses": {
+              "insufficient_observed_liquidity_or_minimum_quantity": 9,
+              "entry_data_gap_basis_funding_or_volume_blocked": 20
+            },
+            "blockers": {
+              "prior_5m_volume": 20
+            }
+          }
+        },
+        "position_observed_mark_extrema": {
+          "1791552600000": {
+            "min_mark_price": 1034.45903958,
+            "max_mark_price": 1052.19702228,
+            "observations": 134
+          }
+        }
+      },
+      "signals": {
+        "journal_rows": 291,
+        "raw_signal_count": 4,
+        "raw_signals": [
+          {
+            "time_utc": "2026-10-07T14:15:22.283000+00:00",
+            "signal_timeframe": "15m",
+            "boundary_ms": 1791382500000,
+            "pending_signal": {
+              "signal": {
+                "direction": 1,
+                "atr": 3.8367567519333465,
+                "close": 1040.48,
+                "strength": 0.076351177926087,
+                "time_ms": 1791381600000
+              },
+              "boundary_ms": 1791382500000,
+              "expires_at_ms": 1791383400000
+            },
+            "raw_signal": {
+              "direction": 1,
+              "atr": 3.8367567519333465,
+              "close": 1040.48,
+              "strength": 0.076351177926087,
+              "time_ms": 1791381600000
+            },
+            "rejection": null,
+            "rule_candidate_id": "muusdt_one_r_half_atr_paper_20261006"
+          },
+          {
+            "time_utc": "2026-10-09T13:30:07.828000+00:00",
+            "signal_timeframe": "15m",
+            "boundary_ms": 1791552600000,
+            "pending_signal": {
+              "signal": {
+                "direction": 1,
+                "atr": 1.3073549839103025,
+                "close": 1056.87,
+                "strength": 0.046271375537408725,
+                "time_ms": 1791551700000
+              },
+              "boundary_ms": 1791552600000,
+              "expires_at_ms": 1791553500000
+            },
+            "raw_signal": {
+              "direction": 1,
+              "atr": 1.3073549839103025,
+              "close": 1056.87,
+              "strength": 0.046271375537408725,
+              "time_ms": 1791551700000
+            },
+            "rejection": null,
+            "rule_candidate_id": "muusdt_one_r_half_atr_paper_20261006"
+          },
+          {
+            "time_utc": "2026-10-10T08:00:29.217000+00:00",
+            "signal_timeframe": "15m",
+            "boundary_ms": 1791619200000,
+            "pending_signal": {
+              "signal": {
+                "direction": -1,
+                "atr": 0.34565104437071736,
+                "close": 1033.75,
+                "strength": 0.10076176245383073,
+                "time_ms": 1791618300000
+              },
+              "boundary_ms": 1791619200000,
+              "expires_at_ms": 1791620100000
+            },
+            "raw_signal": {
+              "direction": -1,
+              "atr": 0.34565104437071736,
+              "close": 1033.75,
+              "strength": 0.10076176245383073,
+              "time_ms": 1791618300000
+            },
+            "rejection": null,
+            "rule_candidate_id": "muusdt_one_r_half_atr_paper_20261006"
+          },
+          {
+            "time_utc": "2026-10-10T13:45:28.284000+00:00",
+            "signal_timeframe": "15m",
+            "boundary_ms": 1791639900000,
+            "pending_signal": {
+              "signal": {
+                "direction": 1,
+                "atr": 0.25653720167109034,
+                "close": 1035.64,
+                "strength": 0.7625076470214085,
+                "time_ms": 1791639000000
+              },
+              "boundary_ms": 1791639900000,
+              "expires_at_ms": 1791640800000
+            },
+            "raw_signal": {
+              "direction": 1,
+              "atr": 0.25653720167109034,
+              "close": 1035.64,
+              "strength": 0.7625076470214085,
+              "time_ms": 1791639000000
+            },
+            "rejection": null,
+            "rule_candidate_id": "muusdt_one_r_half_atr_paper_20261006"
+          }
+        ],
+        "rejection_counts": {}
+      },
+      "funding_settlements": []
+    },
+    "sndk": {
+      "initial_balance_usdt": 1000.0,
+      "wallet_balance_usdt": 997.7237061678242,
+      "equity_usdt": 1001.0006019738241,
+      "net_pnl_usdt": 1.000601973824132,
+      "return_pct": 0.10006019738242333,
+      "realized_gross_pnl_usdt": -2.2657555760000037,
+      "fees_paid_usdt": 0.046311618175750004,
+      "funding_pnl_usdt": 0.035773362,
+      "unrealized_gross_pnl_usdt": 3.276895805999993,
+      "complete_closed_net_pnl_usdt": -2.295677866447004,
+      "open_net_contribution_usdt": 3.296279840271243,
+      "future_exit_costs_excluded": true,
+      "position_qty": -0.08,
+      "entry_price": 1638.932772875,
+      "last_mark_price": 1597.9715753,
+      "sampled_max_drawdown_pct": 0.49320922793946176,
+      "fill_count": 3,
+      "closed_exit_legs": 1,
+      "complete_trade_count": 1,
+      "complete_win_count": 0,
+      "complete_loss_count": 1,
+      "complete_trades": [
+        {
+          "entry_time_ms": 1791392420851,
+          "net_pnl": -2.295677866447004,
+          "gross_pnl": -2.2657555760000037,
+          "exit_legs": 1,
+          "position_closed": true,
+          "last_exit_time_utc": "2026-10-07T19:58:32.187000+00:00",
+          "exit_reasons": [
+            "protective_stop"
+          ]
+        }
+      ],
+      "open_position": {
+        "entry": 1638.932772875,
+        "qty": 0.08,
+        "direction": -1,
+        "entry_time": 1791475823960,
+        "signal_time": 1791475200000,
+        "stop": 1667.93,
+        "initial_stop": 1667.93,
+        "entry_fee": 0.01638932772875,
+        "margin": 13.111462183,
+        "funding": -0.035773362,
+        "atr": 14.49702032016169,
+        "best_close_return": 0.03443263433923904,
+        "last_trail_bar_ms": 1791644399999
+      },
+      "last_heartbeat_at_beijing": "2026-10-10T23:18:21.285000+08:00",
+      "last_heartbeat_at_utc": "2026-10-10T15:18:21.285000+00:00",
+      "stored_status_is_fresh_health_evidence": false,
+      "ledger_identities": {
+        "wallet_error_usdt": -1.1368683772161603e-13,
+        "closed_plus_open_net_error_usdt": -1.0702549957386509e-13,
+        "fill_fee_error_usdt": 0.0,
+        "closed_gross_error_usdt": 0.0,
+        "funding_error_usdt": 0.0
+      },
+      "observations": {
+        "rows": 8580,
+        "first_at_utc": "2026-10-07T13:50:21.673000+00:00",
+        "last_at_utc": "2026-10-10T15:18:21.183000+00:00",
+        "first_at_beijing": "2026-10-07T21:50:21.673000+08:00",
+        "last_at_beijing": "2026-10-10T23:18:21.183000+08:00",
+        "maximum_gap_between_recorded_observations": {
+          "seconds": 50.666,
+          "before_utc": "2026-10-07T15:43:12.451000+00:00",
+          "after_utc": "2026-10-07T15:44:03.117000+00:00"
+        },
+        "sampled_max_drawdown_pct": 0.49320922793946176,
+        "signal_status_counts": {
+          "waiting_for_first_forward_candle": 19,
+          "no_signal": 2656,
+          "missing_signal_status": 84,
+          "waiting_for_new_closed_bar": 2,
+          "entered": 2,
+          "holding": 5797,
+          "insufficient_observed_liquidity_or_minimum_quantity": 20
+        },
+        "error_counts": [
+          {
+            "field": "clock",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 84
+          },
+          {
+            "field": "mark",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 84
+          },
+          {
+            "field": "book",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 84
+          },
+          {
+            "field": "funding",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 83
+          },
+          {
+            "field": "five",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 83
+          },
+          {
+            "field": "clock",
+            "message": "ValueError: Exchange clock roundtrip exceeded five seconds",
+            "count": 50
+          },
+          {
+            "field": "signal",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 22
+          },
+          {
+            "field": "funding",
+            "message": "ValueError: Funding mark proxy unavailable",
+            "count": 13
+          },
+          {
+            "field": "rules",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 7
+          },
+          {
+            "field": "funding",
+            "message": "Settlement publication pending",
+            "count": 1
+          },
+          {
+            "field": "book",
+            "message": "No current depth",
+            "count": 1
+          }
+        ],
+        "entry_blocker_observation_counts": {},
+        "pending_signal_windows": {
+          "1791475200000": {
+            "observations": 20,
+            "statuses": {
+              "insufficient_observed_liquidity_or_minimum_quantity": 20
+            },
+            "blockers": {}
+          }
+        },
+        "position_observed_mark_extrema": {
+          "1791392400000": {
+            "min_mark_price": 1696.18070586,
+            "max_mark_price": 1732.27662875,
+            "observations": 345
+          },
+          "1791475200000": {
+            "min_mark_price": 1578.49,
+            "max_mark_price": 1648.43403869,
+            "observations": 5454
+          }
+        }
+      },
+      "signals": {
+        "journal_rows": 26,
+        "raw_signal_count": 2,
+        "raw_signals": [
+          {
+            "time_utc": "2026-10-07T17:00:20.841000+00:00",
+            "signal_timeframe": "1h",
+            "boundary_ms": 1791392400000,
+            "pending_signal": {
+              "signal": {
+                "direction": 1,
+                "atr": 15.319557103942044,
+                "close": 1726.38,
+                "strength": 1.055513543262892,
+                "time_ms": 1791388800000
+              },
+              "boundary_ms": 1791392400000,
+              "expires_at_ms": 1791396000000
+            },
+            "raw_signal": {
+              "direction": 1,
+              "atr": 15.319557103942044,
+              "close": 1726.38,
+              "strength": 1.055513543262892,
+              "time_ms": 1791388800000
+            },
+            "rejection": null,
+            "rule_candidate_id": "sndkusdt_hourly_aligned_breakout_paper_20261007"
+          },
+          {
+            "time_utc": "2026-10-08T16:00:05.666000+00:00",
+            "signal_timeframe": "1h",
+            "boundary_ms": 1791475200000,
+            "pending_signal": {
+              "signal": {
+                "direction": -1,
+                "atr": 14.49702032016169,
+                "close": 1636.0,
+                "strength": 0.6132294639634572,
+                "time_ms": 1791471600000
+              },
+              "boundary_ms": 1791475200000,
+              "expires_at_ms": 1791478800000
+            },
+            "raw_signal": {
+              "direction": -1,
+              "atr": 14.49702032016169,
+              "close": 1636.0,
+              "strength": 0.6132294639634572,
+              "time_ms": 1791471600000
+            },
+            "rejection": null,
+            "rule_candidate_id": "sndkusdt_hourly_aligned_breakout_paper_20261007"
+          }
+        ],
+        "rejection_counts": {}
+      },
+      "funding_settlements": [
+        {
+          "symbol": "SNDKUSDT",
+          "fundingTime": 1791504000003,
+          "fundingRate": "0.00000000",
+          "debit": -0.0,
+          "inventory_qty": -0.08,
+          "settlement_price": 1615.6,
+          "price_method": "one_minute_mark_open_proxy",
+          "open_funding_debit": -0.0,
+          "closed_funding_debit": 0.0
+        },
+        {
+          "symbol": "SNDKUSDT",
+          "fundingTime": 1791532800000,
+          "fundingRate": "0.00000000",
+          "debit": -0.0,
+          "inventory_qty": -0.08,
+          "settlement_price": 1644.50546501,
+          "price_method": "one_minute_mark_open_proxy",
+          "open_funding_debit": -0.0,
+          "closed_funding_debit": 0.0
+        },
+        {
+          "symbol": "SNDKUSDT",
+          "fundingTime": 1791561600002,
+          "fundingRate": "0.00000000",
+          "debit": -0.0,
+          "inventory_qty": -0.08,
+          "settlement_price": 1605.02,
+          "price_method": "one_minute_mark_open_proxy",
+          "open_funding_debit": -0.0,
+          "closed_funding_debit": 0.0
+        },
+        {
+          "symbol": "SNDKUSDT",
+          "fundingTime": 1791590400000,
+          "fundingRate": "0.00028257",
+          "debit": -0.035773362,
+          "inventory_qty": -0.08,
+          "settlement_price": 1582.5,
+          "price_method": "one_minute_mark_open_proxy",
+          "open_funding_debit": -0.035773362,
+          "closed_funding_debit": 0.0
+        },
+        {
+          "symbol": "SNDKUSDT",
+          "fundingTime": 1791619200000,
+          "fundingRate": "0.00000000",
+          "debit": -0.0,
+          "inventory_qty": -0.08,
+          "settlement_price": 1589.44157558,
+          "price_method": "one_minute_mark_open_proxy",
+          "open_funding_debit": -0.0,
+          "closed_funding_debit": 0.0
+        }
+      ]
+    },
+    "skhynix": {
+      "initial_balance_usdt": 1000.0,
+      "wallet_balance_usdt": 1001.96797961206,
+      "equity_usdt": 1001.96797961206,
+      "net_pnl_usdt": 1.9679796120600486,
+      "return_pct": 0.19679796120599669,
+      "realized_gross_pnl_usdt": 2.112774663999995,
+      "fees_paid_usdt": 0.22272624853599998,
+      "funding_pnl_usdt": 0.07793119659600001,
+      "unrealized_gross_pnl_usdt": 0.0,
+      "complete_closed_net_pnl_usdt": 1.9679796120599946,
+      "open_net_contribution_usdt": 0.0,
+      "future_exit_costs_excluded": true,
+      "position_qty": 0,
+      "entry_price": 0,
+      "last_mark_price": 1217.91849753,
+      "sampled_max_drawdown_pct": 0.19331112058709188,
+      "fill_count": 3,
+      "closed_exit_legs": 2,
+      "complete_trade_count": 1,
+      "complete_win_count": 1,
+      "complete_loss_count": 0,
+      "complete_trades": [
+        {
+          "entry_time_ms": 1791431128943,
+          "net_pnl": 1.9679796120599946,
+          "gross_pnl": 2.112774663999995,
+          "exit_legs": 2,
+          "position_closed": true,
+          "last_exit_time_utc": "2026-10-08T11:39:46.772000+00:00",
+          "exit_reasons": [
+            "one_r_partial",
+            "protective_stop"
+          ]
+        }
+      ],
+      "open_position": null,
+      "last_heartbeat_at_beijing": "2026-10-09T07:09:51.297000+08:00",
+      "last_heartbeat_at_utc": "2026-10-08T23:09:51.297000+00:00",
+      "stored_status_is_fresh_health_evidence": false,
+      "ledger_identities": {
+        "wallet_error_usdt": 1.1368683772161603e-13,
+        "closed_plus_open_net_error_usdt": 5.395683899678261e-14,
+        "fill_fee_error_usdt": 0.0,
+        "closed_gross_error_usdt": 0.0,
+        "funding_error_usdt": 0.0
+      },
+      "observations": {
+        "rows": 3899,
+        "first_at_utc": "2026-10-07T13:50:21.676000+00:00",
+        "last_at_utc": "2026-10-08T23:09:51.191000+00:00",
+        "first_at_beijing": "2026-10-07T21:50:21.676000+08:00",
+        "last_at_beijing": "2026-10-09T07:09:51.191000+08:00",
+        "maximum_gap_between_recorded_observations": {
+          "seconds": 50.803,
+          "before_utc": "2026-10-07T15:43:12.296000+00:00",
+          "after_utc": "2026-10-07T15:44:03.099000+00:00"
+        },
+        "sampled_max_drawdown_pct": 0.19331112058709188,
+        "signal_status_counts": {
+          "waiting_for_first_forward_candle": 19,
+          "no_signal": 2888,
+          "missing_signal_status": 44,
+          "waiting_for_new_closed_bar": 3,
+          "entry_data_gap_basis_funding_or_volume_blocked": 30,
+          "entered": 1,
+          "holding": 914
+        },
+        "error_counts": [
+          {
+            "field": "clock",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 44
+          },
+          {
+            "field": "mark",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 44
+          },
+          {
+            "field": "book",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 44
+          },
+          {
+            "field": "funding",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 44
+          },
+          {
+            "field": "five",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 44
+          },
+          {
+            "field": "signal",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 15
+          },
+          {
+            "field": "rules",
+            "message": "FileNotFoundError: [WinError 2] 系统找不到指定的文件。",
+            "count": 11
+          },
+          {
+            "field": "clock",
+            "message": "ValueError: Exchange clock roundtrip exceeded five seconds",
+            "count": 7
+          },
+          {
+            "field": "funding",
+            "message": "ValueError: Funding mark proxy unavailable",
+            "count": 4
+          },
+          {
+            "field": "funding",
+            "message": "Settlement publication pending",
+            "count": 2
+          }
+        ],
+        "entry_blocker_observation_counts": {
+          "prior_5m_volume": 30
+        },
+        "pending_signal_windows": {
+          "1791401400000": {
+            "observations": 30,
+            "statuses": {
+              "entry_data_gap_basis_funding_or_volume_blocked": 30
+            },
+            "blockers": {
+              "prior_5m_volume": 30
+            }
+          }
+        },
+        "position_observed_mark_extrema": {
+          "1791431100000": {
+            "min_mark_price": 1252.29202739,
+            "max_mark_price": 1293.11,
+            "observations": 915
+          }
+        }
+      },
+      "signals": {
+        "journal_rows": 103,
+        "raw_signal_count": 2,
+        "raw_signals": [
+          {
+            "time_utc": "2026-10-07T19:30:11.339000+00:00",
+            "signal_timeframe": "15m",
+            "boundary_ms": 1791401400000,
+            "pending_signal": {
+              "signal": {
+                "direction": -1,
+                "atr": 3.179668308387504,
+                "close": 1278.03,
+                "strength": 0.1322330218859034,
+                "time_ms": 1791400500000
+              },
+              "boundary_ms": 1791401400000,
+              "expires_at_ms": 1791402300000
+            },
+            "raw_signal": {
+              "direction": -1,
+              "atr": 3.179668308387504,
+              "close": 1278.03,
+              "strength": 0.1322330218859034,
+              "time_ms": 1791400500000
+            },
+            "rejection": null,
+            "rule_candidate_id": "skhynixusdt_one_r_half_atr_paper_20261006"
+          },
+          {
+            "time_utc": "2026-10-08T03:45:28.855000+00:00",
+            "signal_timeframe": "15m",
+            "boundary_ms": 1791431100000,
+            "pending_signal": {
+              "signal": {
+                "direction": -1,
+                "atr": 6.249408999459631,
+                "close": 1279.12,
+                "strength": 0.03940798239841018,
+                "time_ms": 1791430200000
+              },
+              "boundary_ms": 1791431100000,
+              "expires_at_ms": 1791432000000
+            },
+            "raw_signal": {
+              "direction": -1,
+              "atr": 6.249408999459631,
+              "close": 1279.12,
+              "strength": 0.03940798239841018,
+              "time_ms": 1791430200000
+            },
+            "rejection": null,
+            "rule_candidate_id": "skhynixusdt_one_r_half_atr_paper_20261006"
+          }
+        ],
+        "rejection_counts": {}
+      },
+      "funding_settlements": [
+        {
+          "symbol": "SKHYNIXUSDT",
+          "fundingTime": 1791432000000,
+          "fundingRate": "0.00069613",
+          "debit": -0.07793119659600001,
+          "inventory_qty": -0.088,
+          "settlement_price": 1272.15,
+          "price_method": "one_minute_mark_open_proxy",
+          "open_funding_debit": -0.07793119659600001,
+          "closed_funding_debit": 0.0
+        },
+        {
+          "symbol": "SKHYNIXUSDT",
+          "fundingTime": 1791446400001,
+          "fundingRate": "0.00000000",
+          "debit": -0.0,
+          "inventory_qty": -0.088,
+          "settlement_price": 1264.60277188,
+          "price_method": "one_minute_mark_open_proxy",
+          "open_funding_debit": -0.0,
+          "closed_funding_debit": 0.0
+        }
+      ]
+    }
+  },
+  "totals": {
+    "initial_balance_usdt": 4000.0,
+    "equity_usdt": 4000.547446612219,
+    "net_pnl_usdt": 0.5474466122191188,
+    "return_pct": 0.013686165305482056,
+    "wallet_balance_usdt": 3997.270550806219,
+    "realized_gross_pnl_usdt": -2.5454485519999857,
+    "unrealized_gross_pnl_usdt": 3.276895805999993,
+    "fees_paid_usdt": 0.29770520037674997,
+    "funding_pnl_usdt": 0.11370455859600001,
+    "fill_count": 8,
+    "closed_trade_count": 3,
+    "win_count": 1,
+    "loss_count": 2,
+    "win_rate_pct": 33.33333333333333,
+    "closed_net_pnl_usdt": -2.7488332280519865,
+    "profit_factor": 0.41722656352276916,
+    "sample_sufficient_for_strategy_replacement": false
+  },
+  "changes": {
+    "price_signal_and_risk_parameters_changed": false,
+    "btc_paper_review_context_updated": true,
+    "llm_review_cache_version": 2,
+    "public_request_deadline_seconds": 17,
+    "max_pending_reads_per_client": 32,
+    "max_pending_reads_per_process": 64,
+    "worker_stale_after_seconds": "max(90, 3 * poll_seconds)",
+    "old_trade_records_repriced": false
+  },
+  "validation": {
+    "python": {
+      "command": ".venv/Scripts/python.exe -X utf8 -m pytest -q",
+      "passed": 1013,
+      "skipped": 2,
+      "subtests_passed": 26,
+      "duration_seconds": 16.32,
+      "skipped_reason": "Windows skips two POSIX process-reaping tests"
+    },
+    "node": {
+      "command": "node --test tests/test_terminal_accounts_ui.mjs tests/test_terminal_research_ui.mjs tests/test_stock_trend_ui.mjs",
+      "passed": 33,
+      "failed": 0
+    },
+    "git_diff_check": "passed",
+    "independent_code_review": "passed",
+    "test_discovery_fix": "pytest.ini restricts discovery to tests; archived repair snapshots are preserved"
+  },
+  "code_sha256": {
+    "scripts/public_request_deadline.py": "eae47f31216bfc6449dfee168e6bc0f5d459e9549ac71f2ae04a1265d15cf5f0",
+    "scripts/binance_terminal_client.py": "a0e4f6f9099181f40316ad6b3389abc999a3f8da55cca61c45dc4161684b8d18",
+    "scripts/execution_targets.py": "767d9b88523c45674a695b6008a5b936f4105b988ed61a5fb1cb652a6175b912",
+    "scripts/llm_trade_gate.py": "b957ebe18bb433fa728a8db1c549dd2464a62861bd9bcd98ae13be46af5839f5",
+    "scripts/run_parallel_simulation.py": "5c9886a3278a6e2a65fffc13120bcc5fea7b85ed29b2ff7bf1086736d6295299",
+    "scripts/backtest_current_accounts.py": "17299a969a6f8755d30cc374fcf036bfaac8cf180341e17320ccde2295fa9a86",
+    "terminal/parallel.js": "125178cac01cfd8f155b46780701454854720319a253bdfc816330fe8c096c12",
+    "config/parallel_simulation_plan_20261005.json": "44b2328b0fc7a2b8eafb3a730b6634a4465c4f438339445e7387b00799c67b90",
+    "pytest.ini": "c809c969ec7e11b9ff37784e9c6fcc0b7c5148d168e18b05aed797e03fbd6ead"
+  },
+  "limitations": [
+    "BTC and SKHYNIX values are their last recorded marks; not a simultaneous portfolio valuation.",
+    "Only three completed trading episodes; no profitability claim or price-parameter fitting.",
+    "The precise historical stall cause is unproven without process stacks.",
+    "Updated code was tested offline; paper services remain stopped."
+  ],
+  "source_report": "data/research/paper_review_20261010/metrics.json"
+}

@@ -22,6 +22,23 @@ function status() {
 }
 const fetcher = value => async () => ({ok: true, json: async () => value});
 
+test('BTC shows a model entry rejection and clears it when the current target no longer needs it', async () => {
+  const value = status();
+  Object.assign(value.accounts.btc, {signal_status: 'entry_blocked',
+    entry_blockers: ['llm_trade_gate_rejected'], execution_entry_gate: {allowed: true},
+    llm_trade_gate: {status: 'cached_rejected', reason: 'Current <signal> conflict'}});
+  const page = root('btc');
+  const view = createPaperAccounts(page, fetcher(value));
+  await view.ready;
+  assert.match(page.fields.cards.innerHTML, /模型审核未通过，暂停新增/);
+  assert.match(page.fields.cards.innerHTML, /模型审核理由：Current &lt;signal&gt; conflict/);
+  assert.doesNotMatch(page.fields.cards.innerHTML, /新信号已观察|<signal>/);
+  Object.assign(value.accounts.btc, {signal_status: 'no_signal', entry_blockers: []});
+  await view.refresh();
+  assert.doesNotMatch(page.fields.cards.innerHTML, /模型审核未通过|模型审核理由/);
+  view.destroy();
+});
+
 test('home and former combined page offer two distinct account destinations', () => {
   for (const page of ['index.html', 'parallel.html']) {
     assert.match(html(page), /href="\.\/btc\.html"/);

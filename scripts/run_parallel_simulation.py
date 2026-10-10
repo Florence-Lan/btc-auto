@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from decimal import Decimal, ROUND_DOWN
 from process_lock import exclusive_process_lock
 import hashlib
@@ -13,6 +13,7 @@ import math
 import os
 from pathlib import Path
 import signal
+import shutil
 import subprocess
 import threading
 import time
@@ -31,6 +32,7 @@ import stock_profit_exits as profit_exits
 import stock_trend_exits as trend_exits
 import stock_entry_quality as entry_quality
 import stock_research_entry_policy as entry_policy
+from public_request_deadline import PublicRequestDeadline
 from trading_execution import SimulationAccount, execute_report, read_json, write_json
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -70,20 +72,30 @@ def book_fill(book, signed_qty, step, slip=0.0002, participation=0.1):
         raise ValueError('Invalid book levels')
     best = parsed[0][0]
     remaining = abs(signed_qty)
-    qty = notional = 0.0
+    qty = 0.0
     for price, available in parsed:
         if abs(price / best - 1) > 0.005:
             break
         take = min(remaining, available * participation)
         qty += take
-        notional += take * price
         remaining -= take
         if remaining <= 1e-12:
             break
     rounded = floor_qty(qty, step)
     if rounded <= 0:
         return {'qty': 0.0, 'price': None, 'requested_qty': abs(signed_qty), 'partial': True}
-    return {'qty': rounded, 'price': notional / qty * (1 + (1 if signed_qty > 0 else -1) * slip),
+    # Quantity rounding cancels the tail of the IOC, including its deeper prices.
+    # Compute VWAP from the executable prefix actually booked to the account.
+    remaining, notional = rounded, 0.0
+    for price, available in parsed:
+        if abs(price / best - 1) > 0.005:
+            break
+        take = min(remaining, available * participation)
+        notional += take * price
+        remaining -= take
+        if remaining <= 1e-12:
+            break
+    return {'qty': rounded, 'price': notional / rounded * (1 + (1 if signed_qty > 0 else -1) * slip),
             'requested_qty': abs(signed_qty), 'partial': rounded < abs(signed_qty) - step / 2,
             'model': 'visible_depth_10pct_ioc_plus_adverse_slippage',
             'book_time_ms': int(book.get('T') or book.get('E')),
@@ -97,6 +109,7 @@ class PublicAster:
     def __init__(self):
         self.cooldown = 0
         self.lock = threading.Lock()
+        self.deadline = PublicRequestDeadline(timeout_seconds=17, max_pending=32)
 
     def get(self, endpoint, params=None):
         if endpoint not in self.allowed:
@@ -104,19 +117,42 @@ class PublicAster:
         if now_ms() < self.cooldown:
             raise RuntimeError('Aster public cooldown active')
         url = 'https://fapi.asterdex.com/fapi/v3/' + endpoint
-        try:
+        def request():
             response = requests.get(url, params=params, timeout=12)
-            status = response.status_code
-            payload = response.json()
+            try:
+                # Read/decode on the guarded thread too: a trickling response must
+                # not occupy an account worker past the wall-clock deadline.
+                status = response.status_code
+                if status in (418, 429):
+                    with self.lock:
+                        self.cooldown = now_ms() + 120_000
+                return status, response.json()
+            finally:
+                response.close()
+        try:
+            request_params = params or {}
+            status, payload = self.deadline.run(
+                (endpoint, request_params.get('symbol'), request_params.get('interval')), request,
+                join_pending=endpoint in ('time', 'exchangeInfo') and not request_params)
         except (requests.ConnectionError, requests.Timeout):
+            if now_ms() < self.cooldown:
+                raise RuntimeError('Aster public cooldown active')
+            executable = shutil.which('curl.exe') or shutil.which('curl')
+            if not executable:
+                raise RuntimeError('Public verified fallback curl transport unavailable')
             query = '?' + urlencode(params) if params else ''
-            result = subprocess.run(['/usr/bin/curl', '--silent', '--show-error', '--max-time', '15',
-                                     '--write-out', '\n%{http_code}', url + query],
-                                    capture_output=True, text=True, timeout=18)
+            result = subprocess.run([executable, '-q', '--silent', '--show-error', '--proto', '=https',
+                                     '--connect-timeout', '5', '--max-time', '15',
+                                     '--write-out', '\n%{http_code}', '--url', url + query],
+                                    capture_output=True, text=True, encoding='utf-8', timeout=18)
             if result.returncode:
                 raise RuntimeError('Public verified fallback transport failed')
             body, _, status = result.stdout.rpartition('\n')
-            status, payload = int(status), json.loads(body)
+            status = int(status)
+            if status in (418, 429):
+                with self.lock:
+                    self.cooldown = now_ms() + 120_000
+            payload = json.loads(body)
         if status in (418, 429):
             with self.lock:
                 self.cooldown = now_ms() + 120_000
@@ -212,7 +248,7 @@ class StockAccount:
         return record
 
     def market_data(self, force_rules=False, force_signal=False):
-        state = json.loads(self.path.read_text())  # Corrupt ledgers never reset silently.
+        state = json.loads(self.path.read_text(encoding='utf-8'))  # Corrupt ledgers never reset silently.
         def fetch(label, endpoint, params):
             try:
                 started = time.monotonic()
@@ -296,7 +332,7 @@ class StockAccount:
         return None
 
     def step(self, market_data=None):
-        state = json.loads(self.path.read_text())  # Corrupt ledgers never reset silently.
+        state = json.loads(self.path.read_text(encoding='utf-8'))  # Corrupt ledgers never reset silently.
         cfg = self.config
         errors = {}
         responses = self.market_data() if market_data is None else market_data
@@ -608,8 +644,8 @@ class StockAccount:
 
 
 def stock_config(plan, symbol):
-    profile = json.loads((ROOT / plan['stock_research_profile']).read_text())
-    base = json.loads((ROOT / profile['base_config']).read_text())
+    profile = json.loads((ROOT / plan['stock_research_profile']).read_text(encoding='utf-8'))
+    base = json.loads((ROOT / profile['base_config']).read_text(encoding='utf-8'))
     common = {key: profile[key] for key in ('signal_timeframe', 'execution_timeframe', 'cooldown_signal_bars',
                                           'max_entry_spread_fraction', 'profit_exit_policy', 'trend_exit_policy',
                                           'entry_quality_policy') if key in profile}
@@ -636,7 +672,7 @@ def synchronize_stock_rules(plan, root, manifest):
         if account_id == 'btc':
             continue
         path = ROOT / account['state_path']
-        state = json.loads(path.read_text())
+        state = json.loads(path.read_text(encoding='utf-8'))
         cfg = configs[account_id]
         if state['rule'] == cfg:
             continue
@@ -707,7 +743,7 @@ def bootstrap(plan):
     root.mkdir(parents=True, exist_ok=True)
     manifest_path = root / 'manifest.json'
     if manifest_path.exists():
-        manifest = json.loads(manifest_path.read_text())
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
         for account in plan['accounts']:
             if not (ROOT / account['state_path']).exists():
                 raise RuntimeError('Existing generation is missing an account; refusing to reset')
@@ -765,6 +801,25 @@ def btc_entry_view(report, point, timestamp, clock_source):
                 'signal_stale': signal_time < timestamp - 900_000, 'factors': sources}}
 
 
+def btc_llm_entry_blocker(point, state, equity):
+    """Expose the review that blocked this entry, without labelling reductions blocked."""
+    gate = state.get('llm_trade_gate') or {}
+    quantity = float(point.get('signed_qty') or 0)
+    requested = float(gate.get('requested_target_leverage') or 0)
+    if (gate.get('enabled') is not True or gate.get('status') not in
+            ('rejected', 'cached_rejected', 'error_blocked') or quantity * requested <= 0):
+        return None
+    side = 'long' if quantity > 0 else 'short'
+    if gate.get('decision_key') != f"{point.get('position_id')}:{side}":
+        return None  # A past signal's rejection does not describe this one.
+    current = float(state.get('position_qty') or 0) * float(state.get('last_mark_price') or 0) / equity if equity > 0 else 0
+    increases = (abs(current) <= 1e-12 or current * requested < 0
+                 or abs(requested) > abs(current) + 1e-9)
+    if not increases:
+        return None
+    return 'llm_trade_gate_unavailable' if gate['status'] == 'error_blocked' else 'llm_trade_gate_rejected'
+
+
 def btc_step(account, root, manifest, client):
     path = ROOT / account['state_path']
     execution = SimulationAccount(path)
@@ -772,10 +827,10 @@ def btc_step(account, root, manifest, client):
     clock_monotonic = time.monotonic()
     health = simulation_risk_monitor.monitor(client, clock['time_ms'], account=execution,
         status_path=path.with_name('risk_monitor.json'), clock_source=clock['source'])
-    profile = json.loads((ROOT / account['strategy_path']).read_text())
+    profile = json.loads((ROOT / account['strategy_path']).read_text(encoding='utf-8'))
     report_path = ROOT / account.get('strategy_report_path',
         'data/paper_trading/' + profile['candidate_id'] + '_report.json')
-    report = json.loads(report_path.read_text())
+    report = json.loads(report_path.read_text(encoding='utf-8'))
     if 'entry_qualification' in account:
         report['strategy_qualification'] = account['entry_qualification']
     point = report.get('execution_target') or (report.get('summary') or {}).get('last_equity_point') or {}
@@ -804,6 +859,10 @@ def btc_step(account, root, manifest, client):
     checked_ms = clock['time_ms'] + max(0, int((time.monotonic() - clock_monotonic) * 1000))
     entry_view = btc_entry_view(report, point, checked_ms, clock['source'])
     unavailable = entry_view.pop('entry_data_unavailable')
+    llm_blocker = btc_llm_entry_blocker(point, state, snapshot['account']['margin_balance'])
+    if llm_blocker:
+        entry_view['entry_blockers'].append(llm_blocker)
+        unavailable = unavailable or llm_blocker == 'llm_trade_gate_unavailable'
     signal_status = 'no_signal' if not point.get('signed_qty') else 'signal_observed'
     if 'strategy_not_qualified' in entry_view['entry_blockers']:
         signal_status = 'strategy_not_qualified'
@@ -818,6 +877,7 @@ def btc_step(account, root, manifest, client):
             'funding_pnl': state['funding_pnl'], 'max_drawdown_pct': state['max_drawdown_pct'],
             'last_mark_price': state.get('last_mark_price'), 'signal_time_ms': point.get('time_ms'),
             'signal_status': signal_status,
+            'llm_trade_gate': state.get('llm_trade_gate'),
             'entry_qualification': account.get('entry_qualification'),
             **entry_view,
             'errors': (health or {}).get('monitor', {}).get('errors', {})}
@@ -832,7 +892,7 @@ def main():
     args = parser.parse_args()
     if args.poll_seconds < 5:
         raise ValueError('Poll interval must be at least five seconds')
-    plan = json.loads(PLAN.read_text())
+    plan = json.loads(PLAN.read_text(encoding='utf-8'))
     if plan['execution_mode'] != 'simulation' or plan['live_orders_allowed'] is not False:
         raise ValueError('Only simulation plans are accepted')
     root = ROOT / 'data/parallel_simulation' / plan['plan_id']
@@ -861,6 +921,42 @@ def comparison_responses(worker, responses):
     return [row for row in responses if row[0] != 'signal'] + [signal_response]
 
 
+def heartbeat_views(accounts, completed_at, observed_at, poll_seconds):
+    """Mark stalled workers without presenting old quotes as a fresh poll."""
+    stale_after = max(90, 3 * poll_seconds)
+    result = {}
+    for account_id, account in accounts.items():
+        age = max(0.0, observed_at - completed_at[account_id])
+        view = {**account, 'heartbeat_age_seconds': round(age, 3),
+                'heartbeat_stale': age >= stale_after}
+        if view['heartbeat_stale']:
+            view['status'] = 'degraded'
+            view['errors'] = {**(account.get('errors') or {}),
+                'worker_heartbeat': f'No completed account poll for {int(age)} seconds'}
+        result[account_id] = view
+    return result
+
+
+def runner_journal(path, row):
+    """Best-effort diagnostics must not terminate an account worker."""
+    try:
+        journal(path, row)
+    except OSError:
+        pass
+
+
+def publish_status(path, payload):
+    """A transient status-file sharing error is retried by the next heartbeat."""
+    try:
+        write_json(path, payload)
+        return True
+    except OSError as exc:
+        runner_journal(path.with_name('runner_errors.jsonl'), {
+            'time_utc': arithmetic.iso(now_ms()), 'operation': 'publish_status',
+            'error': type(exc).__name__ + ': ' + str(exc)[:180]})
+        return False
+
+
 def _run_locked(plan, root, args):
     root, manifest = bootstrap(plan)
     comparison = prepare_profit_comparison(plan, root)
@@ -874,18 +970,23 @@ def _run_locked(plan, root, args):
     controls = {}
     control_shared = {}
     shared = {}
+    completed_at = {account['account_id']: time.monotonic() for account in plan['accounts']}
+    for account in plan['accounts']:
+        shared[account['account_id']] = {'symbol': account['symbol'], 'status': 'starting',
+            'checked_at_utc': None, 'errors': {}}
     mutex = threading.Lock()
     def publish():
         with mutex:
-            write_json(status_path, {'plan_id': plan['plan_id'], 'mode': 'SIMULATION', 'places_orders': False,
+            publish_status(status_path, {'plan_id': plan['plan_id'], 'mode': 'SIMULATION', 'places_orders': False,
                 'pid': os.getpid(), 'running': not STOP.is_set(), 'started_at_utc': manifest['start_utc'],
                 'updated_at_utc': arithmetic.iso(now_ms()), 'poll_seconds': args.poll_seconds,
-                'accounts': dict(shared), 'forward_validated': False,
+                'accounts': heartbeat_views(shared, completed_at, time.monotonic(), args.poll_seconds),
+                'forward_validated': False,
                 'profit_exit_comparison': ({'activated_at_utc': comparison[1]['activated_at_utc'],
                     'baseline': comparison[1]['baseline'], 'controls': dict(control_shared)} if comparison else None)})
     for account in plan['accounts']:
         if account['account_id'] != 'btc':
-            state = json.loads((ROOT / account['state_path']).read_text())
+            state = json.loads((ROOT / account['state_path']).read_text(encoding='utf-8'))
             workers[account['account_id']] = StockAccount(ROOT / account['state_path'], venue,
                 account['symbol'], state['rule'])
             if comparison:
@@ -923,7 +1024,7 @@ def _run_locked(plan, root, args):
                     'return_pct', 'position_qty', 'fill_count_total', 'fees_paid', 'funding_pnl', 'max_drawdown_pct',
                     'last_mark_price', 'signal_status', 'signal_timeframe', 'signal_family', 'entry_direction', 'next_signal_time_ms',
                     'last_signal_time_ms', 'signal_active_after_ms', 'entry_checks', 'entry_blockers', 'entry_qualification',
-                    'execution_entry_gate', 'entry_source_status', 'errors', 'observations',
+                    'execution_entry_gate', 'entry_source_status', 'llm_trade_gate', 'errors', 'observations',
                     'profit_exit_status', 'realized_pnl')}
                 # Heartbeats share the host clock used by the local UI. Market
                 # timestamps keep their exchange clock for freshness validation.
@@ -931,10 +1032,17 @@ def _run_locked(plan, root, args):
                 view['checked_at_utc'] = arithmetic.iso(now_ms())
                 with mutex:
                     shared[account_id] = view
+                    completed_at[account_id] = time.monotonic()
             except Exception as exc:
-                prior = dict(shared.get(account_id, {}))
-                ledger = json.loads((ROOT / account['state_path']).read_text())
-                if not prior:
+                with mutex:
+                    prior = dict(shared.get(account_id, {}))
+                errors = {'worker': type(exc).__name__ + ': ' + str(exc)[:180]}
+                try:
+                    ledger = json.loads((ROOT / account['state_path']).read_text(encoding='utf-8'))
+                except (OSError, ValueError, UnicodeError) as ledger_exc:
+                    ledger = {}
+                    errors['ledger'] = type(ledger_exc).__name__ + ': ' + str(ledger_exc)[:180]
+                if prior.get('status') == 'starting' and ledger:
                     prior = {k: ledger.get(k) for k in ('wallet_balance', 'fill_count_total', 'fees_paid',
                         'funding_pnl', 'max_drawdown_pct', 'position_qty', 'last_mark_price')}
                     prior['equity'] = ledger.get('equity')
@@ -943,19 +1051,48 @@ def _run_locked(plan, root, args):
                     prior['return_pct'] = (prior['equity'] / 1000 - 1) * 100 if prior['equity'] is not None else None
                 with mutex:
                     shared[account_id] = {**prior, 'symbol': account['symbol'], 'status': 'degraded',
-                        'checked_at_utc': arithmetic.iso(now_ms()), 'errors': {'worker': type(exc).__name__ + ': ' + str(exc)[:180]}}
-                journal(root / account_id / 'errors.jsonl', shared[account_id])
+                        'checked_at_utc': arithmetic.iso(now_ms()), 'errors': errors}
+                    completed_at[account_id] = time.monotonic()
+                    failed_view = dict(shared[account_id])
+                runner_journal(root / account_id / 'errors.jsonl', failed_view)
             publish()
             if args.once:
                 break
             STOP.wait(args.poll_seconds)
     publish()
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = [pool.submit(run, account) for account in plan['accounts']]
-        for future in futures:
-            future.result()
-    STOP.set()
-    publish()
+    try:
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures = {pool.submit(run, account): account['account_id'] for account in plan['accounts']}
+            def check_future(future):
+                try:
+                    future.result()
+                except BaseException as exc:
+                    account_id = futures[future]
+                    with mutex:
+                        shared[account_id] = {**shared[account_id], 'status': 'degraded',
+                            'checked_at_utc': arithmetic.iso(now_ms()),
+                            'errors': {'worker': type(exc).__name__ + ': ' + str(exc)[:180]}}
+                        completed_at[account_id] = time.monotonic()
+                    raise
+            try:
+                if args.once:
+                    for future in as_completed(futures):
+                        check_future(future)
+                else:
+                    while not STOP.wait(min(5, args.poll_seconds)):
+                        publish()
+                        for future in futures:
+                            if future.done():
+                                check_future(future)
+            except BaseException as exc:
+                STOP.set()
+                runner_journal(root / 'runner_errors.jsonl', {
+                    'time_utc': arithmetic.iso(now_ms()), 'operation': 'worker_coordinator',
+                    'error': type(exc).__name__ + ': ' + str(exc)[:180]})
+                raise
+    finally:
+        STOP.set()
+        publish()
 
 
 if __name__ == '__main__':

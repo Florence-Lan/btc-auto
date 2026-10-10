@@ -168,7 +168,7 @@ class LLMTradeGateTests(unittest.TestCase):
         self.assertEqual(first_target["target_leverage"], 0.0)
         self.assertEqual(second_target["target_leverage"], 0.0)
         self.assertEqual(second["status"], "cached_rejected")
-        self.assertEqual(second["cache_version"], 1)
+        self.assertEqual(second["cache_version"], llm_trade_gate.DECISION_CACHE_VERSION)
         self.assertEqual(second["reviewed_at_utc"], first["reviewed_at_utc"])
         self.assertEqual(second["decided_at_utc"], first["decided_at_utc"])
         self.assertEqual(second["checked_at_utc"], self.clock.isoformat())
@@ -184,7 +184,7 @@ class LLMTradeGateTests(unittest.TestCase):
                     return self.response(allow)
 
                 _, decision = self.apply(1.0, provider=provider)
-                self.assertEqual(decision["cache_version"], 1)
+                self.assertEqual(decision["cache_version"], llm_trade_gate.DECISION_CACHE_VERSION)
                 self.assertEqual(decision["reviewed_at_utc"], self.clock.isoformat())
                 self.assertEqual(decision["decided_at_utc"], self.clock.isoformat())
                 self.assertNotEqual(decision["reviewed_at_utc"], started)
@@ -197,7 +197,7 @@ class LLMTradeGateTests(unittest.TestCase):
         gated, decision = self.apply(1.0, provider=provider)
         self.assertEqual(gated["target_leverage"], 0.0)
         self.assertEqual(decision["status"], "error_blocked")
-        self.assertEqual(decision["cache_version"], 1)
+        self.assertEqual(decision["cache_version"], llm_trade_gate.DECISION_CACHE_VERSION)
         self.assertEqual(decision["reviewed_at_utc"], self.clock.isoformat())
         self.assertEqual(decision["decided_at_utc"], self.clock.isoformat())
 
@@ -305,7 +305,7 @@ class LLMTradeGateTests(unittest.TestCase):
                 provider.assert_called_once()
                 self.assertEqual(gated["target_leverage"], 1.0)
                 self.assertEqual(decision["status"], "approved")
-                self.assertEqual(decision["cache_version"], 1)
+                self.assertEqual(decision["cache_version"], llm_trade_gate.DECISION_CACHE_VERSION)
                 self.assertEqual(decision["reviewed_at_utc"], self.clock.isoformat())
 
     def test_aware_review_time_is_compared_as_an_instant(self) -> None:

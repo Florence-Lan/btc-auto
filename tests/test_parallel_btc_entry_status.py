@@ -11,6 +11,36 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import run_parallel_simulation as runner
 
 
+@pytest.mark.parametrize('gate_status,expected', [('rejected', 'llm_trade_gate_rejected'),
+    ('cached_rejected', 'llm_trade_gate_rejected'), ('error_blocked', 'llm_trade_gate_unavailable')])
+def test_model_rejection_is_visible_for_current_entry(btc_status_fixture, gate_status, expected):
+    step, _, state, report, path, _, _, reconcile = btc_status_fixture
+    report['execution_target'].update(signed_qty=-1, position_id='current')
+    path.write_text(json.dumps(report), encoding='utf-8')
+    state['llm_trade_gate'] = {'enabled': True, 'status': gate_status,
+        'requested_target_leverage': -.2, 'decision_key': 'current:short',
+        'allow': False, 'reason': 'Current market conflict'}
+    result = step()
+    assert result['entry_blockers'] == [expected]
+    assert result['signal_status'] == ('entry_data_unavailable' if gate_status == 'error_blocked' else 'entry_blocked')
+    assert result['llm_trade_gate'] == state['llm_trade_gate']
+    reconcile.assert_not_called()
+
+
+@pytest.mark.parametrize('point,held,requested', [
+    ({'signed_qty': 0, 'position_id': 'current'}, -.2, -.2),
+    ({'signed_qty': -1, 'position_id': 'next'}, 0, -.2),
+    ({'signed_qty': -1, 'position_id': 'current'}, -3, -.2),
+    ({'signed_qty': -1, 'position_id': 'current'}, -2, -.2),
+    ({'signed_qty': 1, 'position_id': 'current'}, 0, -.2),
+])
+def test_old_model_rejection_does_not_label_exits_holds_or_different_signals_blocked(point, held, requested):
+    state = {'position_qty': held, 'last_mark_price': 100,
+        'llm_trade_gate': {'enabled': True, 'status': 'rejected',
+            'requested_target_leverage': requested, 'decision_key': 'current:short'}}
+    assert runner.btc_llm_entry_blocker(point, state, 1000) is None
+
+
 @pytest.fixture
 def btc_status_fixture(tmp_path, monkeypatch):
     timestamp = 1_800_000

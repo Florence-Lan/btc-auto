@@ -1,4 +1,5 @@
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -46,3 +47,14 @@ def test_retry_after_respected_and_expired_cooldown_resumes(cooldown, monkeypatc
 def test_shorter_retry_cannot_reduce_existing_pause(cooldown):
     until = cooldown.record_cooldown("banned until 1790889479798")
     assert cooldown.record_cooldown("Too many requests", "60") == until
+
+
+def test_concurrent_clients_preserve_longest_pause_without_temporary_file_collisions(cooldown):
+    clients = [binance.BinanceTerminalClient() for _ in range(12)]
+    delays = [60, 120, 240] * 4
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        results = list(pool.map(lambda pair: pair[0].record_cooldown("Too many requests", str(pair[1])),
+                                zip(clients, delays)))
+    assert max(results) == 1_790_868_845_000
+    assert cooldown.cooldown_until_ms() == 1_790_868_845_000
+    assert not list(binance.COOLDOWN_PATH.parent.glob("cooldown.json.*.tmp"))

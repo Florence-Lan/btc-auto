@@ -19,6 +19,8 @@ from urllib.parse import urlencode, urlsplit
 import requests
 from dotenv import load_dotenv
 
+from public_request_deadline import PublicRequestDeadline
+
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -28,6 +30,7 @@ COOLDOWN_PATH = ROOT / "data/runtime/binance_api_cooldown.json"
 RULES_CACHE_PATH = ROOT / "data/runtime/binance_symbol_rules.json"
 RULES_CACHE_TTL_SECONDS = 6 * 3600
 PUBLIC_TRANSPORT_PREFERENCE_SECONDS = 300
+_COOLDOWN_WRITE_LOCK = threading.Lock()
 PUBLIC_PATHS = {
     "/fapi/v1/ping", "/fapi/v1/time", "/fapi/v1/exchangeInfo",
     "/fapi/v1/premiumIndex", "/fapi/v1/klines", "/fapi/v1/fundingRate",
@@ -81,6 +84,7 @@ class BinanceTerminalClient:
         self.rules_cached_at_ms: dict[str, int] = {}
         self.last_public_transport: dict[str, Any] = {}
         self._curl_preferred_until = 0.0
+        self._public_request_deadline = PublicRequestDeadline()
 
     @property
     def configured(self) -> bool:
@@ -112,14 +116,25 @@ class BinanceTerminalClient:
                 until = max(until, now_ms + int(float(retry_after) * 1000) + 5000)
             except ValueError:
                 pass
-        until = max(until, self.cooldown_until_ms(), now_ms + 5000)
-        payload = {"base_url": self.base_url, "retry_at_ms": until,
-                   "reason": "Binance HTTP rate limit; requests suspended"}
-        COOLDOWN_PATH.parent.mkdir(parents=True, exist_ok=True)
-        temporary = COOLDOWN_PATH.with_name(f"{COOLDOWN_PATH.name}.{os.getpid()}.tmp")
-        temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-        temporary.replace(COOLDOWN_PATH)
-        return until
+        # Public deadline workers may decode a late ban concurrently with other
+        # clients. Serialize the read/merge/write and use a unique temp file.
+        with _COOLDOWN_WRITE_LOCK:
+            until = max(until, self.cooldown_until_ms(), now_ms + 5000)
+            payload = {"base_url": self.base_url, "retry_at_ms": until,
+                       "reason": "Binance HTTP rate limit; requests suspended"}
+            COOLDOWN_PATH.parent.mkdir(parents=True, exist_ok=True)
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=COOLDOWN_PATH.parent,
+                                                 prefix=COOLDOWN_PATH.name + ".", suffix=".tmp", delete=False) as handle:
+                    temporary = Path(handle.name)
+                    json.dump(payload, handle, indent=2)
+                    handle.write("\n")
+                temporary.replace(COOLDOWN_PATH)
+            finally:
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
+            return until
 
     def _decode_response(self, response: requests.Response) -> Any:
         try:
@@ -221,9 +236,24 @@ class BinanceTerminalClient:
                 "primary_error_type": type(first_error).__name__ if first_error else None,
             }
             try:
-                response = (self._curl_public_get(path, params) if transport == "curl" else
-                            self.session.get(f"{self.base_url}{path}", params=params, timeout=15))
-                payload = self._decode_response(response)
+                if transport == "curl":
+                    response = self._curl_public_get(path, params)
+                    try:
+                        payload = self._decode_response(response)
+                    finally:
+                        response.close()
+                else:
+                    def fetch():
+                        response = self.session.get(f"{self.base_url}{path}", params=params, timeout=15)
+                        try:
+                            # Decode in the worker so even a late 418/429 records
+                            # the shared ban, while its stale data is discarded.
+                            return self._decode_response(response)
+                        finally:
+                            response.close()
+                    request_key = (path, str((params or {}).get("symbol", "")),
+                                   str((params or {}).get("interval", "")))
+                    payload = self._public_request_deadline.run(request_key, fetch)
                 if payload is None:
                     raise ValueError("Invalid public Binance JSON response")
             except (requests.ConnectionError, requests.Timeout) as exc:

@@ -140,7 +140,7 @@ class MemoryPath:
     def __init__(self, name, contents):
         self.name, self.contents = name, contents
 
-    def read_text(self):
+    def read_text(self, encoding=None):
         return self.contents[self.name]
 
     def with_name(self, name):

@@ -16,7 +16,7 @@ import requests
 
 
 DecisionProvider = Callable[[dict[str, Any]], dict[str, Any]]
-DECISION_CACHE_VERSION = 1
+DECISION_CACHE_VERSION = 2
 
 
 DECISION_SCHEMA = {
@@ -41,6 +41,10 @@ Use only the point-in-time data supplied in the request. Never assume unpublishe
 prices. Decide whether the proposed strategy entry or exposure increase has enough evidence to be
 allowed. Prefer rejection when signals conflict, inputs are sparse, risk is elevated, or the edge is
 unclear. You may only approve or reject; you may not change direction, leverage, stops, or exits.
+Respect the supplied admission_policy. For explicitly authorized forward simulation with
+historical_performance_required=false, missing profitability proof or a small trade sample is not
+by itself an entry veto. Still reject conflicting current signals, missing market inputs, or elevated
+current risk. strategy_run describes the signal engine, not actual execution-account trades.
 Return a short reason and concrete risk flags."""
 
 
@@ -95,13 +99,26 @@ def build_decision_context(
 ) -> dict[str, Any]:
     summary = report.get("summary") or {}
     point = report.get("execution_target") or summary.get("last_equity_point") or {}
+    source_trades = {
+        (trade.get("strategy"), trade.get("side"), trade.get("entry_time_utc")): trade
+        for trade in report.get("trades") or []
+    }
+    qualification = report.get("strategy_qualification") or {}
+    paper_sampling = (
+        mode == "simulation"
+        and qualification.get("approved_for_forward_simulation") is True
+        and qualification.get("historical_performance_required") is False
+    )
     components = []
     for component in list(point.get("components") or [])[:6]:
+        source = source_trades.get((component.get("strategy"), component.get("side"),
+                                   component.get("entry_time_utc")), {})
         components.append({
             "strategy": str(component.get("strategy") or "unknown")[:80],
             "side": str(component.get("side") or "unknown")[:16],
             "entry_price": _finite(component.get("entry_price")),
-            "signal_reason": str(component.get("signal_reason") or "")[:240],
+            "signal_reason": str(component.get("signal_reason") or source.get("signal_reason") or "")[:240],
+            "entry_time_utc": component.get("entry_time_utc"),
         })
     return {
         "symbol": "BTCUSDT",
@@ -113,8 +130,14 @@ def build_decision_context(
         "proposed_target_leverage": round(float(target.get("target_leverage") or 0), 8),
         "proposed_side": "long" if float(target.get("target_leverage") or 0) > 0 else "short",
         "components": components,
+        "admission_policy": {
+            "approved_for_forward_simulation": qualification.get("approved_for_forward_simulation") is True,
+            "historical_performance_required": not paper_sampling,
+            "forward_validated": qualification.get("forward_validated") is True,
+        },
         "recent_market": _recent_price_features(report),
         "strategy_run": {
+            "performance_scope": "signal_engine_summary_not_execution_account",
             "current_drawdown_pct": _finite((summary.get("last_equity_point") or {}).get("drawdown_pct")),
             "max_drawdown_pct": _finite(summary.get("max_drawdown_pct")),
             "trades": int(summary.get("trades") or 0),

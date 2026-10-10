@@ -69,12 +69,13 @@ def target_stream(base, sleeves, result, cfg):
         components = []
         for item in active.values():
             trade, fraction = item["trade"], item["remaining"]
+            raw = source[trade_key(trade)]
             qty = float(trade["initial_qty"])
             signed = qty * fraction * sim.direction(trade["side"])
             components.append({"strategy": trade["strategy"], "side": trade["side"],
                                "entry_time_utc": trade["entry_time_utc"], "entry_price": trade["entry_price"],
+                               "signal_reason": str(raw.get("signal_reason") or ""),
                                "signed_qty": signed})
-            raw = source[trade_key(trade)]
             if raw["exit_reason"] == "end" and raw["_ledger_exit_ms"] <= close_ms:
                 # Undo synthetic closing cash and retain known mark-to-market inventory.
                 equity += (item["cash_per_unit"] * qty

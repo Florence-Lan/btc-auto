@@ -77,7 +77,9 @@
   },
   "runner_script": "scripts/run_parallel_simulation.py",
   "plan_id": "btc_memory_stocks_latest_1000_each_20261007",
-  "status": "running_new_generation_latest_strategies",
+  "status": "stopped_strategy_review_20261010",
+  "review_revision": "execution_and_btc_paper_entry_review_20261010",
+  "review_report": "docs/paper_review_fix_20261010.md",
   "user_authorized_start_condition": "User explicitly requested a new four-account paper generation on 2026-10-07.",
   "start_policy": "Fresh 1000 USDT empty accounts, common exchange UTC inception; preserve every earlier generation.",
   "prospective_start_utc": "2026-10-07T13:50:09.264000+00:00",
@@ -99,6 +101,7 @@
       "entry_qualification": {
         "approved_for_forward_simulation": true,
         "authorization_basis": "explicit_user_instruction",
+        "historical_performance_required": false,
         "forward_validated": false
       }
     },

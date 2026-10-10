@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+import threading
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import Mock
@@ -10,6 +11,7 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import binance_terminal_client as binance
+from public_request_deadline import PublicRequestDeadline
 
 
 @pytest.fixture
@@ -67,6 +69,62 @@ def test_preferred_curl_connection_failure_can_recover_via_requests(client, monk
     assert client.server_time_ms() == 1_790_000_000_000
     assert client.last_public_transport["transport"] == "requests"
     assert client._curl_preferred_until == 0
+
+
+def test_hung_requests_transport_falls_back_and_never_returns_its_late_data(client, monkeypatch):
+    client._public_request_deadline = PublicRequestDeadline(timeout_seconds=0.02)
+    release = threading.Event()
+    def hanging_response(*args, **kwargs):
+        release.wait(2)
+        return response({"serverTime": 1})
+    client.session.get.side_effect = hanging_response
+    fallback = Mock(return_value=response({"serverTime": 1_790_000_000_000}))
+    monkeypatch.setattr(client, "_curl_public_get", fallback)
+    try:
+        assert client.server_time_ms() == 1_790_000_000_000
+        assert client.last_public_transport["primary_error_type"] == "Timeout"
+        # Retrying the primary cannot create another abandoned socket worker.
+        client._curl_preferred_until = 0
+        assert client.server_time_ms() == 1_790_000_000_000
+        assert client.session.get.call_count == 1
+    finally:
+        release.set()
+    _wait_for_public_workers(client)
+    client.session.get.side_effect = None
+    client.session.get.return_value = response({"serverTime": 1_790_000_001_000})
+    client._curl_preferred_until = 0
+    assert client.server_time_ms() == 1_790_000_001_000
+    assert client.last_public_transport["transport"] == "requests"
+
+
+def _wait_for_public_workers(client):
+    for _ in range(1000):
+        with client._public_request_deadline._lock:
+            if not client._public_request_deadline._pending:
+                return
+        # The fixture freezes binance.time.monotonic, so use a bounded event wait.
+        threading.Event().wait(0.001)
+    pytest.fail("Public transport worker did not finish")
+
+
+def test_late_rate_limit_from_abandoned_request_still_blocks_future_requests(client, monkeypatch):
+    client._public_request_deadline = PublicRequestDeadline(timeout_seconds=0.02)
+    release = threading.Event()
+    def delayed_ban(*args, **kwargs):
+        release.wait(2)
+        return response({"code": -1003, "msg": "Too many requests"}, 429, {"Retry-After": "120"})
+    client.session.get.side_effect = delayed_ban
+    fallback = Mock(return_value=response({"serverTime": 1_790_000_000_000}))
+    monkeypatch.setattr(client, "_curl_public_get", fallback)
+    try:
+        assert client.server_time_ms() == 1_790_000_000_000
+    finally:
+        release.set()
+    _wait_for_public_workers(client)
+    with pytest.raises(binance.BinanceApiError, match="paused until"):
+        client.server_time_ms()
+    fallback.assert_called_once()
+    assert client.session.get.call_count == 1
 
 
 @pytest.mark.parametrize("transport", ["requests", "curl"])

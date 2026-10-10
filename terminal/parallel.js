@@ -30,6 +30,8 @@ const btcBlockerName = reason => ({
   current_event_blocks_entries: '当前事件风险限制新增',
   execution_entry_context_missing: '入场检查资料缺失',
   execution_clock_unavailable: '交易所时间暂不可用',
+  llm_trade_gate_rejected: '模型审核未通过，暂停新增',
+  llm_trade_gate_unavailable: '模型审核暂不可用，暂停新增',
 }[reason] || signalNames[reason] || reason);
 
 function btcEntryDetails(account) {
@@ -38,7 +40,7 @@ function btcEntryDetails(account) {
   const groups = {btc_momentum: 'BTC动量', positioning: '持仓与资金流', fed: '美联储',
     treasury: '美债', fx: '汇率', global_risk: '全球风险'};
   const sides = gate.by_side || (gate.side ? {[gate.side]: gate} : {});
-  return Object.entries(sides).flatMap(([side, decision]) => {
+  const details = Object.entries(sides).flatMap(([side, decision]) => {
     const factor = decision?.factor;
     const missing = factor?.missing_groups || [];
     const oil = decision?.factor_source_status?.oil || account.entry_source_status?.factors?.oil;
@@ -68,7 +70,11 @@ function btcEntryDetails(account) {
       if (oil?.ok === false && oil.status !== 'stale') details.push('油价来源暂不可用');
     }
     return details;
-  }).join('；');
+  });
+  if ((account.entry_blockers || []).some(reason => reason.startsWith('llm_trade_gate_')) && account.llm_trade_gate?.reason) {
+    details.push(`模型审核理由：${account.llm_trade_gate.reason}`);
+  }
+  return details.join('；');
 }
 
 export function stockTradingMarkup(ledgers) {
