@@ -24,6 +24,7 @@ import world_event_risk
 import market_intelligence
 import simulate_range_swing as sim
 import timeseries_execution
+import strategy_review_context
 
 
 def parse_utc_ms(value: str) -> int:
@@ -447,6 +448,11 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             "hourly_startup": core.get("hourly_startup") if causal_hourly else None,
             "market_data": market_data.diagnostics if market_data is not None else None,
             "decision_asof_ms": now_ms,
+            "strategy_review_context": {
+                "timeseries_trend": strategy_review_context.timeseries_trend_snapshot(
+                    trend_candles, cfg, now_ms, result.get("execution_target"),
+                ),
+            },
             "world_event_overlay": world_diagnostics,
             "intelligence_overlay": intelligence_diagnostics,
         }

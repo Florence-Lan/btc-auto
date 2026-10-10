@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import json
+import copy
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -452,6 +453,205 @@ class LLMTradeGateTests(unittest.TestCase):
         self.assertIn('history.persistence="none"', captured["command"])
         self.assertIn("--output-schema", captured["command"])
         self.assertIn("Point-in-time trade context", captured["input"])
+
+    def review_report(self):
+        cutoff = int(self.clock.timestamp() * 1000)
+        origin = self.clock - timedelta(days=2)
+        opened = cutoff - llm_trade_gate.BASE_BAR_MS
+        component = {"strategy": "timeseries_trend_6h", "side": "short",
+                     "entry_time_utc": origin.isoformat(), "entry_price": 100,
+                     "signal_reason": "confirmed slow trend short"}
+        source = {
+            "decision_asof_ms": cutoff,
+            "generated_at_utc": (self.clock + timedelta(seconds=30)).isoformat(),
+            "execution_target": {"time_ms": opened, "available_time_ms": cutoff - 1,
+                                 "origin_signal_time_ms": int(origin.timestamp() * 1000),
+                                 "origin_entry_price": 100, "components": [component]},
+            "strategy_qualification": {"approved_for_forward_simulation": True,
+                                       "historical_performance_required": False},
+            "strategy_review_context": {"timeseries_trend": {
+                "schema_version": 1, "strategy": "timeseries_trend", "status": "available",
+                "timeframe": "1h", "decision_asof_ms": cutoff,
+                "fast_ema_period_bars": 48, "slow_ema_period_bars": 240,
+                "ema_spread_pct": -0.8, "entry_min_ema_spread_pct": 0.4,
+                "spread_unit": "percent", "last_confirmed_side": "short",
+                "current_target_side": "short", "target_side_valid_under_exit_rule": True,
+                "trend_side_under_exit_rule": "short",
+                "last_closed_bar": {"open_time_ms": cutoff - 3_600_000,
+                                    "close_time_ms": cutoff - 1, "available_at_ms": cutoff - 1,
+                                    "close_price": 104.8},
+            }},
+            "equity_curve": [{"time_ms": opened - (48 - i) * llm_trade_gate.BASE_BAR_MS,
+                              "available_time_ms": cutoff - (48 - i) * llm_trade_gate.BASE_BAR_MS - 1,
+                              "price": 100 + i * .1} for i in range(49)],
+            "event_overlay": {"rate_expectation": {
+                "available_at_utc": (self.clock - timedelta(seconds=5)).isoformat(),
+                "quote_at_utc": (self.clock - timedelta(hours=1)).isoformat(),
+                "meeting_at_utc": (self.clock + timedelta(days=20)).isoformat(),
+                "expected_change_bps": 4.5,
+            }},
+            "multifactor_overlay": {"current": {"short": {"side_alignment": -0.005}},
+                                    "data_metadata": {
+                                        "generated_at_utc": (self.clock - timedelta(minutes=1)).isoformat(),
+                                        "source_status": {"btc_close": {
+                                            "latest_observed_at_ms": cutoff - 3_600_000,
+                                            "last_success_ms": cutoff - 30_000}},
+                                    }},
+        }
+        proposed = {"signal_time_ms": opened, "signal_price": 104.8,
+                    "target_leverage": -.247, "position_id": "old-short",
+                    "origin_signal_time_ms": int(origin.timestamp() * 1000)}
+        return source, proposed
+
+    def test_rate_available_after_signal_open_is_valid_before_current_decision(self) -> None:
+        report, proposed = self.review_report()
+        before = copy.deepcopy(report)
+        context = llm_trade_gate.build_decision_context(report, proposed, current_leverage=0,
+                                                        mode="simulation")
+        cutoff = context["decision_clock"]["decision_asof_ms"]
+        rate = context["event_overlay"]["rate_expectation"]
+        available = llm_trade_gate._timestamp_ms(rate["available_at_utc"])
+        self.assertGreater(available, context["decision_clock"]["signal_candle_open_ms"])
+        self.assertLess(available, cutoff)
+        self.assertEqual(rate["expected_change_bps"], 4.5)
+        self.assertGreater(llm_trade_gate._timestamp_ms(rate["meeting_at_utc"]), cutoff)
+        self.assertEqual(context["input_integrity"]["excluded_inputs"], [])
+        self.assertEqual(context["components"][0]["strategy_context"]["timeframe"], "1h")
+        self.assertEqual(context["components"][0]["strategy_context"]["slow_ema_period_bars"], 240)
+        self.assertEqual(context["delayed_entry"]["origin_signal_age_seconds"], 2 * 86400)
+        self.assertAlmostEqual(context["delayed_entry"]["adverse_move_from_origin_pct"], 4.8)
+        self.assertEqual(report, before)
+
+    def test_post_cutoff_rate_and_price_cannot_leak_when_wall_clock_is_later(self) -> None:
+        report, proposed = self.review_report()
+        baseline = llm_trade_gate.build_decision_context(report, proposed, current_leverage=0,
+                                                        mode="simulation")
+        cutoff = report["decision_asof_ms"]
+        report["event_overlay"]["rate_expectation"]["available_at_utc"] = (
+            self.clock + timedelta(seconds=5)).isoformat()
+        report["event_overlay"]["rate_expectation"]["expected_change_bps"] = -999
+        report["equity_curve"].append({"time_ms": cutoff, "available_time_ms": cutoff + 300000,
+                                      "price": 1_000_000})
+        self.advance(3600)
+        context = llm_trade_gate.build_decision_context(report, proposed, current_leverage=0,
+                                                        mode="simulation")
+        self.assertNotIn("rate_expectation", context["event_overlay"])
+        self.assertEqual(context["decision_clock"]["decision_asof_ms"], cutoff)
+        self.assertEqual(context["recent_market"]["returns_pct"], baseline["recent_market"]["returns_pct"])
+        self.assertEqual(context["recent_market"]["excluded_price_observations"], 1)
+        self.assertTrue(any(item["path"] == "event_overlay.rate_expectation" and
+                            item["reason"] == "after_decision_cutoff"
+                            for item in context["input_integrity"]["excluded_inputs"]))
+
+    def test_price_windows_are_sorted_closed_and_do_not_turn_gaps_into_shorter_returns(self) -> None:
+        report, _ = self.review_report()
+        baseline = llm_trade_gate._recent_price_features(report)
+        report["equity_curve"].reverse()
+        self.assertEqual(llm_trade_gate._recent_price_features(report), baseline)
+        last_open = max(p["time_ms"] for p in report["equity_curve"])
+        report["equity_curve"] = [p for p in report["equity_curve"]
+                                  if p["time_ms"] != last_open - llm_trade_gate.BASE_BAR_MS]
+        report["equity_curve"].append({"time_ms": last_open + llm_trade_gate.BASE_BAR_MS,
+                                      "available_time_ms": report["decision_asof_ms"] + 1,
+                                      "price": 0.1})
+        features = llm_trade_gate._recent_price_features(report)
+        self.assertIsNone(features["returns_pct"]["5m"])
+        self.assertEqual(features["returns_pct"]["15m"], baseline["returns_pct"]["15m"])
+        self.assertEqual(features["excluded_price_observations"], 1)
+
+    def test_missing_cutoff_never_uses_current_wall_clock(self) -> None:
+        report, proposed = self.review_report()
+        report.pop("decision_asof_ms")
+        report.pop("generated_at_utc")
+        self.advance(86400)
+        context = llm_trade_gate.build_decision_context(report, proposed, current_leverage=0,
+                                                        mode="simulation")
+        self.assertTrue(context["decision_clock"]["cutoff_missing"])
+        self.assertIsNone(context["decision_clock"]["decision_asof_ms"])
+        self.assertEqual(context["recent_market"]["observations"], 0)
+        self.assertNotIn("rate_expectation", context["event_overlay"])
+        report["generated_at_utc"] = (self.clock - timedelta(days=1)).isoformat()
+        fallback = llm_trade_gate.build_decision_context(report, proposed, current_leverage=0,
+                                                         mode="simulation")
+        self.assertEqual(fallback["decision_clock"]["cutoff_source"], "report.generated_at_utc_fallback")
+        self.assertEqual(fallback["recent_market"]["observations"], 49)
+
+    def test_future_indicator_or_factor_snapshot_does_not_keep_derived_values(self) -> None:
+        report, proposed = self.review_report()
+        report["strategy_review_context"]["timeseries_trend"]["last_closed_bar"]["available_at_ms"] += 10
+        report["multifactor_overlay"]["data_metadata"]["generated_at_utc"] = (
+            self.clock + timedelta(seconds=1)).isoformat()
+        context = llm_trade_gate.build_decision_context(report, proposed, current_leverage=0,
+                                                        mode="simulation")
+        self.assertEqual(context["strategy_review_context"], {})
+        self.assertEqual(context["components"][0]["strategy_context"]["status"], "unavailable")
+        self.assertEqual(context["multifactor_overlay"], {})
+
+    def test_forward_policy_retains_opposing_returns_but_does_not_force_approval(self) -> None:
+        report, proposed = self.review_report()
+        captured = []
+
+        def reject_current_risk(context):
+            captured.append(context)
+            return {**self.response(False), "reason": "Current target invalidated by opposite confirmed trend."}
+
+        gated, decision = llm_trade_gate.apply_llm_trade_gate(
+            report, proposed, current_qty=0, equity=1000, mark_price=104.8, mode="simulation",
+            decision_provider=reject_current_risk)
+        context = captured[0]
+        self.assertGreater(context["recent_market"]["returns_pct"]["5m"], 0)
+        self.assertLess(context["multifactor_overlay"]["current"]["short"]["side_alignment"], 0)
+        self.assertFalse(context["admission_policy"]["weak_short_horizon_opposition_alone_is_veto"])
+        self.assertFalse(context["admission_policy"]["near_neutral_factor_score_alone_is_veto"])
+        self.assertFalse(context["delayed_entry"]["age_alone_is_veto"])
+        self.assertIn("not entry vetoes", llm_trade_gate.SYSTEM_INSTRUCTIONS)
+        self.assertIn("supplied value and units", llm_trade_gate.SYSTEM_INSTRUCTIONS)
+        self.assertEqual(decision["status"], "rejected")
+        self.assertEqual(gated["target_leverage"], 0)
+        self.assertEqual(decision["minimum_confidence"], .70)
+        live = llm_trade_gate.build_decision_context(report, proposed, current_leverage=0, mode="live")
+        self.assertTrue(live["admission_policy"]["historical_performance_required"])
+        self.assertEqual(live["admission_policy"]["review_standard"], "conservative_historical_and_current_evidence")
+
+    def test_prior_policy_caches_are_reevaluated_and_audit_actual_context(self) -> None:
+        report, proposed = self.review_report()
+        for allow in (False, True):
+            with self.subTest(allow=allow):
+                prior = {"cache_version": 2, "allow": allow, "decision_key": "old-short:short",
+                         "approved_target_leverage": -.247, "reviewed_at_utc": self.clock.isoformat()}
+                provider = mock.Mock(return_value=self.response(True))
+                gated, decision = llm_trade_gate.apply_llm_trade_gate(
+                    report, proposed, current_qty=0, equity=1000, mark_price=104.8, mode="simulation",
+                    previous_decision=prior, decision_provider=provider)
+                provider.assert_called_once()
+                self.assertEqual(gated["target_leverage"], -.247)
+                self.assertEqual(decision["cache_version"], llm_trade_gate.DECISION_CACHE_VERSION)
+                self.assertEqual(decision["review_prompt_sha256"], llm_trade_gate.REVIEW_PROMPT_SHA256)
+                self.assertEqual(decision["review_decision_clock"]["decision_asof_ms"], report["decision_asof_ms"])
+                self.assertEqual(len(decision["review_context_sha256"]), 64)
+
+    def test_prompt_or_admission_changes_cannot_reuse_an_approval(self) -> None:
+        report, proposed = self.review_report()
+        _, approved = llm_trade_gate.apply_llm_trade_gate(
+            report, proposed, current_qty=0, equity=1000, mark_price=104.8, mode="simulation",
+            decision_provider=lambda _: self.response(True))
+        cases = [
+            ({**approved, "review_prompt_sha256": "old-prompt"}, report, "simulation"),
+            ({**approved, "review_context_version": 0}, report, "simulation"),
+            ({**approved, "admission_policy_version": 0}, report, "simulation"),
+            (approved, report, "live"),
+            (approved, {**report, "strategy_qualification": {}}, "simulation"),
+        ]
+        for prior, source, mode in cases:
+            with self.subTest(mode=mode, historical=source.get("strategy_qualification")):
+                provider = mock.Mock(return_value=self.response(False))
+                gated, decision = llm_trade_gate.apply_llm_trade_gate(
+                    source, proposed, current_qty=0, equity=1000, mark_price=104.8, mode=mode,
+                    previous_decision=prior, decision_provider=provider)
+                provider.assert_called_once()
+                self.assertEqual(gated["target_leverage"], 0)
+                self.assertEqual(decision["status"], "rejected")
+                self.assertEqual(decision["review_execution_mode"], mode)
 
 
 if __name__ == "__main__":

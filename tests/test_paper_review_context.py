@@ -92,5 +92,5 @@ def test_reviews_from_before_context_fix_are_not_reused(monkeypatch):
         current_qty=0, equity=1000, mark_price=100, mode='simulation',
         previous_decision=previous, decision_provider=review)
     assert len(captured) == 1
-    assert decision['cache_version'] == 2
+    assert decision['cache_version'] == llm_trade_gate.DECISION_CACHE_VERSION
     assert decision['review_trigger'] == 'untrusted_approval_cache'

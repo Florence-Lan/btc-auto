@@ -538,6 +538,16 @@ A rejection, timeout, invalid response, or API error blocks only the new/increas
 rejected reversal may still flatten the existing position. This makes the feature fail closed
 without turning an unavailable model into an exit blocker.
 
+Entry reviews distinguish the originating strategy entry, the report candle, and the current
+decision cutoff. The report includes diagnostics from closed trend candles: the configured
+timeframe, EMA periods and values, entry threshold, and the strategy's current holding intent.
+Inputs observed after a candle opens but before the decision cutoff are valid current inputs.
+For explicitly authorized forward simulation, the reviewer must identify a material current
+conflict rather than veto solely on small countertrend returns, near-neutral factors, a small
+historical sample, or the age of the originating signal. Model rejections remain authoritative;
+the confidence requirement and deterministic execution controls still apply. Policy/context
+changes invalidate older review caches. See [the review-context change](docs/btc_entry_review_context_20261011.md).
+
 Use a Binance API key with Futures permission only, withdrawals disabled, and an IP restriction.
 Never commit `.env` or expose the API secret in logs.
 
