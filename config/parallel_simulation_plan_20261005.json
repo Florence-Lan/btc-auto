@@ -7,7 +7,7 @@
   "total_initial_balance_usdt": 4000,
   "capital_transfers_between_accounts": false,
   "historical_warmup_counts_as_forward_performance": false,
-  "stock_research_profile": "config/stock_hourly_aligned_breakout_paper_20261007.json",
+  "stock_research_profile": "config/stock_entry_timing_20261011.json",
   "market_data_policy": {
     "source": "real_public_venue_market_data",
     "required_inputs": [
@@ -77,14 +77,14 @@
   },
   "runner_script": "scripts/run_parallel_simulation.py",
   "plan_id": "btc_memory_stocks_latest_1000_each_20261007",
-  "status": "stopped_strategy_review_20261010",
-  "review_revision": "execution_and_btc_paper_entry_review_20261010",
-  "review_report": "docs/paper_review_fix_20261010.md",
+  "status": "running_entry_timing_20261011",
+  "review_revision": "medium_large_swing_entry_timing_20261011",
+  "review_report": "docs/entry_timing_20261011.md",
   "user_authorized_start_condition": "User explicitly requested a new four-account paper generation on 2026-10-07.",
   "start_policy": "Fresh 1000 USDT empty accounts, common exchange UTC inception; preserve every earlier generation.",
   "prospective_start_utc": "2026-10-07T13:50:09.264000+00:00",
   "status_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/status.json",
-  "stock_rule_revision_scope": "entry_and_exit",
+  "stock_rule_revision_scope": "entry_timing_only",
   "previous_plan_archive": "config/parallel_simulation_plan_20261005_archived_before_new_20261007.json",
   "btc_signal_producer_script": "scripts/run_parallel_btc_signals.py",
   "accounts": [
@@ -94,10 +94,10 @@
       "venue": "binance_usdm",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_path": "config/multifactor_regular_10x_20261004.json",
-      "strategy_selection_status": "user_authorized_paper_validation_not_profitability_qualified",
+      "strategy_path": "config/btc_entry_timing_20261011.json",
+      "strategy_selection_status": "user_authorized_medium_large_swing_entry_timing_paper_not_forward_proven",
       "state_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/btc/state.json",
-      "strategy_report_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/btc_signals/report.json",
+      "strategy_report_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/btc_signals_entry_timing_20261011/report.json",
       "entry_qualification": {
         "approved_for_forward_simulation": true,
         "authorization_basis": "explicit_user_instruction",
@@ -111,8 +111,8 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_path": "config/stock_hourly_aligned_breakout_paper_20261007.json",
-      "strategy_selection_status": "user_authorized_paper_validation_not_profitability_qualified",
+      "strategy_path": "config/stock_entry_timing_20261011.json",
+      "strategy_selection_status": "user_authorized_medium_large_swing_entry_timing_paper_not_forward_proven",
       "state_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/mu/state.json"
     },
     {
@@ -121,8 +121,8 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_path": "config/stock_hourly_aligned_breakout_paper_20261007.json",
-      "strategy_selection_status": "user_authorized_latest_paper_strategy_retrospective_production_passed_not_forward_proven",
+      "strategy_path": "config/stock_entry_timing_20261011.json",
+      "strategy_selection_status": "user_authorized_medium_large_swing_entry_timing_paper_not_forward_proven",
       "state_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/sndk/state.json"
     },
     {
@@ -131,19 +131,59 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_path": "config/stock_hourly_aligned_breakout_paper_20261007.json",
-      "strategy_selection_status": "user_authorized_paper_validation_not_profitability_qualified",
+      "strategy_path": "config/stock_entry_timing_20261011.json",
+      "strategy_selection_status": "user_authorized_medium_large_swing_entry_timing_paper_not_forward_proven",
       "state_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/skhynix/state.json"
     }
   ],
   "activation": {
-    "verified_at_utc": "2026-10-07T13:53:47.209000+00:00",
-    "runner_pid": 8836,
-    "btc_signal_producer_pid": 15992,
-    "poll_seconds": 30,
+    "activated_at_utc": "2026-10-11T04:18:26.451869+00:00",
     "places_orders": false,
+    "poll_seconds": 30,
+    "require_existing": true,
+    "original_accounts_preserved": true,
+    "forward_profitability_verified": false,
+    "verification_path": "data/research/medium_large_swing_20261011/activation_verification.json",
+    "runner_pid": 63952,
+    "btc_signal_producer_pid": 45556,
+    "verified_at_utc": "2026-10-11T04:21:12.570493+00:00",
+    "all_four_worker_heartbeats_verified": true
+  },
+  "stock_rule_revision_reason": "User authorized entry-timing guards: cancel failed hourly breakout before fills; preserve signals, exits, stops, risk budgets and ledger.",
+  "swing_policy": {
+    "requested_at_utc": "2026-10-11T04:11:15.795291+00:00",
+    "source_user_instruction": "??????????????????????????????????",
+    "btc_signal": "1h_ema48_240_only",
+    "stock_signal": "1h_donchian20_with_closed4h_ema8_24_60_alignment",
+    "entry_direction": "both",
+    "forward_validated": false,
+    "activated_at_utc": "2026-10-11T04:18:26.451869+00:00"
+  },
+  "activation_history": [
+    {
+      "verified_at_utc": "2026-10-07T13:53:47.209000+00:00",
+      "runner_pid": 8836,
+      "btc_signal_producer_pid": 15992,
+      "poll_seconds": 30,
+      "places_orders": false,
+      "all_four_worker_heartbeats_verified": true,
+      "verification_path": "docs/new_four_accounts_activation_20261007.json",
+      "forward_profitability_verified": false
+    }
+  ],
+  "previous_entry_timing_plan_archive": "data/research/entry_timing_20261011/runtime_before/previous_plan.json",
+  "entry_timing_activation": {
+    "activated_at_utc": "2026-10-11T11:37:09.201609+00:00",
+    "places_orders": false,
+    "forward_validated": false,
+    "btc_origin_initial_entry_window_seconds": 3600,
+    "stock_original_breakout_rechecked_before_fill": true,
+    "five_minute_pullback_entries_enabled": false,
+    "verification_path": "data/research/entry_timing_20261011/activation_verification.json",
+    "verified_at_utc": "2026-10-11T11:43:23.662043+00:00",
+    "runner_pid": 69180,
+    "producer_pid": 23568,
     "all_four_worker_heartbeats_verified": true,
-    "verification_path": "docs/new_four_accounts_activation_20261007.json",
-    "forward_profitability_verified": false
+    "account_ledgers_preserved": true
   }
 }

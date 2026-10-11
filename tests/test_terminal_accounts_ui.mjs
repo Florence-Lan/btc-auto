@@ -22,6 +22,25 @@ function status() {
 }
 const fetcher = value => async () => ({ok: true, json: async () => value});
 
+test('stock swing filtering explains the completed higher timeframe while the worker stays healthy', async () => {
+  const value = status();
+  Object.assign(value.accounts.mu, {signal_family: 'donchian20', signal_timeframe: '1h',
+    entry_direction: 'both', signal_status: 'swing_confirmation_blocked',
+    entry_blockers: ['swing_4h_spread_too_small'],
+    swing_confirmation: {enabled: true, allowed: false, direction: 1,
+      ema_spread_fraction: .003, confirmation_close_ms: Date.now() - 3_600_000}});
+  const page = root('stocks');
+  const view = createPaperAccounts(page, fetcher(value));
+  await view.ready;
+  const cards = page.fields.cards.innerHTML;
+  assert.match(cards, /20根收盘线突破 · 双向 · 1h/);
+  assert.match(cards, /等待4小时波段方向确认/);
+  assert.match(cards, /4小时趋势幅度不足/);
+  assert.match(cards, /4小时确认：多头 · 均线间距 0\.30% · 收盘/);
+  assert.doesNotMatch(cards, /swing_confirmation_blocked|swing_4h_spread_too_small|等待达到1R|数据降级/);
+  view.destroy();
+});
+
 test('BTC shows a model entry rejection and clears it when the current target no longer needs it', async () => {
   const value = status();
   Object.assign(value.accounts.btc, {signal_status: 'entry_blocked',

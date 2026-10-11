@@ -167,8 +167,7 @@ def run_selected_strategy(args):
     if (profile["risk_limits"]["soft_drawdown_start_pct"] != policy.soft_start_pct
             or profile["risk_limits"]["hard_drawdown_stop_pct"] != policy.hard_stop_pct):
         raise ValueError("Selected strategy risk limits must match terminal execution")
-    if tuple(profile["strategy_modes"]) != ("trend", "timeseries_trend"):
-        raise ValueError("Unsupported selected strategy modules")
+    modes = active_strategy.profile_strategy_modes(profile)
     # Freeze mutable source files before replay; dynamic entry checks read these
     # same captured inputs, never a background refresh halfway through a run.
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -190,7 +189,7 @@ def run_selected_strategy(args):
     profile = captured_profile
     manifest, cfg = frozen_strategy.load_frozen_strategy(captured["manifest"])
     cfg = active_strategy.apply_risk_limits(cfg, profile)
-    cfg = replace(cfg,max_drawdown_stop_pct=0)
+    cfg = replace(cfg,max_drawdown_stop_pct=0,strategy_modes=modes)
     data,funding,_ = sim.load_market_snapshot(captured["market"])
     start,end = sim._utc_ms(args.start_utc),sim._utc_ms(args.end_utc)
     data = {name:[c for c in bars if start-45*sim.MS_PER_DAY <= c.open_time_ms and c.close_time_ms < end]
@@ -205,10 +204,13 @@ def run_selected_strategy(args):
         raise ValueError("Market snapshot does not cover the requested ending boundary")
     asof = data['5m'][-1].close_time_ms
     opening = timeseries_execution.opening_from_base(data['5m'], data[cfg.timeseries_timeframe][-1].close_time_ms+1, asof)
-    sleeves = [sim.simulate(data['5m'],replace(cfg,strategy_modes=('trend',)),start,None,funding),
-               timeseries_execution.build_sleeve(data[cfg.timeseries_timeframe],replace(cfg,strategy_modes=('timeseries_trend',)),
-                   start,funding,opening=opening,asof_ms=asof,
-                   activation_ms=start if timeseries_execution.startup_enabled(profile) else None)]
+    sleeves = []
+    if 'trend' in modes:
+        sleeves.append(sim.simulate(data['5m'],replace(cfg,strategy_modes=('trend',)),start,None,funding))
+    core = timeseries_execution.build_sleeve(data[cfg.timeseries_timeframe],replace(cfg,strategy_modes=('timeseries_trend',)),
+        start,funding,opening=opening,asof_ms=asof,
+        activation_ms=start if timeseries_execution.startup_enabled(profile) else None)
+    sleeves.append(core)
     annotate_open_position_fractions(sleeves)
     execution_targets.prepare_sleeves(sleeves)
     factor = multifactor.load_snapshot(captured["factor"], "first_seen")
@@ -235,7 +237,7 @@ def run_selected_strategy(args):
                    "factor_diagnostics":factor_diagnostics, "event_diagnostics":event_diagnostics,
                    "public_coverage_blocked_entries":coverage_blocked,
                    "raw_price_signal_records":sum(len(s['trades']) for s in sleeves),
-                   "hourly_startup":sleeves[1].get('hourly_startup'),
+                   "hourly_startup":core.get('hourly_startup'),
                    "cost_multiplier":args.cost_multiplier,
                    "captured_inputs":{name:str(path) for name,path in captured.items()},
                    "input_sha256":{str(p):frozen_strategy.sha256_file(p) for p in captured.values()},

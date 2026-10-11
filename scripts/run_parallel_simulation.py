@@ -25,12 +25,15 @@ import backtest_stock_swing_120 as arithmetic
 from binance_terminal_client import BinanceTerminalClient
 import decision_runtime
 import execution_entry_gate
+import btc_entry_timing
+import stock_entry_timing
 import simulation_risk_monitor
 import stock_swing_profiles
 import stock_swing_signals as signals
 import stock_profit_exits as profit_exits
 import stock_trend_exits as trend_exits
 import stock_entry_quality as entry_quality
+import stock_swing_confirmation as swing_confirmation
 import stock_research_entry_policy as entry_policy
 from public_request_deadline import PublicRequestDeadline
 from trading_execution import SimulationAccount, execute_report, read_json, write_json
@@ -182,6 +185,8 @@ class StockAccount:
         entry_policy.validate({**config, 'symbols': [symbol]}, FIVE_MINUTES)
         profit_exits.validate(config)
         entry_quality.validate(config)
+        swing_confirmation.validate(config)
+        stock_entry_timing.validate(config)
         if config.get('trend_exit_policy') is not None:
             trend_exits.validate(config['trend_exit_policy'])
         self.signal_bars = []
@@ -331,6 +336,18 @@ class StockAccount:
             return 'trend_reversal_exit'
         return None
 
+    def record_entry_timing(self, state, pending, decision, phase):
+        if not decision['enabled']:
+            return decision
+        outcome = {**decision, 'checked_at_ms': self.now_ms(), 'phase': phase,
+                   'boundary_ms': pending['boundary_ms']}
+        state['stock_entry_timing'] = outcome
+        if decision['cancel_pending']:
+            state.update(pending_signal=None, last_signal_result='entry_timing_cancelled',
+                         signal_status='entry_signal_invalidated', entry_blockers=decision['reasons'])
+            journal(self.path.with_name('entry_timing_decisions.jsonl'), outcome)
+        return decision
+
     def step(self, market_data=None):
         state = json.loads(self.path.read_text(encoding='utf-8'))  # Corrupt ledgers never reset silently.
         cfg = self.config
@@ -365,7 +382,9 @@ class StockAccount:
         for key in ('signal', 'five'):
             if data.get(key):
                 closed = [row for row in data[key] if int(row[6]) < timestamp]
-                if any(int(b[0]) - int(a[0]) != (self.signal_interval_ms if key == 'signal' else FIVE_MINUTES)
+                if not closed:
+                    errors[key] = 'Completed candle response is empty'
+                elif any(int(b[0]) - int(a[0]) != (self.signal_interval_ms if key == 'signal' else FIVE_MINUTES)
                        for a, b in zip(closed, closed[1:])):
                     errors[key] = 'Nonconsecutive completed candles'
                 elif key == 'signal':
@@ -498,6 +517,13 @@ class StockAccount:
         state['signal_status'] = 'holding' if pos else 'waiting_for_new_closed_bar'
         state['entry_checks'] = None
         state['entry_blockers'] = []
+        if cfg.get('swing_confirmation_policy') is not None and (errors.get('signal') or not self.signal_bars):
+            state['swing_confirmation'] = {'enabled': True, 'allowed': False,
+                'reasons': ['swing_hourly_data_unavailable'], 'confirmation_timeframe': '4h',
+                'source_error': errors.get('signal') or 'No completed hourly candles'}
+            if not pos:
+                state['signal_status'] = 'swing_confirmation_blocked'
+                state['entry_blockers'] = ['swing_hourly_data_unavailable']
         pending = state.get('pending_signal')
         if pending and timestamp >= pending['expires_at_ms']:
             state['pending_signal'] = pending = None
@@ -509,26 +535,59 @@ class StockAccount:
                     and state['last_signal_time_ms'] != boundary):
                 bars = [arithmetic.candle(row) for row in self.signal_bars]
                 indicators = signals.compute_indicators(bars, cfg)
-                sig = stock_swing_profiles.signal_at(bars, indicators, len(bars) - 1, cfg)
+                if cfg.get('swing_confirmation_policy') is not None:
+                    sig, diagnostics = stock_swing_profiles.signal_with_diagnostics(
+                        bars, indicators, len(bars) - 1, cfg)
+                    confirmation = diagnostics['swing_confirmation']
+                else:
+                    sig = stock_swing_profiles.signal_at(bars, indicators, len(bars) - 1, cfg)
+                    confirmation = {'enabled': False, 'allowed': True, 'reasons': []}
+                state['swing_confirmation'] = confirmation if confirmation['enabled'] else None
                 rejected = entry_policy.rejection(cfg, self.symbol, timestamp, sig.direction) if sig else None
                 raw_signal = asdict(sig) if sig else None
                 if rejected:
                     sig = None
                 state['last_signal_time_ms'] = boundary
-                state['last_signal_result'] = rejected or ('signal' if sig else 'none')
+                swing_blocked = confirmation['enabled'] and not confirmation['allowed']
+                state['last_signal_result'] = rejected or (
+                    'swing_confirmation_filtered' if swing_blocked else 'signal' if sig else 'none')
                 state['pending_signal'] = pending = ({'signal': asdict(sig), 'boundary_ms': boundary,
                     'expires_at_ms': boundary + self.signal_interval_ms} if sig else None)
+                state['stock_entry_timing'] = None
+                trigger_error = None
+                if pending and stock_entry_timing.enabled(cfg):
+                    try:
+                        pending['entry_trigger'] = stock_entry_timing.build_trigger(
+                            bars, sig, cfg, boundary, observed_at_ms=timestamp)
+                    except ValueError as exc:
+                        trigger_error = str(exc)
+                        self.record_entry_timing(state, pending, {'enabled': True, 'allowed': False,
+                            'cancel_pending': True, 'reasons': [trigger_error]}, 'signal')
+                        pending = None
                 state['signal_status'] = 'direction_filtered' if rejected else 'no_signal' if sig is None else 'signal_observed'
+                if trigger_error:
+                    state['signal_status'] = 'entry_signal_invalidated'
+                if swing_blocked:
+                    state['signal_status'] = 'swing_confirmation_blocked'
+                    state['entry_blockers'] = confirmation['reasons']
                 journal(self.path.with_name('signals.jsonl'), {'time_utc': arithmetic.iso(timestamp),
                     'signal_timeframe': self.signal_timeframe, 'boundary_ms': boundary,
                     'pending_signal': pending, 'raw_signal': raw_signal, 'rejection': rejected,
-                    'rule_candidate_id': cfg.get('candidate_id')})
+                    'rule_candidate_id': cfg.get('candidate_id'),
+                    'stock_entry_timing': state.get('stock_entry_timing'),
+                    'swing_confirmation': state['swing_confirmation']})
             elif boundary < active_after:
                 state['signal_status'] = 'waiting_for_first_forward_candle'
             elif state['last_signal_time_ms'] == boundary and state.get('last_signal_result') == 'none':
                 state['signal_status'] = 'no_signal'
+            elif state['last_signal_time_ms'] == boundary and state.get('last_signal_result') == 'swing_confirmation_filtered':
+                state['signal_status'] = 'swing_confirmation_blocked'
+                state['entry_blockers'] = state.get('swing_confirmation', {}).get('reasons', [])
             elif state['last_signal_time_ms'] == boundary and state.get('last_signal_result') in ('research_direction', 'research_session_clock'):
                 state['signal_status'] = 'direction_filtered'
+            elif state['last_signal_time_ms'] == boundary and state.get('last_signal_result') == 'entry_timing_cancelled':
+                state['signal_status'] = 'entry_signal_invalidated'
+                state['entry_blockers'] = state.get('stock_entry_timing', {}).get('reasons', [])
         if not pos and pending and cfg.get('entry_enabled', True):
             state['signal_status'] = 'entry_data_unavailable'
             state['entry_blockers'] = list(errors) or ['entry_data_unavailable']
@@ -541,6 +600,9 @@ class StockAccount:
                     expected_bar = timestamp // FIVE_MINUTES * FIVE_MINUTES - FIVE_MINUTES
                     volume = float(self.five[-1][5]) if int(self.five[-1][0]) == expected_bar else 0
                     reference = ask if sig.direction == 1 else bid
+                    timing = self.record_entry_timing(state, pending, stock_entry_timing.evaluate(
+                        pending.get('entry_trigger'), sig, cfg,
+                        reference_price=reference, mark_price=price), 'quote')
                     checks = {
                         'prior_5m_volume': math.isfinite(volume) and volume > 0,
                         'funding': sig.direction * float(mark['lastFundingRate']) <= cfg['entry_max_adverse_funding_rate'],
@@ -551,6 +613,8 @@ class StockAccount:
                     spread_fraction = 2 * (ask - bid) / (ask + bid)
                     if cfg.get('max_entry_spread_fraction') is not None:
                         checks['bid_ask_spread'] = spread_fraction <= cfg['max_entry_spread_fraction']
+                    if timing['enabled']:
+                        checks['entry_timing'] = timing['allowed']
                     state['entry_checks'] = {'passed': checks, 'volume_bar_time_ms': int(self.five[-1][0]),
                         'expected_volume_bar_time_ms': expected_bar, 'prior_5m_volume': volume,
                         'checked_at_ms': timestamp, 'reference_price': reference,
@@ -558,7 +622,8 @@ class StockAccount:
                         'max_adverse_gap': cfg['entry_gap_atr'] * sig.atr,
                         'spread_fraction': spread_fraction,
                         'max_spread_fraction': cfg.get('max_entry_spread_fraction')}
-                    state['entry_blockers'] = [key for key, passed in checks.items() if not passed]
+                    state['entry_blockers'] = [key for key, passed in checks.items()
+                                               if not passed and key != 'entry_timing'] + timing['reasons']
                     if not state['entry_blockers']:
                         entry_estimate = reference * (1 + sig.direction * cfg['adverse_slippage_fraction_assumption'])
                         stop = signals.initial_stop(entry_estimate, sig.direction, sig.atr, cfg)
@@ -581,7 +646,10 @@ class StockAccount:
                                         'entry_fee': result['qty'] * result['price'] * cfg['taker_fee_rate_assumption'],
                                         'margin': result['qty'] * result['price'] / 10, 'funding': 0.0, 'atr': sig.atr}
                                     liq = arithmetic.liquidation_price(candidate, cfg['maintenance_margin_fraction_assumption'])
-                                    if (self.now_ms() < pending['expires_at_ms']
+                                    fill_timing = self.record_entry_timing(state, pending, stock_entry_timing.evaluate(
+                                        pending.get('entry_trigger'), sig, cfg, reference_price=reference,
+                                        mark_price=price, fill_price=result['price']), 'fill')
+                                    if (fill_timing['allowed'] and self.now_ms() < pending['expires_at_ms']
                                             and actual_risk <= equity * cfg['risk_fraction_per_trade'] + 1e-9
                                             and abs(stop / result['price'] - 1) <= cfg['max_stop_fraction'] + 1e-12
                                             and sig.direction * (stop - liq) / result['price'] >= cfg['minimum_liquidation_distance_buffer']):
@@ -594,7 +662,12 @@ class StockAccount:
                                         state['position_history'].append({'time_ms': record['time_ms'], 'signed_qty': sig.direction * result['qty']})
                                         state['signal_status'] = 'entered' if not result['partial'] else 'entered_partial_ioc_remainder_cancelled'
                                     else:
-                                        state['signal_status'] = 'risk_or_liquidation_buffer_blocked'
+                                        if not fill_timing['allowed']:
+                                            state['signal_status'] = ('entry_signal_invalidated' if fill_timing['cancel_pending']
+                                                                      else 'entry_timing_blocked')
+                                            state['entry_blockers'] = fill_timing['reasons']
+                                        else:
+                                            state['signal_status'] = 'risk_or_liquidation_buffer_blocked'
                                         if self.now_ms() >= pending['expires_at_ms']:
                                             state['pending_signal'] = None
                                             state['signal_status'] = 'signal_expired'
@@ -605,7 +678,9 @@ class StockAccount:
                         else:
                             state['signal_status'] = 'stop_distance_blocked'
                     else:
-                        state['signal_status'] = 'entry_data_gap_basis_funding_or_volume_blocked'
+                        state['signal_status'] = ('entry_signal_invalidated' if timing['cancel_pending'] else
+                            'entry_timing_blocked' if not timing['allowed'] else
+                            'entry_data_gap_basis_funding_or_volume_blocked')
         state['entry_qualification'] = cfg.get('entry_qualification')
         if not pos and not cfg.get('entry_enabled', True):
             state['signal_status'] = 'strategy_not_qualified'
@@ -629,6 +704,8 @@ class StockAccount:
         observation['pending_signal'] = state.get('pending_signal')
         observation['entry_checks'] = state['entry_checks']
         observation['entry_blockers'] = state['entry_blockers']
+        observation['swing_confirmation'] = state.get('swing_confirmation')
+        observation['stock_entry_timing'] = state.get('stock_entry_timing')
         state['profit_exit_status'] = ({**pos.get('profit_exit', {}), 'stop': pos['stop']}
             if pos and profit_exits.enabled(cfg) else None)
         if cfg.get('trend_exit_policy') is not None and not pos:
@@ -648,7 +725,8 @@ def stock_config(plan, symbol):
     base = json.loads((ROOT / profile['base_config']).read_text(encoding='utf-8'))
     common = {key: profile[key] for key in ('signal_timeframe', 'execution_timeframe', 'cooldown_signal_bars',
                                           'max_entry_spread_fraction', 'profit_exit_policy', 'trend_exit_policy',
-                                          'entry_quality_policy') if key in profile}
+                                          'entry_quality_policy', 'swing_confirmation_policy',
+                                          'entry_timing_policy') if key in profile}
     cfg = {**base, **common, **profile['symbol_profiles'][symbol],
         'candidate_id': profile['symbol_profiles'][symbol].get('candidate_id', profile['candidate_id']),
         'risk_fraction_per_trade': profile['risk_fraction_per_bucket_trade'],
@@ -656,6 +734,8 @@ def stock_config(plan, symbol):
     SIGNAL_INTERVALS[cfg['signal_timeframe']]  # Validate before changing any account.
     profit_exits.validate(cfg)
     entry_quality.validate(cfg)
+    swing_confirmation.validate(cfg)
+    stock_entry_timing.validate(cfg)
     if cfg.get('trend_exit_policy') is not None:
         trend_exits.validate(cfg['trend_exit_policy'])
     return cfg
@@ -677,6 +757,12 @@ def synchronize_stock_rules(plan, root, manifest):
         if state['rule'] == cfg:
             continue
         exit_only = plan.get('stock_rule_revision_scope') == 'profit_exits_only'
+        timing_only = plan.get('stock_rule_revision_scope') == 'entry_timing_only'
+        if timing_only:
+            ignored = {'entry_timing_policy', 'candidate_id'}
+            if ({k: v for k, v in state['rule'].items() if k not in ignored}
+                    != {k: v for k, v in cfg.items() if k not in ignored}):
+                raise ValueError('Entry-timing migration cannot alter signals, exits or risk settings')
         if exit_only:
             ignored = {'profit_exit_policy', 'trend_exit_policy', 'candidate_id'}
             if ({k: v for k, v in state['rule'].items() if k not in ignored}
@@ -692,7 +778,12 @@ def synchronize_stock_rules(plan, root, manifest):
         if cfg.get('trend_exit_policy') != revision['previous_rule'].get('trend_exit_policy'):
             state['trend_exit_active_after_ms'] = activated
             state.pop('trend_exit_status', None)
-        if not exit_only:
+        if timing_only:
+            # Consume no old candle again, and carry all existing inventory/ledger state.
+            state.update(signal_active_after_ms=activated, pending_signal=None,
+                last_signal_result='entry_timing_revision_wait',
+                signal_status='holding' if state.get('position') else 'waiting_for_new_closed_bar')
+        elif not exit_only:
             state.update(signal_active_after_ms=activated, last_signal_time_ms=None,
                 last_signal_result=None, pending_signal=None, signal_status='waiting_for_first_forward_candle')
         write_json(path, state)
@@ -831,6 +922,8 @@ def btc_step(account, root, manifest, client):
     report_path = ROOT / account.get('strategy_report_path',
         'data/paper_trading/' + profile['candidate_id'] + '_report.json')
     report = json.loads(report_path.read_text(encoding='utf-8'))
+    if 'entry_timing_policy' in profile:
+        report.setdefault('shadow_profile', {})['entry_timing_policy'] = profile['entry_timing_policy']
     if 'entry_qualification' in account:
         report['strategy_qualification'] = account['entry_qualification']
     point = report.get('execution_target') or (report.get('summary') or {}).get('last_equity_point') or {}
@@ -858,6 +951,10 @@ def btc_step(account, root, manifest, client):
     # Reevaluate current sources even when this target was already reconciled.
     checked_ms = clock['time_ms'] + max(0, int((time.monotonic() - clock_monotonic) * 1000))
     entry_view = btc_entry_view(report, point, checked_ms, clock['source'])
+    timing = btc_entry_timing.decision_at(report, point,
+        current_qty=float(state.get('position_qty') or 0), now_ms=checked_ms)
+    entry_view['btc_entry_timing'] = timing
+    entry_view['entry_blockers'].extend(timing['reasons'])
     unavailable = entry_view.pop('entry_data_unavailable')
     llm_blocker = btc_llm_entry_blocker(point, state, snapshot['account']['margin_balance'])
     if llm_blocker:
@@ -1024,7 +1121,9 @@ def _run_locked(plan, root, args):
                     'return_pct', 'position_qty', 'fill_count_total', 'fees_paid', 'funding_pnl', 'max_drawdown_pct',
                     'last_mark_price', 'signal_status', 'signal_timeframe', 'signal_family', 'entry_direction', 'next_signal_time_ms',
                     'last_signal_time_ms', 'signal_active_after_ms', 'entry_checks', 'entry_blockers', 'entry_qualification',
+                    'swing_confirmation',
                     'execution_entry_gate', 'entry_source_status', 'llm_trade_gate', 'errors', 'observations',
+                    'btc_entry_timing', 'stock_entry_timing',
                     'profit_exit_status', 'realized_pnl')}
                 # Heartbeats share the host clock used by the local UI. Market
                 # timestamps keep their exchange clock for freshness validation.

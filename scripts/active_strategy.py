@@ -9,6 +9,17 @@ from pathlib import Path
 import simulate_range_swing as sim
 
 
+def profile_strategy_modes(profile):
+    """Resolve supported BTC sleeves, retaining the original combination by default."""
+    if profile is not None and not isinstance(profile, Mapping):
+        raise ValueError("Strategy profile must be a mapping")
+    modes = (profile or {}).get("strategy_modes", ("trend", "timeseries_trend"))
+    if (not isinstance(modes, (list, tuple))
+            or tuple(modes) not in (("trend", "timeseries_trend"), ("timeseries_trend",))):
+        raise ValueError("Unsupported selected strategy modules")
+    return tuple(modes)
+
+
 def _leverage_value(value, *, label, allow_zero=False):
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{label} must be numeric")

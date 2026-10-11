@@ -154,7 +154,9 @@ def fast_stock_fixture(tmp_path, monkeypatch):
     monkeypatch.setattr(runner, 'now_ms', lambda: clock['now'])
     # Advance both clock domains together in deterministic execution fixtures.
     monkeypatch.setattr(runner.time, 'monotonic', lambda: clock['now'] / 1000)
-    plan = json.loads(runner.PLAN.read_text())
+    # This execution fixture exercises the declared historical 15m/1R rules,
+    # independently of whichever strategy is currently running in the terminal.
+    plan = {'stock_research_profile': 'config/stock_hourly_aligned_breakout_paper_20261007.json'}
     cfg = runner.stock_config(plan, 'MUUSDT')
     cfg = {**cfg, 'entry_enabled': True}  # Execution fixtures also exercise unqualified research signals.
     path = tmp_path / 'state.json'
@@ -313,8 +315,9 @@ def test_failed_liquidity_refresh_never_uses_cached_positive_volume(tmp_path, mo
 
 
 @pytest.mark.parametrize('symbol', ['MUUSDT', 'SNDKUSDT', 'SKHYNIXUSDT'])
-def test_active_stock_profiles_allow_both_directions(symbol):
-    cfg = runner.stock_config(json.loads(runner.PLAN.read_text()), symbol)
+def test_declared_stock_profiles_allow_both_directions(symbol):
+    cfg = runner.stock_config({'stock_research_profile':
+        'config/stock_hourly_aligned_breakout_paper_20261007.json'}, symbol)
     assert cfg['entry_direction'] == 'both'
     for direction in (-1, 1):
         assert runner.entry_policy.rejection(cfg, symbol, 1791189900000, direction) is None

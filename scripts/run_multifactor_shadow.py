@@ -40,6 +40,7 @@ def main():
     root = sim.repo_root()
     args = parse_args()
     profile = multifactor.load_profile(args.profile)
+    modes = active_strategy.profile_strategy_modes(profile)
     # This command observes the selected rules independently; it must never
     # overwrite the terminal's active forward state/report.
     candidate = profile["candidate_id"] + "_shadow"
@@ -81,7 +82,7 @@ def main():
             sys.executable, str(root / "scripts/paper_trade_frozen_portfolio.py"),
             "--manifest", str(root / profile["base_manifest"]),
             "--factor-profile", str(args.profile), "--factor-snapshot", str(args.snapshot),
-            "--strategy-modes-override", "trend,timeseries_trend", "--tiered-drawdown",
+            "--strategy-modes-override", ",".join(modes), "--tiered-drawdown",
             "--event-snapshot", str(event_path),
         ]
         if args.research_profile:

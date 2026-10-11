@@ -187,7 +187,7 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
     strategy_modes = (
         tuple(part.strip() for part in args.strategy_modes_override.split(",") if part.strip())
         if args.strategy_modes_override
-        else cfg.strategy_modes
+        else active_strategy.profile_strategy_modes(factor_profile) if factor_profile else cfg.strategy_modes
     )
     allowed_modes = {"trend", "range", "timeseries_trend"}
     if not strategy_modes or any(mode not in allowed_modes for mode in strategy_modes):
@@ -234,13 +234,18 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
     )
     if factor_profile:
         profile["factor_profile_sha256"] = multifactor.profile_hash(factor_profile)
+        if "entry_timing_policy" in factor_profile:
+            import btc_entry_timing
+            profile["entry_timing_policy"] = btc_entry_timing.validate_policy(
+                factor_profile["entry_timing_policy"])
         profile["factor_snapshot"] = str(factor_snapshot_path.resolve())
         profile["factor_engine_sha256"] = frozen_strategy.sha256_file(Path(multifactor.__file__))
         profile["portfolio_risk_sha256"] = frozen_strategy.sha256_file(Path(portfolio_risk.__file__))
         if public is not None:
             profile["public_context_sha256"] = frozen_strategy.sha256_file(Path(public_context.__file__))
             profile["event_risk_sha256"] = frozen_strategy.sha256_file(Path(event_risk.__file__))
-    causal_hourly = args.tiered_drawdown and research_profile is None
+    causal_hourly = (args.tiered_drawdown and research_profile is None
+                     and "timeseries_trend" in strategy_modes)
     startup_hourly = timeseries_execution.startup_enabled(factor_profile)
     if startup_hourly and not causal_hourly:
         raise ValueError("Hourly startup requires the corrected non-research hourly execution model")
@@ -296,21 +301,23 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
     cfg = replace(cfg, strategy_modes=strategy_modes)
     sleeve_cfg = replace(cfg, max_drawdown_stop_pct=0.0) if args.tiered_drawdown else cfg
     tactical_modes = tuple(mode for mode in strategy_modes if mode != "timeseries_trend")
-    if not tactical_modes:
-        raise ValueError("Frozen portfolio must include at least one tactical strategy")
     if research_profile:
+        if not tactical_modes:
+            raise ValueError("Research reentry profile requires a tactical strategy")
         sleeves = reentry_candidate.build_sleeves(
             {"5m": base_candles, "1h": trend_candles}, funding, sleeve_cfg,
             evaluation_start_ms, research_profile,
         )
     else:
-        tactical = sim.simulate(
-            base_candles,
-            replace(sleeve_cfg, strategy_modes=tactical_modes),
-            evaluation_start_ms,
-            None,
-            funding,
-        )
+        sleeves = []
+        if tactical_modes:
+            sleeves.append(sim.simulate(
+                base_candles,
+                replace(sleeve_cfg, strategy_modes=tactical_modes),
+                evaluation_start_ms,
+                None,
+                funding,
+            ))
         core_cfg = replace(sleeve_cfg, strategy_modes=("timeseries_trend",))
         if causal_hourly:
             opening_time = trend_candles[-1].close_time_ms + 1
@@ -327,7 +334,8 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
                 activation_ms=evaluation_start_ms if startup_hourly else None)
         else:
             core = sim.simulate_timeseries_trend(trend_candles, core_cfg, evaluation_start_ms, funding)
-        sleeves = [tactical, core]
+        if "timeseries_trend" in strategy_modes:
+            sleeves.append(core)
     annotate_open_position_fractions(sleeves)
     execution_targets.prepare_sleeves(sleeves)
     macro_diagnostics = None

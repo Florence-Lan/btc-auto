@@ -16,6 +16,7 @@ from account_risk import constrain_target, block_increases
 from active_strategy import simulation_leverage_cap
 import execution_entry_gate
 import timeseries_execution
+import btc_entry_timing
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -485,6 +486,10 @@ class SimulationAccount:
         state["entry_guard"] = entry_guard
         effective_target, risk = constrain_target(state, effective_target, equity, current_qty,
                                                   mark_price, now_ms, report)
+        timing = btc_entry_timing.decision_at(report, target, current_qty=current_qty, now_ms=now_ms)
+        if not timing["allowed"]:
+            effective_target["target_leverage"] = 0.0
+        state["btc_entry_timing"] = timing
         funding_covered = funding_covered_at(now_ms)
         if not funding_covered:
             effective_target = block_increases(effective_target, current_qty, equity, mark_price)
@@ -545,6 +550,19 @@ class SimulationAccount:
         if not entry_gate["allowed"]:
             effective_target["target_leverage"] = target_qty * mark_price / max(equity, 1e-12)
         active_rules = rules or DEFAULT_SIMULATION_RULES
+        # Source age can expire during an LLM review or current-source checks.
+        # Recheck the original direction: a cached approval or earlier clamp
+        # must never turn a refreshed 5m target into a new hourly opportunity.
+        if timing["enabled"]:
+            now_ms = max(now_ms, initial_clock_ms + max(0, int(round(
+                (time.monotonic() - initial_monotonic) * 1000))))
+            if mark_time_ms is not None:
+                validate_mark({"price": mark_price, "time_ms": mark_time_ms}, now_ms)
+        timing = btc_entry_timing.decision_at(report, target, current_qty=current_qty, now_ms=now_ms)
+        if not timing["allowed"]:
+            effective_target["target_leverage"] = 0.0
+            target_qty = 0.0
+        state["btc_entry_timing"] = timing
         fill = self._fill_to(state, target_qty, mark_price, now_ms, int(target["signal_time_ms"]), active_rules)
         state["last_signal_time_ms"] = int(target["signal_time_ms"])
         state["last_mark_price"] = mark_price
@@ -583,6 +601,7 @@ class SimulationAccount:
             "funding_fetch_through_ms": state.get("funding_last_fetch_ms"),
             "funding_pending_settlement_ms": pending_funding,
             "entry_guard": entry_guard,
+            "btc_entry_timing": timing,
             "llm_trade_gate": llm_trade_gate,
             "execution_entry_gate": entry_gate,
             "account": self.snapshot(mark_price)["account"],

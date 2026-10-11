@@ -11,6 +11,7 @@ from typing import Any, Mapping, Sequence
 
 import stock_swing_signals as baseline
 import stock_entry_quality as quality
+import stock_swing_confirmation as swing_confirmation
 import stock_mechanism_signals as mechanisms
 from stock_swing_signals import Candle, Signal
 
@@ -36,12 +37,23 @@ def signal_activity(candles: Sequence[Candle], index: int, config: Mapping[str, 
 
 
 def signal_at(candles, indicators, index, config=None):
+    return signal_with_diagnostics(candles, indicators, index, config)[0]
+
+
+def signal_with_diagnostics(candles, indicators, index, config=None):
+    """Shared paper/replay admission with explicit closed-4h rejection evidence."""
     config = config or {}
     quality.validate(config)
+    swing_confirmation.validate(config)
     signal = raw_signal_at(candles, indicators, index, config)
+    confirmation = swing_confirmation.evaluate(candles, index, config,
+                                              signal.direction if signal else None)
+    diagnostics = {'swing_confirmation': confirmation}
+    if not confirmation['allowed']:
+        return None, diagnostics
     if signal and not quality.evaluate(candles, indicators, index, config, signal.direction)['allowed']:
-        return None
-    return signal
+        return None, diagnostics
+    return signal, diagnostics
 
 
 def raw_signal_at(

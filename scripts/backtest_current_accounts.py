@@ -283,16 +283,20 @@ def btc_price_control(source, profile, start, end, out):
     if any(source['gaps'].values()):
         return {'status': 'unavailable_incomplete_price_history', 'gaps': source['gaps']}
     manifest, cfg = frozen_strategy.load_frozen_strategy(ROOT / profile['base_manifest'])
-    cfg = replace(active_strategy.apply_risk_limits(cfg, profile), max_drawdown_stop_pct=0)
+    modes = active_strategy.profile_strategy_modes(profile)
+    cfg = replace(active_strategy.apply_risk_limits(cfg, profile), max_drawdown_stop_pct=0,
+                  strategy_modes=modes)
     base = [sim.candle_from_kline(row) for row in source['trade']]
     hourly = [sim.candle_from_kline(row) for row in source['hourly']]
     rates = sim.FundingHistory(times=[int(e['fundingTime']) for e in source['funding']],
                               rates=[float(e['fundingRate']) for e in source['funding']])
     asof = base[-1].close_time_ms
     opening = timeseries_execution.opening_from_base(base, hourly[-1].close_time_ms + 1, asof)
-    sleeves = [sim.simulate(base, replace(cfg, strategy_modes=('trend',)), start, None, rates),
-               timeseries_execution.build_sleeve(hourly, replace(cfg, strategy_modes=('timeseries_trend',)),
-                   start, rates, opening=opening, asof_ms=asof, activation_ms=None)]
+    sleeves = []
+    if 'trend' in modes:
+        sleeves.append(sim.simulate(base, replace(cfg, strategy_modes=('trend',)), start, None, rates))
+    sleeves.append(timeseries_execution.build_sleeve(hourly, replace(cfg, strategy_modes=('timeseries_trend',)),
+        start, rates, opening=opening, asof_ms=asof, activation_ms=None))
     annotate_open_position_fractions(sleeves)
     btc_engine.execution_targets.prepare_sleeves(sleeves)
     results = {}

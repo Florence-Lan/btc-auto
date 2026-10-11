@@ -74,15 +74,17 @@ def start_worker(factor_path, event_path, supplemental_path):
 
 
 def paper_command(args):
+    import active_strategy
     import simulate_range_swing as sim
     import sys
     root = sim.repo_root()
     profile = multifactor.load_profile(args.factor_profile)
+    modes = active_strategy.profile_strategy_modes(profile)
     command = [sys.executable, str(root / "scripts/paper_trade_frozen_portfolio.py"),
             "--manifest", str(root / profile["base_manifest"]),
             "--factor-profile", str(args.factor_profile), "--factor-snapshot", str(args.factor_snapshot),
             "--event-snapshot", str(root / profile["event_snapshot"]),
-            "--strategy-modes-override", "trend,timeseries_trend", "--tiered-drawdown",
+            "--strategy-modes-override", ",".join(modes), "--tiered-drawdown",
             "--soft-drawdown-start-pct", "8", "--hard-drawdown-stop-pct", "15",
             "--drawdown-min-multiplier", "0.35", "--state-path", str(args.state_path),
             "--report-path", str(args.report_path), "--trades-path", str(args.trades_path),

@@ -11,7 +11,8 @@ import backtest_current_accounts as replay
 def test_stock_adapter_is_causal_and_uses_current_partial_exit(tmp_path, monkeypatch):
     start = 100 * replay.DAY
     step = replay.STEP
-    plan = json.loads((replay.ROOT / 'config/parallel_simulation_plan_20261005.json').read_text(encoding='utf-8'))
+    # The adapter regression verifies the historical 1R partial exit explicitly.
+    plan = {'stock_research_profile': 'config/stock_hourly_aligned_breakout_paper_20261007.json'}
     cfg = replay.paper.stock_config(plan, 'MUUSDT')
     cfg.update(signal_timeframe='5m', warmup_bars=60)
     def row(t, p):
