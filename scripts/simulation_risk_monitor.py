@@ -78,7 +78,7 @@ def monitor(client, now_ms, *, clock_available=True, clock_error=None,
 
     # Apply the hard stop BEFORE any funding request. Full closure needs no new
     # quantity sizing; an exchangeInfo outage cannot prevent this reduction.
-    def persisted_exit(previous):
+    def persisted_exit(previous, earliest_ms=assessment_ms):
         # observe() saves the account before archiving a fill. If the archive
         # fails, report the verifiable closure instead of claiming no execution.
         updated = execution.read_json(account.path) if account.persist else account.load()
@@ -87,17 +87,27 @@ def monitor(client, now_ms, *, clock_available=True, clock_error=None,
         fill = (updated.get("fills") or [None])[-1]
         if (previous.get("position_qty") and updated.get("position_qty") == 0
                 and updated.get("created_at_utc") == previous.get("created_at_utc")
-                and updated.get("risk_halt_at_utc") and isinstance(fill, dict)
+                and isinstance(fill, dict)
+                and (updated.get("risk_halt_at_utc") or fill.get("reason") == "net_margin_target")
                 and fill.get("sequence") == int(previous.get("fill_count_total") or 0) + 1
-                and fill.get("time_utc") == datetime.fromtimestamp(assessment_ms / 1000, timezone.utc).isoformat()
+                and fill.get("time_utc") == updated.get("updated_at_utc")
+                and round(datetime.fromisoformat(fill["time_utc"]).timestamp()*1000) >= earliest_ms
                 and fill.get("mode") == "simulation"):
             return {"account_risk": updated["account_risk"], "fill": fill,
-                    "funding_pnl": updated["funding_pnl"]}
+                    "funding_pnl": updated["funding_pnl"],
+                    "profit_exit_status": updated.get("profit_exit_status")}
         return None
 
     archive_failed = False
+    policy_enabled = getattr(account, "profit_exit_policy", None) is not None
+    next_boundary = execution._next_funding_boundary(observation) if policy_enabled else None
+    previous_boundary = execution._funding_timestamp(state.get("funding_next_settlement_ms")) if policy_enabled else None
+    pending_boundary = previous_boundary if previous_boundary is not None and assessment_ms >= previous_boundary else None
+    initial_funding = ({"next_funding_time_ms": next_boundary,
+                        "funding_pending_settlement_ms": pending_boundary,
+                        "mark_time_ms": source_ms} if policy_enabled else {})
     try:
-        result = account.observe(price, assessment_ms, (), False)
+        result = account.observe(price, assessment_ms, (), False, **initial_funding)
     except Exception as exc:
         result = persisted_exit(state)
         if result is None:
@@ -117,12 +127,21 @@ def monitor(client, now_ms, *, clock_available=True, clock_error=None,
         else:
             before_funding = account.load()
             try:
-                funded_result = account.observe(price, assessment_ms, events, True)
+                after_fetch_ms = (reference_ms + max(0, int(time.time() * 1000) - received_ms)
+                                  if policy_enabled else assessment_ms)
+                funded_kwargs = ({"funding_fetch_through_ms": assessment_ms,
+                                  "next_funding_time_ms": next_boundary,
+                                  "funding_pending_settlement_ms": pending_boundary,
+                                  "mark_time_ms": source_ms} if policy_enabled else {})
+                funded_result = account.observe(price, after_fetch_ms, events, True, **funded_kwargs)
                 funded_result["fill"] = first_fill or funded_result["fill"]
                 result = funded_result
+                if policy_enabled and account.load().get("funding_status") != "ok":
+                    available = False
+                    health["errors"]["funding"] = "Settlement pending publication; profit target deferred"
             except Exception as exc:
                 available = False
-                recovered = persisted_exit(before_funding)
+                recovered = persisted_exit(before_funding, after_fetch_ms)
                 if recovered is not None:
                     result = recovered
                     health["errors"]["fill_archive"] = f"Exit persisted; fill archive failed: {type(exc).__name__}: {exc}"[:240]
@@ -130,12 +149,18 @@ def monitor(client, now_ms, *, clock_available=True, clock_error=None,
                     health["errors"]["funding"] = f"Settlement deferred: {type(exc).__name__}: {exc}"[:240]
     if not available:
         health["errors"].setdefault("funding", "Funding unavailable; settlement deferred and new risk blocked")
+    profit_status = result.get("profit_exit_status") or {}
+    if profit_status.get("status") in {"ledger_unavailable", "invalid_policy"}:
+        health["errors"]["profit_target"] = "Complete cost ledger unavailable; profit target deferred"
+        available = False
+    profit_fill = bool(result["fill"] and result["fill"].get("reason") == "net_margin_target")
     health.update(
         status="healthy" if clock_available and available and health["clock_source"] == "exchange" else "degraded",
         assessment="evaluated", assessment_time_ms=assessment_ms,
         mark_price=price, mark_time_ms=source_ms,
         last_success_at_ms=int(time.time() * 1000), consecutive_failures=0,
-        account_risk=result["account_risk"], hard_stop_fill=bool(result["fill"]),
+        account_risk=result["account_risk"], hard_stop_fill=bool(result["fill"]) and not profit_fill,
+        profit_target_fill=profit_fill, profit_exit_status=result.get("profit_exit_status"),
     )
     result["monitor"] = save()
     return result

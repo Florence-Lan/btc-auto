@@ -17,6 +17,8 @@ from active_strategy import simulation_leverage_cap
 import execution_entry_gate
 import timeseries_execution
 import btc_entry_timing
+import btc_profit_target
+import btc_pullback_entry
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -201,9 +203,19 @@ def apply_startup_entry_guard(
     return guarded, {"status": "allowed", "position_id": position_id}
 
 
+def profit_reentry_blocked(state, target):
+    if state.get("position_qty") or not target.get("target_leverage", target.get("signed_qty")):
+        return False
+    origin, identifier = target.get("origin_signal_time_ms"), target.get("position_id")
+    return any((origin is not None and origin == item.get("origin_signal_time_ms"))
+               or (identifier and identifier == item.get("position_id"))
+               for item in state.get("profit_target_consumed_signals", []))
+
+
 class SimulationAccount:
     def __init__(self, path: Path = SIMULATION_STATE_PATH, *, persist: bool = True,
-                 cost_multiplier: float = 1.0, allow_llm: bool = True) -> None:
+                 cost_multiplier: float = 1.0, allow_llm: bool = True,
+                 profit_exit_policy=None) -> None:
         self.path = path
         self.persist = persist
         self._state: dict[str, Any] | None = None
@@ -211,6 +223,156 @@ class SimulationAccount:
             raise ValueError("Execution cost multiplier must be positive")
         self.cost_multiplier = cost_multiplier
         self.allow_llm = allow_llm
+        # Invalid optional exit settings must never prevent account hard stops.
+        self.profit_exit_policy = profit_exit_policy
+
+    def _profit_policy(self, report=None):
+        value = self.profit_exit_policy
+        if value is None:
+            value = ((report or {}).get("shadow_profile") or {}).get("profit_exit_policy")
+        return btc_profit_target.validate_policy(value)
+
+    @staticmethod
+    def profit_reentry_blocked(state, target):
+        return profit_reentry_blocked(state, target)
+
+    def _profit_decision(self, state, mark_price, now_ms, funding_covered, report=None, target=None):
+        try:
+            policy = self._profit_policy(report)
+        except ValueError as exc:
+            decision = {"enabled": True, "should_exit": False, "status": "invalid_policy",
+                        "reason": str(exc), "checked_at_ms": now_ms}
+            state["profit_exit_status"] = decision
+            return decision
+        if policy is None:
+            return {"enabled": False, "should_exit": False, "status": "disabled"}
+        fee = float(os.getenv("SIM_TAKER_FEE", "0.00045") or 0.00045) * self.cost_multiplier
+        slip = float(os.getenv("SIM_SLIPPAGE_BPS", "1.0") or 1.0) * self.cost_multiplier
+        decision = btc_profit_target.evaluate_profit_target(
+            state, mark_price, target_roi=policy["target_margin_return"],
+            margin_leverage=policy["margin_leverage"], fee_rate=fee, slippage_bps=slip,
+            journal_path=self.path.with_suffix(".fills.jsonl") if self.persist else None)
+        decision.update(enabled=True, target_margin_return=policy["target_margin_return"],
+                        margin_leverage=policy["margin_leverage"], checked_at_ms=now_ms)
+        if state.get("position_qty") and decision.get("entry_sequence") is not None:
+            source = state.get("profit_target_origin") or {}
+            if source.get("entry_sequence") != decision["entry_sequence"]:
+                source = {"entry_sequence": decision["entry_sequence"],
+                          "origin_signal_time_ms": decision.get("origin_signal_time_ms"),
+                          "position_id": decision.get("position_id")}
+            if not source.get("origin_signal_time_ms") or not source.get("position_id"):
+                point = target
+                if point is None and self.persist:
+                    previous = read_json(self.path.with_name("last_report.json"), {}) or {}
+                    point = previous.get("execution_target") or {}
+                point = point or {}
+                requested = point.get("target_leverage", point.get("signed_qty", 0)) or 0
+                origin = point.get("origin_signal_time_ms")
+                if (float(requested) * float(state["position_qty"]) > 0
+                        and isinstance(origin, int) and not isinstance(origin, bool)
+                        and 0 < origin <= decision["entry_ms"]):
+                    source.update(origin_signal_time_ms=origin, position_id=point.get("position_id"))
+                state["profit_target_origin"] = source
+            decision["source_origin"] = dict(source)
+        if not funding_covered and decision["status"] not in {"flat", "ledger_unavailable"}:
+            decision.update(status="funding_unavailable", should_exit=False)
+        state["profit_exit_status"] = decision
+        return decision
+
+    @staticmethod
+    def _record_profit_exit(state, decision, fill):
+        fill["reason"] = "net_margin_target"
+        source = decision.get("source_origin") or {}
+        consumed = {**source, "episode_id": decision.get("episode_id"),
+                    "closed_at_utc": fill["time_utc"], "exit_sequence": fill["sequence"]}
+        state.setdefault("profit_target_consumed_signals", []).append(consumed)
+        state["profit_target_consumed_signals"] = state["profit_target_consumed_signals"][-200:]
+        state["last_profit_target_exit"] = {**decision, "fill": dict(fill)}
+        state["profit_exit_status"] = {**decision, "status": "closed_target", "should_exit": False,
+                                      "exit_sequence": fill["sequence"]}
+
+    @staticmethod
+    def _consume_pullback_source(state, pending):
+        source = (pending or {}).get("source_key")
+        if source:
+            consumed = state.setdefault("btc_pullback_consumed_sources", [])
+            if source not in consumed:
+                consumed.append(source)
+            state["btc_pullback_consumed_sources"] = consumed[-200:]
+
+    def _pullback_decision(self, state, target, report, mark_price, now_ms, *, risk_halted=False):
+        """Hold only the new direction; reductions and inventory management bypass."""
+        shadow = (report or {}).get("shadow_profile") or {}
+        raw_policy = shadow.get("btc_pullback_entry_policy")
+        requested = float(target.get("target_leverage", 0) or 0)
+        current = float(state.get("position_qty", 0) or 0)
+        new_direction = requested != 0 and (abs(current) <= 1e-12 or requested * current < 0)
+        side = "long" if requested > 0 else "short" if requested < 0 else None
+        decision = {"enabled": raw_policy is not None, "allowed": True,
+                    "status": "disabled", "side": side, "reasons": [],
+                    "checked_at_ms": now_ms}
+        pending = state.get("btc_pullback_pending") or {}
+        if raw_policy is None:
+            state["btc_pullback_entry"] = decision
+            return decision
+        if not new_direction or risk_halted:
+            # Once a direction is actually held, sizing is the original policy.
+            # A flat or changed source cancels an unfilled opportunity forever.
+            source = f"{target.get('position_id')}:{target.get('origin_signal_time_ms')}:{side}"
+            if pending and pending.get("status") not in btc_pullback_entry.TERMINAL_STATUSES | {"filled"}:
+                if requested == 0 or pending.get("source_key") != source:
+                    pending.update(status="cancelled", cancel_reason="signal_changed_or_flat",
+                                   cancelled_at_ms=now_ms, reasons=["btc_pullback_target_flat" if requested == 0
+                                                                  else "btc_pullback_source_changed"])
+                    self._consume_pullback_source(state, pending)
+            decision.update(status="risk_exit" if risk_halted else
+                            "existing_direction" if requested else "exit_or_flat")
+            state["btc_pullback_entry"] = decision
+            return decision
+        try:
+            policy = btc_pullback_entry.validate_policy(raw_policy)
+        except (ValueError, TypeError, OverflowError) as exc:
+            decision.update(allowed=False, status="invalid_policy",
+                            reasons=["btc_pullback_invalid_policy"], detail=str(exc))
+            state["btc_pullback_entry"] = decision
+            return decision
+        source = f"{target.get('position_id')}:{target.get('origin_signal_time_ms')}:{side}"
+        if pending and pending.get("source_key") != source:
+            self._consume_pullback_source(state, pending)
+            pending = {}
+        if (source in state.get("btc_pullback_consumed_sources", [])
+                and (not pending or pending.get("status") == "filled")):
+            pending = {**pending, "version": 1, "mode": btc_pullback_entry.MODE, "policy": policy,
+                       "source_key": source, "status": "cancelled", "side": side,
+                       "signal_origin": target.get("origin_signal_time_ms"),
+                       "reasons": ["btc_pullback_source_consumed"]}
+        market = (report or {}).get("btc_pullback_market_data") or {}
+        if not isinstance(market, Mapping):
+            market = {}
+        try:
+            if not pending or pending.get("status") == "data_unavailable":
+                pending = btc_pullback_entry.build_pending(
+                    target, market.get("hourly", []), policy, now_ms)
+            if pending.get("status") not in btc_pullback_entry.TERMINAL_STATUSES:
+                cutoff = market.get("asof_ms")
+                if (market.get("complete") is not True or isinstance(cutoff, bool)
+                        or not isinstance(cutoff, int) or cutoff > now_ms):
+                    decision.update(allowed=False, status="data_unavailable",
+                                    reasons=["btc_pullback_data_unavailable"])
+                    state["btc_pullback_pending"] = pending
+                    state["btc_pullback_entry"] = decision
+                    return decision
+            slip = float(os.getenv("SIM_SLIPPAGE_BPS", "1.0") or 1.0) * self.cost_multiplier
+            pending, decision = btc_pullback_entry.advance_pending(
+                pending, target, market.get("five_minute", []), mark_price, now_ms, slip, policy)
+        except (ValueError, TypeError, OverflowError, KeyError, IndexError) as exc:
+            decision.update(allowed=False, status="data_unavailable",
+                            reasons=["btc_pullback_data_unavailable"], detail=str(exc))
+        state["btc_pullback_pending"] = pending
+        if pending.get("status") in btc_pullback_entry.TERMINAL_STATUSES:
+            self._consume_pullback_source(state, pending)
+        state["btc_pullback_entry"] = decision
+        return decision
 
     def _save(self, state: dict[str, Any]) -> None:
         if self.persist:
@@ -490,11 +652,27 @@ class SimulationAccount:
         if not timing["allowed"]:
             effective_target["target_leverage"] = 0.0
         state["btc_entry_timing"] = timing
+        pullback = self._pullback_decision(state, target, report, mark_price, now_ms,
+                                          risk_halted=risk["status"] == "halted")
+        if not pullback["allowed"]:
+            effective_target = block_increases(effective_target, current_qty, equity, mark_price)
         funding_covered = funding_covered_at(now_ms)
+        profit_decision = self._profit_decision(state, mark_price, now_ms, funding_covered,
+                                                report, target)
+        if self.profit_reentry_blocked(state, target):
+            effective_target["target_leverage"] = 0.0
+            state["entry_guard"] = entry_guard = {
+                "status": "profit_target_signal_consumed", "position_id": target.get("position_id")}
+        if profit_decision.get("status") in {"ledger_unavailable", "invalid_policy"}:
+            effective_target = block_increases(effective_target, current_qty, equity, mark_price)
         if not funding_covered:
             effective_target = block_increases(effective_target, current_qty, equity, mark_price)
         state["funding_status"] = "ok" if funding_covered else "unavailable_new_risk_blocked"
-        if self.allow_llm:
+        if not pullback["allowed"]:
+            llm_trade_gate = {"enabled": False, "status": "waiting_for_pullback"}
+        elif profit_decision.get("should_exit"):
+            llm_trade_gate = {"enabled": False, "status": "profit_target_exit"}
+        elif self.allow_llm:
             effective_target, llm_trade_gate = apply_llm_trade_gate(
                 report or {}, effective_target, current_qty=current_qty, equity=equity,
                 mark_price=mark_price, mode="simulation", previous_decision=state.get("llm_trade_gate"))
@@ -563,7 +741,89 @@ class SimulationAccount:
             effective_target["target_leverage"] = 0.0
             target_qty = 0.0
         state["btc_entry_timing"] = timing
+        profit_decision = self._profit_decision(state, mark_price, now_ms, funding_covered,
+                                                report, target)
+        # Full-journal validation is I/O. Include it in the final execution cutoff.
+        if mark_time_ms is not None or execution_clock is not None:
+            now_ms = max(now_ms, initial_clock_ms + max(0, int(round(
+                (time.monotonic() - initial_monotonic) * 1000))))
+            if mark_time_ms is not None:
+                validate_mark({"price": mark_price, "time_ms": mark_time_ms}, now_ms)
+            funding_covered = funding_covered_at(now_ms)
+            state["funding_status"] = "ok" if funding_covered else "unavailable_new_risk_blocked"
+            if not funding_covered and profit_decision.get("enabled"):
+                profit_decision.update(status="funding_unavailable", should_exit=False)
+                target_qty = execution_entry_gate.constrain_quantity(target_qty, current_qty, {"allowed": False})
+            timing = btc_entry_timing.decision_at(report, target, current_qty=current_qty, now_ms=now_ms)
+            state["btc_entry_timing"] = timing
+            if not timing["allowed"]:
+                target_qty = 0.0
+                effective_target["target_leverage"] = 0.0
+        profit_close = profit_decision.get("should_exit") and risk["status"] != "halted"
+        if profit_close or self.profit_reentry_blocked(state, target):
+            effective_target["target_leverage"] = 0.0
+            target_qty = 0.0
+        # Recheck the frozen entry plan after every potentially slow review/read.
+        pullback = self._pullback_decision(state, target, report, mark_price, now_ms,
+                                          risk_halted=risk["status"] == "halted")
+        if (pullback.get("enabled") and pullback.get("status") not in
+                {"existing_direction", "exit_or_flat", "risk_exit"}
+                and (mark_time_ms is not None or execution_clock is not None)):
+            now_ms = max(now_ms, initial_clock_ms + max(0, int(round(
+                (time.monotonic() - initial_monotonic) * 1000))))
+            if mark_time_ms is not None:
+                validate_mark({"price": mark_price, "time_ms": mark_time_ms}, now_ms)
+            funding_covered = funding_covered_at(now_ms)
+            if not funding_covered:
+                target_qty = execution_entry_gate.constrain_quantity(target_qty, current_qty, {"allowed": False})
+            state["funding_status"] = "ok" if funding_covered else "unavailable_new_risk_blocked"
+            pullback = self._pullback_decision(state, target, report, mark_price, now_ms,
+                                              risk_halted=risk["status"] == "halted")
+            # The final candle validation itself is work, so include its latency.
+            now_ms = max(now_ms, initial_clock_ms + max(0, int(round(
+                (time.monotonic() - initial_monotonic) * 1000))))
+            if mark_time_ms is not None:
+                validate_mark({"price": mark_price, "time_ms": mark_time_ms}, now_ms)
+            funding_covered = funding_covered_at(now_ms)
+            if not funding_covered:
+                target_qty = execution_entry_gate.constrain_quantity(target_qty, current_qty, {"allowed": False})
+            state["funding_status"] = "ok" if funding_covered else "unavailable_new_risk_blocked"
+            pending = state.get("btc_pullback_pending") or {}
+            expiry = pending.get("expires_at_ms")
+            if (pullback.get("enabled") and pullback.get("allowed") and isinstance(expiry, int)
+                    and now_ms >= expiry):
+                pending.update(status="expired", reasons=["btc_pullback_origin_expired"])
+                self._consume_pullback_source(state, pending)
+                pullback.update(allowed=False, status="expired", reasons=pending["reasons"],
+                                checked_at_ms=now_ms)
+                state["btc_pullback_entry"] = pullback
+            if (pullback.get("enabled") and pullback.get("allowed")
+                    and pending.get("status") == "ready"
+                    and pending.get("last_processed_open_ms") !=
+                    ((now_ms + 1) // btc_pullback_entry.FIVE_MINUTES - 1) * btc_pullback_entry.FIVE_MINUTES):
+                pullback.update(allowed=False, status="data_unavailable",
+                                reasons=["btc_pullback_5m_gap"], checked_at_ms=now_ms)
+                state["btc_pullback_entry"] = pullback
+        if not pullback["allowed"]:
+            target_qty = execution_entry_gate.constrain_quantity(target_qty, current_qty, {"allowed": False})
+            effective_target["target_leverage"] = target_qty * mark_price / max(equity, 1e-12)
         fill = self._fill_to(state, target_qty, mark_price, now_ms, int(target["signal_time_ms"]), active_rules)
+        if fill:
+            fill.update(position_id=target.get("position_id"),
+                        origin_signal_time_ms=target.get("origin_signal_time_ms"))
+            if profit_close:
+                self._record_profit_exit(state, profit_decision, fill)
+            elif risk["status"] == "halted":
+                fill["reason"] = "account_hard_stop"
+            if (pullback.get("enabled") and pullback.get("allowed")
+                    and current_qty * float(state.get("position_qty", 0)) <= 0
+                    and abs(float(state.get("position_qty", 0))) > 1e-12):
+                pending = state.get("btc_pullback_pending") or {}
+                pending.update(status="filled", filled_at_ms=now_ms, fill_sequence=fill["sequence"])
+                self._consume_pullback_source(state, pending)
+                fill["btc_pullback_entry"] = dict(pullback)
+                state["btc_pullback_entry"] = {**pullback, "status": "filled", "allowed": False,
+                                                "fill_sequence": fill["sequence"]}
         state["last_signal_time_ms"] = int(target["signal_time_ms"])
         state["last_mark_price"] = mark_price
         after = self._mark(state, mark_price)
@@ -602,36 +862,77 @@ class SimulationAccount:
             "funding_pending_settlement_ms": pending_funding,
             "entry_guard": entry_guard,
             "btc_entry_timing": timing,
+            "btc_pullback_entry": state.get("btc_pullback_entry"),
             "llm_trade_gate": llm_trade_gate,
             "execution_entry_gate": entry_gate,
+            "profit_exit_status": state.get("profit_exit_status"),
             "account": self.snapshot(mark_price)["account"],
         }
 
-    def observe(self, mark_price, now_ms, funding_events=(), funding_available=True, rules=None):
+    def observe(self, mark_price, now_ms, funding_events=(), funding_available=True, rules=None, *,
+                funding_fetch_through_ms=None, next_funding_time_ms=None,
+                funding_pending_settlement_ms=None, mark_time_ms=None):
         """Monitor equity and hard stops without repeatedly applying soft reductions."""
         state = self.load()
+        started_monotonic = time.monotonic()
+        initial_ms = now_ms
         self.settle_funding(state, funding_events, now_ms)
         if funding_available:
-            state["funding_last_fetch_ms"] = now_ms
-        pending_funding = _funding_timestamp(state.get("funding_pending_settlement_ms"))
+            state["funding_last_fetch_ms"] = funding_fetch_through_ms or now_ms
+        pending_values = [_funding_timestamp(state.get("funding_pending_settlement_ms")),
+                          _funding_timestamp(funding_pending_settlement_ms)]
+        pending_funding = min((value for value in pending_values if value is not None), default=None)
+        if pending_funding is not None:
+            state["funding_pending_settlement_ms"] = pending_funding
         if pending_funding is not None and _funding_boundary_observed(
                 state, funding_events, pending_funding, now_ms):
             state["funding_pending_settlement_ms"] = None
             pending_funding = None
+        next_funding_time_ms = _funding_timestamp(next_funding_time_ms)
+        if next_funding_time_ms is not None:
+            state["funding_next_settlement_ms"] = next_funding_time_ms
+            if now_ms >= next_funding_time_ms and not _funding_boundary_observed(
+                    state, funding_events, next_funding_time_ms, now_ms):
+                pending_funding = min(pending_funding or next_funding_time_ms, next_funding_time_ms)
+                state["funding_pending_settlement_ms"] = pending_funding
+        funding_covered = pending_funding is None and _funding_coverage_available(
+            funding_available, now_ms, _funding_timestamp(funding_fetch_through_ms), next_funding_time_ms)
         equity = self._mark(state, mark_price)["equity"]
         target = {"target_leverage": 0.0, "signal_time_ms": now_ms}
         _, risk = constrain_target(state, target, equity, state["position_qty"], mark_price, now_ms)
         fill = None
         if risk["status"] == "halted" and state["position_qty"]:
             fill = self._fill_to(state, 0.0, mark_price, now_ms, now_ms, rules or DEFAULT_SIMULATION_RULES)
+            if fill:
+                fill["reason"] = "account_hard_stop"
             equity = self._mark(state, mark_price)["equity"]
             _, risk = constrain_target(state, target, equity, 0.0, mark_price, now_ms)
+        decision = self._profit_decision(state, mark_price, now_ms, funding_covered)
+        if mark_time_ms is not None and fill is None:
+            now_ms = initial_ms + max(0, int(round((time.monotonic()-started_monotonic)*1000)))
+            from decision_runtime import validate_mark
+            validate_mark({"price": mark_price, "time_ms": mark_time_ms}, now_ms)
+            if next_funding_time_ms is not None and now_ms >= next_funding_time_ms and not _funding_boundary_observed(
+                    state, funding_events, next_funding_time_ms, funding_fetch_through_ms or initial_ms):
+                pending_funding = min(pending_funding or next_funding_time_ms, next_funding_time_ms)
+                state["funding_pending_settlement_ms"] = pending_funding
+            funding_covered = pending_funding is None and _funding_coverage_available(
+                funding_available, now_ms, _funding_timestamp(funding_fetch_through_ms), next_funding_time_ms)
+            if not funding_covered and decision.get("enabled"):
+                decision.update(status="funding_unavailable", should_exit=False)
+        if fill is None and risk["status"] != "halted" and decision.get("should_exit"):
+            fill = self._fill_to(state, 0.0, mark_price, now_ms, now_ms, rules or DEFAULT_SIMULATION_RULES)
+            if fill:
+                self._record_profit_exit(state, decision, fill)
+                equity = self._mark(state, mark_price)["equity"]
+                _, risk = constrain_target(state, target, equity, 0.0, mark_price, now_ms)
         state["last_mark_price"] = mark_price
-        state["funding_status"] = "ok" if funding_available and pending_funding is None else "unavailable_new_risk_blocked"
+        state["funding_status"] = "ok" if funding_covered else "unavailable_new_risk_blocked"
         state["updated_at_utc"] = datetime.fromtimestamp(now_ms / 1000, timezone.utc).isoformat()
         self._save(state)
         self._record_fills(state, [fill])
-        return {"account_risk": risk, "fill": fill, "funding_pnl": state["funding_pnl"]}
+        return {"account_risk": risk, "fill": fill, "funding_pnl": state["funding_pnl"],
+                "profit_exit_status": state.get("profit_exit_status")}
 
 
 def client_order_id(signal_time_ms: int, target_qty: float, phase: str) -> str:

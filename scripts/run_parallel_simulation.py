@@ -25,7 +25,9 @@ import backtest_stock_swing_120 as arithmetic
 from binance_terminal_client import BinanceTerminalClient
 import decision_runtime
 import execution_entry_gate
+import market_data_runtime
 import btc_entry_timing
+import btc_pullback_entry
 import stock_entry_timing
 import simulation_risk_monitor
 import stock_swing_profiles
@@ -36,7 +38,7 @@ import stock_entry_quality as entry_quality
 import stock_swing_confirmation as swing_confirmation
 import stock_research_entry_policy as entry_policy
 from public_request_deadline import PublicRequestDeadline
-from trading_execution import SimulationAccount, execute_report, read_json, write_json
+from trading_execution import SimulationAccount, execute_report, read_json, write_json, profit_reentry_blocked
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN = ROOT / 'config/parallel_simulation_plan_20261005.json'
@@ -911,31 +913,120 @@ def btc_llm_entry_blocker(point, state, equity):
     return 'llm_trade_gate_unavailable' if gate['status'] == 'error_blocked' else 'llm_trade_gate_rejected'
 
 
+BTC_PULLBACK_RETRY_STATUSES = frozenset({
+    'waiting_retrace', 'waiting_confirmation', 'ready', 'data_unavailable',
+})
+
+
+def btc_pullback_retry(state, point, profile):
+    """Retry only an unfilled direction; existing inventory keeps candle cadence."""
+    if profile.get('btc_pullback_entry_policy') is None:
+        return False
+    quantity = float(point.get('signed_qty') or 0)
+    held = float(state.get('position_qty') or 0)
+    if held and quantity * held > 0:
+        return False
+    pending = state.get('btc_pullback_pending') or {}
+    decision = state.get('btc_pullback_entry') or {}
+    if isinstance(pending, dict) and pending.get('status') in BTC_PULLBACK_RETRY_STATUSES:
+        return True  # Also deliver flat/source changes and expiry for cancellation.
+    if isinstance(pending, dict) and pending.get('status') in {
+            'no_structure', 'expired', 'structure_invalidated', 'cancelled', 'invalid_source'}:
+        source = f"{point.get('position_id')}:{point.get('origin_signal_time_ms')}:{'long' if quantity > 0 else 'short'}"
+        return bool(quantity and pending.get('source_key') and pending['source_key'] != source)
+    return (bool(quantity) and isinstance(decision, dict)
+            and decision.get('status') in BTC_PULLBACK_RETRY_STATUSES)
+
+
+def btc_pullback_market_data(client, point, asof_ms, policy=None):
+    """Load the original hourly prefix and subsequent closed 5m confirmation bars.
+
+    Reuse the validated interval cache without fetching a second funding history.
+    Opening-only ticks stay outside OHLC input, even when already in that cache.
+    A failed source is attached to the report so execution can still reduce risk.
+    """
+    result = {'hourly': [], 'five_minute': [], 'asof_ms': asof_ms,
+              'complete': False, 'diagnostics': {}}
+    origin = point.get('origin_signal_time_ms')
+    if (not isinstance(origin, int) or isinstance(origin, bool)
+            or origin <= 0 or origin > asof_ms or origin % SIGNAL_INTERVALS['1h']):
+        return {**result, 'reason': 'btc_pullback_data_unavailable',
+                'missing_reason': 'Original hourly signal timestamp is unavailable or invalid'}
+    cache = ROOT / 'data/runtime/market_cache'
+    try:
+        selected = btc_pullback_entry.validate_policy(
+            policy if policy is not None else {'mode': btc_pullback_entry.MODE})
+        # The default includes the signal candle and 48 earlier completed hours.
+        # Longer valid policies also need their complete original indicator prefix.
+        history_hours = max(selected['lookback_hours'], selected['atr_period'] + 1, 49)
+        hourly_start = max(0, origin - history_hours * SIGNAL_INTERVALS['1h'])
+        hours, _, diagnostics = market_data_runtime._load_interval(
+            client, 'BTCUSDT', '1h', hourly_start, asof_ms, cache)
+        result['hourly'] = [market_data_runtime.sim.candle_to_compact(bar) for bar in hours
+                            if bar.close_time_ms <= asof_ms]
+        result['diagnostics']['1h'] = diagnostics
+        # Before the first post-signal 5m close, empty confirmation input is valid.
+        if origin + FIVE_MINUTES - 1 <= asof_ms:
+            five, _, diagnostics = market_data_runtime._load_interval(
+                client, 'BTCUSDT', '5m', origin, asof_ms, cache)
+            result['five_minute'] = [market_data_runtime.sim.candle_to_compact(bar) for bar in five
+                                     if origin <= bar.open_time_ms and bar.close_time_ms <= asof_ms]
+            result['diagnostics']['5m'] = diagnostics
+        result['complete'] = True
+        return result
+    except Exception as exc:
+        if isinstance(exc, market_data_runtime.MarketDataUnavailable):
+            result['diagnostics']['unavailable'] = exc.diagnostics
+        return {**result, 'reason': 'btc_pullback_data_unavailable',
+                'missing_reason': f'{type(exc).__name__}: {exc}'[:240]}
+
+
 def btc_step(account, root, manifest, client):
     path = ROOT / account['state_path']
-    execution = SimulationAccount(path)
+    profile = json.loads((ROOT / account['strategy_path']).read_text(encoding='utf-8'))
+    execution = SimulationAccount(path, profit_exit_policy=profile.get('profit_exit_policy'))
     clock = decision_runtime.resolve_clock(client)
     clock_monotonic = time.monotonic()
     health = simulation_risk_monitor.monitor(client, clock['time_ms'], account=execution,
         status_path=path.with_name('risk_monitor.json'), clock_source=clock['source'])
-    profile = json.loads((ROOT / account['strategy_path']).read_text(encoding='utf-8'))
     report_path = ROOT / account.get('strategy_report_path',
         'data/paper_trading/' + profile['candidate_id'] + '_report.json')
     report = json.loads(report_path.read_text(encoding='utf-8'))
     if 'entry_timing_policy' in profile:
         report.setdefault('shadow_profile', {})['entry_timing_policy'] = profile['entry_timing_policy']
+    if profile.get('btc_pullback_entry_policy') is not None:
+        report.setdefault('shadow_profile', {})['btc_pullback_entry_policy'] = profile['btc_pullback_entry_policy']
+    elif isinstance(report.get('shadow_profile'), dict):
+        # The selected profile controls opt-in, including a stale producer report.
+        report['shadow_profile'].pop('btc_pullback_entry_policy', None)
+    if 'profit_exit_policy' in profile:
+        report.setdefault('shadow_profile', {})['profit_exit_policy'] = profile['profit_exit_policy']
     if 'entry_qualification' in account:
         report['strategy_qualification'] = account['entry_qualification']
     point = report.get('execution_target') or (report.get('summary') or {}).get('last_equity_point') or {}
     state = execution.load()
     status = 'waiting_for_first_forward_candle'
+    pullback_data = None
     if int(point.get('available_time_ms') or point.get('time_ms') or 0) >= manifest['start_ms']:
-        if state.get('last_signal_time_ms') != point.get('time_ms'):
+        if (state.get('last_signal_time_ms') != point.get('time_ms')
+                or btc_pullback_retry(state, point, profile)):
             # Do not inherit a pre-generation position even after observing a flat target.
             origin = point.get('origin_signal_time_ms')
             if point.get('signed_qty') and (origin is None or int(origin) < manifest['start_ms']):
                 report = json.loads(json.dumps(report))
                 report['execution_target'] = {**point, 'signed_qty': 0, 'position_id': 'flat'}
+            execution_point = report.get('execution_target') or point
+            requested = float(execution_point.get('signed_qty') or 0)
+            held = float(state.get('position_qty') or 0)
+            if (profile.get('btc_pullback_entry_policy') is not None and requested
+                    and (not held or requested * held < 0)):
+                cutoff_ms = clock['time_ms'] + max(0, int((time.monotonic() - clock_monotonic) * 1000))
+                window = btc_entry_timing.decision_at(report, execution_point,
+                    current_qty=held, now_ms=cutoff_ms)
+                if window['allowed']:
+                    pullback_data = btc_pullback_market_data(client, execution_point, cutoff_ms,
+                        profile['btc_pullback_entry_policy'])
+                    report['btc_pullback_market_data'] = pullback_data
             write_json(path.with_name('last_report.json'), report)
             result = execute_report('simulation', report, client, account=execution)
             journal(path.with_name('execution.jsonl'), {'time_utc': arithmetic.iso(now_ms()), 'result': result,
@@ -955,11 +1046,23 @@ def btc_step(account, root, manifest, client):
         current_qty=float(state.get('position_qty') or 0), now_ms=checked_ms)
     entry_view['btc_entry_timing'] = timing
     entry_view['entry_blockers'].extend(timing['reasons'])
+    target_view = {**point, 'target_leverage': point.get('signed_qty', 0)}
+    if profit_reentry_blocked(state, target_view):
+        entry_view['entry_blockers'].append('profit_target_signal_consumed')
     unavailable = entry_view.pop('entry_data_unavailable')
     llm_blocker = btc_llm_entry_blocker(point, state, snapshot['account']['margin_balance'])
     if llm_blocker:
         entry_view['entry_blockers'].append(llm_blocker)
         unavailable = unavailable or llm_blocker == 'llm_trade_gate_unavailable'
+    pullback = state.get('btc_pullback_entry')
+    if (profile.get('btc_pullback_entry_policy') is not None and isinstance(pullback, dict)
+            and timing['requires_new_direction']):
+        entry_view['entry_blockers'].extend(pullback.get('reasons') or [])
+        unavailable = unavailable or pullback.get('status') == 'data_unavailable'
+    if pullback_data is not None and not pullback_data['complete']:
+        unavailable = True
+        if 'btc_pullback_data_unavailable' not in entry_view['entry_blockers']:
+            entry_view['entry_blockers'].append('btc_pullback_data_unavailable')
     signal_status = 'no_signal' if not point.get('signed_qty') else 'signal_observed'
     if 'strategy_not_qualified' in entry_view['entry_blockers']:
         signal_status = 'strategy_not_qualified'
@@ -973,8 +1076,11 @@ def btc_step(account, root, manifest, client):
             'fill_count_total': state['fill_count_total'], 'fees_paid': state['fees_paid'],
             'funding_pnl': state['funding_pnl'], 'max_drawdown_pct': state['max_drawdown_pct'],
             'last_mark_price': state.get('last_mark_price'), 'signal_time_ms': point.get('time_ms'),
+            'entry_price': state.get('entry_price'),
             'signal_status': signal_status,
             'llm_trade_gate': state.get('llm_trade_gate'),
+            'profit_exit_status': state.get('profit_exit_status'),
+            'btc_pullback_entry': pullback if profile.get('btc_pullback_entry_policy') is not None else None,
             'entry_qualification': account.get('entry_qualification'),
             **entry_view,
             'errors': (health or {}).get('monitor', {}).get('errors', {})}
@@ -1119,11 +1225,11 @@ def _run_locked(plan, root, args):
                     result = workers[account_id].step()
                 view = {k: result.get(k) for k in ('symbol', 'status', 'checked_at_utc', 'equity', 'wallet_balance',
                     'return_pct', 'position_qty', 'fill_count_total', 'fees_paid', 'funding_pnl', 'max_drawdown_pct',
-                    'last_mark_price', 'signal_status', 'signal_timeframe', 'signal_family', 'entry_direction', 'next_signal_time_ms',
+                    'last_mark_price', 'entry_price', 'signal_status', 'signal_timeframe', 'signal_family', 'entry_direction', 'next_signal_time_ms',
                     'last_signal_time_ms', 'signal_active_after_ms', 'entry_checks', 'entry_blockers', 'entry_qualification',
                     'swing_confirmation',
                     'execution_entry_gate', 'entry_source_status', 'llm_trade_gate', 'errors', 'observations',
-                    'btc_entry_timing', 'stock_entry_timing',
+                    'btc_entry_timing', 'btc_pullback_entry', 'stock_entry_timing',
                     'profit_exit_status', 'realized_pnl')}
                 # Heartbeats share the host clock used by the local UI. Market
                 # timestamps keep their exchange clock for freshness validation.

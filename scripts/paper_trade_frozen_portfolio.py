@@ -5,6 +5,7 @@ import argparse
 import json
 import time
 import traceback
+from copy import deepcopy
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -238,6 +239,10 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             import btc_entry_timing
             profile["entry_timing_policy"] = btc_entry_timing.validate_policy(
                 factor_profile["entry_timing_policy"])
+        if "profit_exit_policy" in factor_profile:
+            profile["profit_exit_policy"] = deepcopy(factor_profile["profit_exit_policy"])
+        if "btc_pullback_entry_policy" in factor_profile:
+            profile["btc_pullback_entry_policy"] = deepcopy(factor_profile["btc_pullback_entry_policy"])
         profile["factor_snapshot"] = str(factor_snapshot_path.resolve())
         profile["factor_engine_sha256"] = frozen_strategy.sha256_file(Path(multifactor.__file__))
         profile["portfolio_risk_sha256"] = frozen_strategy.sha256_file(Path(portfolio_risk.__file__))
