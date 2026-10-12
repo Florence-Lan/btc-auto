@@ -1,3 +1,4 @@
+import gzip
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -122,6 +123,73 @@ def test_health_is_point_in_time_and_outage_blocks_entries():
     adjusted, blocked = pc.apply_entry_coverage(sleeves, p)
     assert blocked == 1 and len(adjusted[0]["trades"]) == 1
     assert len(sleeves[0]["trades"]) == 2
+
+
+def test_collect_preserves_utf8_snapshot_with_gbk_default(tmp_path, monkeypatch):
+    output = tmp_path / "public_context.json"
+    archived_news = {
+        "news_id": "archived", "headline": "美联储“利率”政策观察",
+        "published_at_utc": pc.iso(NOW - timedelta(hours=2)),
+        "first_seen_at_utc": pc.iso(NOW - timedelta(hours=1)),
+        "severity": .25, "category": "central_bank_communication",
+        "article_url": "https://www.federalreserve.gov/archived",
+    }
+    old_check = {"available_at_utc": pc.iso(NOW - timedelta(minutes=5)),
+                 "sources": {name: {"ok": True} for name in pc.REQUIRED}}
+    output.write_text(json.dumps({"news": [archived_news], "coverage_checks": [old_check]},
+                                ensure_ascii=False), encoding="utf-8")
+    factors = tmp_path / "factors.json.gz"
+    with gzip.open(factors, "wt", encoding="utf-8") as handle:
+        json.dump(factor_rows(), handle)
+
+    # Reproduce Windows' default decoder even when pytest itself uses UTF-8 mode.
+    read_text = Path.read_text
+
+    def locale_read_text(path, encoding=None, errors=None):
+        return read_text(path, encoding=encoding or "gbk", errors=errors)
+
+    class FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return NOW.astimezone(tz)
+
+    def offline_fetch(url):
+        if url in pc.RSS.values():
+            return '''<rss><channel><item><title>政策“更新”</title>
+            <link>https://news.un.org/new</link><guid>new</guid>
+            <pubDate>Sat, 26 Sep 2026 23:00:00 GMT</pubDate></item></channel></rss>'''
+        if url == pc.FED_CALENDAR:
+            return '''2026 FOMC Meetings
+            <div class="fomc-meeting__month"><strong>October</strong></div>
+            <div class="fomc-meeting__date">27-28</div>'''
+        if url == pc.BLS_CALENDAR:
+            return '''BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:cpi-october
+SUMMARY:Consumer Price Index
+DTSTART;TZID=America/New_York:20261014T083000
+END:VEVENT
+END:VCALENDAR'''
+        if url.startswith("https://query1.finance.yahoo.com/v8/finance/chart/ZQX26.CBT"):
+            return json.dumps({"chart": {"result": [{"meta": {
+                "symbol": "ZQX26.CBT", "instrumentType": "FUTURE",
+                "regularMarketPrice": 95.965,
+                "regularMarketTime": int((NOW - timedelta(days=1)).timestamp()),
+            }}]}})
+        raise AssertionError(f"Unexpected network request: {url}")
+
+    monkeypatch.setattr(Path, "read_text", locale_read_text)
+    monkeypatch.setattr(pc, "datetime", FrozenDatetime)
+    monkeypatch.setattr(pc, "fetch", offline_fetch)
+    payload = pc.collect(output, factors)
+
+    persisted = json.loads(output.read_text(encoding="utf-8"))
+    assert persisted == payload
+    assert persisted["news"][0] == archived_news
+    assert {row["headline"] for row in persisted["news"][1:]} == {"政策“更新”"}
+    assert persisted["coverage_checks"] == [old_check, payload["coverage_checks"][-1]]
+    assert pc.health_at(persisted, ms(NOW)) == (True, [])
+    assert event_risk.load_event_snapshot(output)
 
 
 def factor_rows():

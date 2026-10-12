@@ -394,7 +394,7 @@ def apply_entry_coverage(sleeves, payload):
 
 
 def collect(output, factor_path):
-    previous = json.loads(output.read_text()) if output.exists() else {}
+    previous = json.loads(output.read_text(encoding="utf-8")) if output.exists() else {}
     now = datetime.now(UTC)
     jobs = {name: (lambda n=name, u=url: parse_rss(fetch(u), n, u, datetime.now(UTC))) for name, url in RSS.items()}
     jobs["fomc_calendar"] = lambda: parse_fomc(fetch(FED_CALENDAR), datetime.now(UTC))
