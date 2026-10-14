@@ -28,6 +28,7 @@ function Assert-OwnedTask($task) {
 
 $existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 Assert-OwnedTask $existingTask
+$wasDisabled = $existingTask -and -not $existingTask.Settings.Enabled
 if ($Uninstall) {
     if ($existingTask) { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false }
     if (Test-Path -LiteralPath $startupPath) {
@@ -75,12 +76,19 @@ $method = 'scheduled_task'
 $taskFailure = $null
 try {
     $action = New-ScheduledTaskAction -Execute $powershellPath -Argument $arguments -WorkingDirectory $workspaceRoot
-    $trigger = New-ScheduledTaskTrigger -AtLogOn -User $currentUser
+    $logonTrigger = New-ScheduledTaskTrigger -AtLogOn -User $currentUser
+    # Task-wide control termination can bypass RestartCount. Retry the same
+    # action every minute while the current user is logged in. No duration or
+    # end boundary means indefinite repetition; IgnoreNew keeps one instance.
+    $recoveryTrigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(1)) `
+        -RepetitionInterval (New-TimeSpan -Minutes 1)
+    $recoveryTrigger.Repetition.StopAtDurationEnd = $false
     $principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Limited
     $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable `
         -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) `
-        -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
-    $task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings
+        -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -Disable:$wasDisabled
+    $task = New-ScheduledTask -Action $action -Trigger @($logonTrigger, $recoveryTrigger) `
+        -Principal $principal -Settings $settings
     Register-ScheduledTask -TaskName $taskName -InputObject $task -Force | Out-Null
     if (Test-Path -LiteralPath $startupPath) {
         $existingStartup = Get-Content -LiteralPath $startupPath -Raw
@@ -89,6 +97,9 @@ try {
     }
 }
 catch {
+    # An explicitly disabled task must stay disabled, including on updates that
+    # cannot register. A Startup fallback would bypass that manual pause.
+    if ($wasDisabled) { throw }
     # Non-admin current-user task registration is restricted on some machines.
     # A hidden per-user Startup helper covers the same current-user login event.
     $method = 'startup_folder'
@@ -109,6 +120,8 @@ $registration = [ordered]@{
     startup_path = $(if ($method -eq 'startup_folder') { $startupPath } else { $null })
     registered_at_utc = [DateTime]::UtcNow.ToString('o')
     coverage = 'after_this_user_logs_in; not_before_login'
+    recovery_interval_seconds = $(if ($method -eq 'scheduled_task') { 60 } else { $null })
+    enabled = -not $wasDisabled
     places_orders = $false
     task_registration_error = $taskFailure
 }
