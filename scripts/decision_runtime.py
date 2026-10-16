@@ -127,12 +127,16 @@ def resolve_clock(client: Any, mode: str = "simulation", *,
         observation = mark_observation if mark_observation is not None else client.mark_price_observation()
         anchor = _anchor_view(client)
         reference_ms = (now_ms if now_ms is not None else anchor["time_ms"] if anchor else int(time.time() * 1000))
+        reference_received_monotonic = time.monotonic()
         mark = validate_mark(observation, reference_ms)
     except Exception as exc:
         errors["mark_price"] = _error(exc)
     else:
         return {"time_ms": mark["time_ms"], "source": "mark_endpoint", "degraded": True,
-                "primary_error": primary_error, "anchor_age_ms": None, "errors": errors}
+                "primary_error": primary_error, "anchor_age_ms": None, "errors": errors,
+                "mark_observation": {"price": mark["price"], "time_ms": mark["time_ms"]},
+                "freshness_reference_ms": reference_ms,
+                "reference_received_monotonic": reference_received_monotonic}
 
     anchor = _anchor_view(client) if allow_anchor else None
     if anchor is not None:

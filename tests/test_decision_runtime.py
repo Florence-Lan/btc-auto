@@ -70,6 +70,7 @@ def test_time_outage_uses_fresh_mark_and_preserves_reason(clock):
     assert reading["degraded"] is True
     assert reading["primary_error"] == "OSError: time disconnected"
     assert reading["errors"] == {"exchange_clock": reading["primary_error"]}
+    assert reading["mark_observation"] == {"price": 80000.0, "time_ms": NOW - 1000}
 
 
 def test_validated_existing_mark_can_avoid_a_second_request(clock):

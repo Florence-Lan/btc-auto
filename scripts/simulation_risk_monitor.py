@@ -16,7 +16,8 @@ MAX_MARK_FUTURE_MS = 5_000
 
 def monitor(client, now_ms, *, clock_available=True, clock_error=None,
             account=None, status_path: Path | None = None, clock_source=None,
-            mark_observation=None):
+            mark_observation=None, freshness_reference_ms=None,
+            reference_received_monotonic=None):
     account = account or execution.SimulationAccount()
     if account.persist and not account.path.exists():
         return None
@@ -61,7 +62,23 @@ def monitor(client, now_ms, *, clock_available=True, clock_error=None,
                        client.mark_price_observation(execution.SYMBOL))
         price, source_ms = float(observation["price"]), int(observation["time_ms"])
         received_ms = int(time.time() * 1000)
-        reference_ms = int(now_ms) + max(0, received_ms - started_ms) if clock_available else received_ms
+        if freshness_reference_ms is not None or reference_received_monotonic is not None:
+            # The caller may have validated this mark against a recent exchange
+            # anchor before the host wall clock jumped. Preserve that reference,
+            # advance it monotonically, and never let it authorize funding.
+            if (freshness_reference_ms is None or reference_received_monotonic is None
+                    or isinstance(freshness_reference_ms, bool)
+                    or isinstance(reference_received_monotonic, bool)):
+                raise ValueError("Invalid trusted freshness reference")
+            reference_ms = int(freshness_reference_ms)
+            if reference_ms <= 0 or reference_ms != freshness_reference_ms:
+                raise ValueError("Invalid trusted freshness reference")
+            elapsed = time.monotonic() - float(reference_received_monotonic)
+            if not math.isfinite(elapsed) or not 0 <= elapsed <= MAX_MARK_AGE_MS / 1000:
+                raise ValueError("Trusted freshness reference is expired or invalid")
+            reference_ms += int(elapsed * 1000)
+        else:
+            reference_ms = int(now_ms) + max(0, received_ms - started_ms) if clock_available else received_ms
         if not math.isfinite(price) or price <= 0 or source_ms <= 0:
             raise ValueError("Invalid mark-price observation")
         if source_ms > reference_ms + MAX_MARK_FUTURE_MS or reference_ms - source_ms > MAX_MARK_AGE_MS:

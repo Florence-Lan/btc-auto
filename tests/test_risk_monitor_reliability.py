@@ -65,6 +65,64 @@ def test_clock_failure_still_uses_fresh_mark_for_protective_exit(setup):
     client.funding_history.assert_not_called()
 
 
+@pytest.mark.parametrize("wall_offset_ms", [-86_400_000, 86_400_000])
+def test_trusted_mark_reference_survives_host_clock_jump_without_authorizing_funding(
+        setup, monkeypatch, wall_offset_ms):
+    account, client, _ = setup
+    monkeypatch.setattr(monitor.time, "time", lambda: (NOW + wall_offset_ms) / 1000)
+    monkeypatch.setattr(monitor.time, "monotonic", lambda: 101.)
+    mark = {"price": 80000, "time_ms": NOW - 1000}
+    result = run(setup, clock_available=False, mark_observation=mark,
+                 freshness_reference_ms=NOW, reference_received_monotonic=100.)
+    assert result["fill"]["side"] == "SELL"
+    assert result["monitor"]["assessment"] == "evaluated"
+    assert result["monitor"]["assessment_time_ms"] == mark["time_ms"]
+    assert result["monitor"]["status"] == "degraded"
+    assert account.load()["position_qty"] == 0
+    assert "funding_last_fetch_ms" not in account.load()
+    client.mark_price_observation.assert_not_called()
+    client.funding_history.assert_not_called()
+
+
+@pytest.mark.parametrize("mark_time_ms,elapsed_seconds", [
+    (NOW - 60_001, 0.), (NOW + 5_001, 0.), (NOW - 2_000, 59.),
+])
+def test_trusted_reference_still_rejects_stale_or_future_marks(
+        setup, monkeypatch, mark_time_ms, elapsed_seconds):
+    account, client, _ = setup
+    before = account.path.read_bytes()
+    # A wrong host clock agreeing with the bad mark must not override the
+    # trusted reference or erase elapsed time after the caller validated it.
+    monkeypatch.setattr(monitor.time, "time", lambda: mark_time_ms / 1000)
+    monkeypatch.setattr(monitor.time, "monotonic", lambda: 100. + elapsed_seconds)
+    result = run(setup, clock_available=False,
+                 mark_observation={"price": 80000, "time_ms": mark_time_ms},
+                 freshness_reference_ms=NOW, reference_received_monotonic=100.)
+    assert result["monitor"]["assessment"] == "not_evaluated"
+    assert result["fill"] is None
+    assert account.path.read_bytes() == before
+    client.funding_history.assert_not_called()
+
+
+@pytest.mark.parametrize("reference_ms,receipt", [
+    (None, 100.), (NOW, None), (True, 100.), (NOW, True), (0, 100.),
+    (NOW + .5, 100.), (NOW, float("nan")), (NOW, 101.), (NOW, 39.999),
+])
+def test_invalid_or_expired_trusted_reference_cannot_change_inventory(
+        setup, monkeypatch, reference_ms, receipt):
+    account, client, _ = setup
+    before = account.path.read_bytes()
+    monkeypatch.setattr(monitor.time, "monotonic", lambda: 100.)
+    result = run(setup, clock_available=False,
+                 freshness_reference_ms=reference_ms,
+                 reference_received_monotonic=receipt)
+    assert result["monitor"]["status"] == "unavailable"
+    assert result["monitor"]["assessment"] == "not_evaluated"
+    assert result["fill"] is None
+    assert account.path.read_bytes() == before
+    client.funding_history.assert_not_called()
+
+
 def test_late_funding_after_hard_stop_uses_settlement_inventory_and_is_idempotent(setup):
     account, client, _ = setup
     client.funding_history.return_value = [{"fundingTime": NOW - 50_000,

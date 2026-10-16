@@ -20,6 +20,8 @@ import requests
 from dotenv import load_dotenv
 
 from public_request_deadline import PublicRequestDeadline
+from public_transport import (InvalidPublicResponse, PublicCurlError, PublicTransportError,
+                              public_curl_environment, safe_transport_error)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -171,7 +173,7 @@ class BinanceTerminalClient:
             raise requests.ConnectionError("Public fallback requires an HTTPS origin without credentials")
         executable = shutil.which("curl")
         if not executable:
-            raise requests.ConnectionError("Public fallback transport is unavailable")
+            raise PublicCurlError("Public fallback transport is unavailable", category="unavailable")
         url = f"{self.base_url}{path}"
         if params:
             url += "?" + urlencode(params, doseq=True)
@@ -186,32 +188,30 @@ class BinanceTerminalClient:
                 "--dump-header", str(headers_path), "--write-out", "\n%{http_code}",
                 "--url", url,
             ]
-            public_environment = {
-                key: value for key, value in os.environ.items()
-                if key in {"PATH", "HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy",
-                           "ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy", "SSL_CERT_FILE",
-                           "SSL_CERT_DIR", "CURL_CA_BUNDLE"}
-            }
             try:
-                result = subprocess.run(command, capture_output=True, text=True, timeout=17,
-                                        check=False, env=public_environment)
-            except (OSError, subprocess.TimeoutExpired) as exc:
-                raise requests.ConnectionError("Public fallback transport failed") from exc
+                result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8",
+                                        errors="replace", timeout=17, check=False,
+                                        env=public_curl_environment())
+            except subprocess.TimeoutExpired:
+                raise PublicCurlError("Public fallback exceeded its total deadline", category="timeout") from None
+            except OSError:
+                raise PublicCurlError("Public fallback transport could not start", category="process") from None
             if result.returncode:
                 # Do not propagate tool output: it can contain local proxy details.
-                raise requests.ConnectionError(f"Public fallback transport failed (curl {result.returncode})")
+                raise PublicCurlError(f"Public fallback transport failed (curl {result.returncode})",
+                                      curl_exit_code=result.returncode)
             body, separator, status = result.stdout.rpartition("\n")
             if not separator or not status.isdigit() or not 100 <= int(status) <= 599:
-                raise requests.ConnectionError("Invalid public fallback HTTP response")
+                raise InvalidPublicResponse("Invalid public fallback HTTP response")
             response = requests.Response()
             response.status_code = int(status)
             response._content = body.encode("utf-8")
             response.encoding = "utf-8"
             response.url = url
             try:
-                raw_headers = headers_path.read_text(encoding="utf-8")
-            except OSError as exc:
-                raise requests.ConnectionError("Missing public fallback HTTP headers") from exc
+                raw_headers = headers_path.read_text(encoding="iso-8859-1")
+            except OSError:
+                raise PublicCurlError("Missing public fallback HTTP headers", category="invalid_response") from None
             blocks = [block for block in re.split(r"\r?\n\r?\n", raw_headers) if block.strip()]
             for line in blocks[-1].splitlines() if blocks else []:
                 name, separator, value = line.partition(":")
@@ -226,6 +226,7 @@ class BinanceTerminalClient:
             raise ValueError("Credentials and signatures are not allowed in public queries")
         transports = ("curl", "requests") if time.monotonic() < self._curl_preferred_until else ("requests", "curl")
         first_error: requests.RequestException | None = None
+        failures: list[dict[str, Any]] = []
         for index, transport in enumerate(transports):
             # A transport retry must respect a ban recorded by another worker.
             self._check_public_cooldown()
@@ -234,6 +235,7 @@ class BinanceTerminalClient:
                 "observed_at_ms": int(time.time() * 1000), "ok": False,
                 "fallback": index > 0,
                 "primary_error_type": type(first_error).__name__ if first_error else None,
+                "failures": list(failures),
             }
             try:
                 if transport == "curl":
@@ -255,13 +257,17 @@ class BinanceTerminalClient:
                                    str((params or {}).get("interval", "")))
                     payload = self._public_request_deadline.run(request_key, fetch)
                 if payload is None:
-                    raise ValueError("Invalid public Binance JSON response")
-            except (requests.ConnectionError, requests.Timeout) as exc:
+                    raise InvalidPublicResponse("Invalid public Binance JSON response")
+            except requests.RequestException as exc:
+                failures.append({"transport": transport, **safe_transport_error(exc)})
                 self.last_public_transport["error_type"] = type(exc).__name__
+                self.last_public_transport["failures"] = list(failures)
                 if transport == "curl":
                     self._curl_preferred_until = 0.0
                 if index:
-                    raise requests.ConnectionError("Both Binance public transports failed") from exc
+                    # The complete safe chain is retained above; rendering the
+                    # original requests context can expose proxy credentials.
+                    raise PublicTransportError("Both Binance public transports failed", failures) from None
                 first_error = exc
                 continue
             self.last_public_transport.update(ok=True, observed_at_ms=int(time.time() * 1000))

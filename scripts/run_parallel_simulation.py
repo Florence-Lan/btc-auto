@@ -38,6 +38,8 @@ import stock_entry_quality as entry_quality
 import stock_swing_confirmation as swing_confirmation
 import stock_research_entry_policy as entry_policy
 from public_request_deadline import PublicRequestDeadline
+from public_transport import (InvalidPublicResponse, PublicCurlError, PublicTransportError,
+                              public_curl_environment, safe_transport_error)
 from trading_execution import SimulationAccount, execute_report, read_json, write_json, profit_reentry_blocked
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -115,6 +117,8 @@ class PublicAster:
         self.cooldown = 0
         self.lock = threading.Lock()
         self.deadline = PublicRequestDeadline(timeout_seconds=17, max_pending=32)
+        self._curl_preferred_until = 0.0
+        self.last_public_transport = {}
 
     def get(self, endpoint, params=None):
         if endpoint not in self.allowed:
@@ -131,39 +135,82 @@ class PublicAster:
                 if status in (418, 429):
                     with self.lock:
                         self.cooldown = now_ms() + 120_000
-                return status, response.json()
+                if status != 200:
+                    return status, None
+                try:
+                    payload = response.json()
+                    if payload is None:
+                        raise InvalidPublicResponse('Aster public response is null')
+                    return status, payload
+                except ValueError:
+                    raise InvalidPublicResponse('Aster public response is not JSON') from None
             finally:
                 response.close()
-        try:
-            request_params = params or {}
-            status, payload = self.deadline.run(
-                (endpoint, request_params.get('symbol'), request_params.get('interval')), request,
-                join_pending=endpoint in ('time', 'exchangeInfo') and not request_params)
-        except (requests.ConnectionError, requests.Timeout):
-            if now_ms() < self.cooldown:
-                raise RuntimeError('Aster public cooldown active')
+        def curl_request():
             executable = shutil.which('curl.exe') or shutil.which('curl')
             if not executable:
-                raise RuntimeError('Public verified fallback curl transport unavailable')
+                raise PublicCurlError('curl unavailable', category='transport_unavailable')
             query = '?' + urlencode(params) if params else ''
             result = subprocess.run([executable, '-q', '--silent', '--show-error', '--proto', '=https',
                                      '--connect-timeout', '5', '--max-time', '15',
                                      '--write-out', '\n%{http_code}', '--url', url + query],
-                                    capture_output=True, text=True, encoding='utf-8', timeout=18)
+                                    capture_output=True, text=True, encoding='utf-8', timeout=18,
+                                    env=public_curl_environment(),
+                                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
             if result.returncode:
-                raise RuntimeError('Public verified fallback transport failed')
+                raise PublicCurlError('curl public read failed', curl_exit_code=result.returncode)
             body, _, status = result.stdout.rpartition('\n')
             status = int(status)
             if status in (418, 429):
                 with self.lock:
                     self.cooldown = now_ms() + 120_000
-            payload = json.loads(body)
-        if status in (418, 429):
-            with self.lock:
-                self.cooldown = now_ms() + 120_000
-        if status != 200 or isinstance(payload, dict) and int(payload.get('code', 0)) < 0:
-            raise RuntimeError(f'Aster public {endpoint} HTTP {status}')
-        return payload
+            if status != 200:
+                return status, None
+            try:
+                payload = json.loads(body)
+                if payload is None:
+                    raise InvalidPublicResponse('Aster curl public response is null')
+                return status, payload
+            except ValueError:
+                raise InvalidPublicResponse('Aster curl public response is not JSON') from None
+
+        transports = ('curl', 'requests') if time.monotonic() < self._curl_preferred_until else ('requests', 'curl')
+        failures = []
+        for index, transport in enumerate(transports):
+            if now_ms() < self.cooldown:
+                raise RuntimeError('Aster public cooldown active') from None
+            try:
+                if transport == 'requests':
+                    request_params = params or {}
+                    status, payload = self.deadline.run(
+                        (endpoint, request_params.get('symbol'), request_params.get('interval')), request,
+                        join_pending=endpoint in ('time', 'exchangeInfo') and not request_params)
+                else:
+                    status, payload = curl_request()
+            except (requests.RequestException, OSError, subprocess.SubprocessError, ValueError) as exc:
+                failures.append({'transport': transport, **safe_transport_error(exc)})
+                self.last_public_transport = {'transport': transport, 'endpoint': endpoint,
+                    'ok': False, 'failures': list(failures)}
+                if transport == 'curl':
+                    self._curl_preferred_until = 0.0
+                if now_ms() < self.cooldown:
+                    raise RuntimeError('Aster public cooldown active') from None
+                if index:
+                    message = ('Public verified fallback curl transport unavailable'
+                               if failures[-1]['category'] == 'transport_unavailable'
+                               else 'Public verified fallback transport failed')
+                    raise PublicTransportError(message, failures) from None
+                continue
+            if status in (418, 429):
+                with self.lock:
+                    self.cooldown = now_ms() + 120_000
+            if status != 200 or isinstance(payload, dict) and int(payload.get('code', 0)) < 0:
+                raise RuntimeError(f'Aster public {endpoint} HTTP {status}') from None
+            if transport == 'curl':
+                self._curl_preferred_until = time.monotonic() + 300
+            self.last_public_transport = {'transport': transport, 'endpoint': endpoint,
+                'ok': True, 'failures': list(failures)}
+            return payload
 
 
 def initial_stock(symbol, start, config):
@@ -361,51 +408,130 @@ class StockAccount:
             if error:
                 errors[label] = error
         clock = data.get('clock')
-        if clock and '_received_monotonic' in clock:
-            received = float(clock['_received_monotonic'])
-            elapsed = time.monotonic() - received
-            if not math.isfinite(received) or not 0 <= elapsed <= 15:
-                raise ValueError('Exchange clock observation is stale or invalid')
-            self.exchange_clock_anchor = (int(clock['serverTime']), received)
-        timestamp = int(clock['serverTime']) if clock else self.now_ms()
-        if clock:
-            fresh(timestamp, self.now_ms(), 15_000)
+        pending_clock_anchor = None
+        try:
+            if not clock or errors.get('clock'):
+                raise ValueError(errors.get('clock') or 'No current exchange clock')
+            timestamp = int(clock['serverTime'])
+            if isinstance(clock['serverTime'], bool) or timestamp <= 0:
+                raise ValueError('Invalid exchange clock')
+            if '_received_monotonic' in clock:
+                received = float(clock['_received_monotonic'])
+                elapsed = time.monotonic() - received
+                if not math.isfinite(received) or not 0 <= elapsed <= 15:
+                    raise ValueError('Exchange clock observation is stale or invalid')
+                # Bound a new clock against the previous reference, allowing
+                # modest host skew. Commit only after a separate mark agrees
+                # under the original quote-age limits below.
+                if abs(timestamp + int(elapsed * 1000) - self.now_ms()) > 15_000:
+                    raise ValueError('Exchange clock observation is stale or invalid')
+                pending_clock_anchor = (timestamp, received)
+            else:
+                fresh(timestamp, self.now_ms(), 15_000)
+        except (ValueError, KeyError, TypeError, OverflowError) as exc:
+            # A bad strategy clock must not hide an independently fresh mark.
+            # Keep it absent from every entry/confirmed-exit gate below.
+            errors.setdefault('clock', type(exc).__name__ + ': ' + str(exc)[:160])
+            data['clock'] = clock = None
+            timestamp = self.now_ms()
         mark = data.get('mark')
         book = data.get('book')
         state['observations'] += 1
         state['checked_at_utc'] = arithmetic.iso(self.now_ms())
         state['errors'] = errors
-        if data.get('rules'):
-            self.rules = next(row for row in data['rules']['symbols'] if row['symbol'] == self.symbol)
-            if self.rules['status'] != 'TRADING':
-                errors['rules'] = 'Contract is not trading'
-            self.rules_at_ms = self.now_ms()
-            write_json(self.path.with_name('contract_rules.json'), self.rules)
-        for key in ('signal', 'five'):
-            if data.get(key):
-                closed = [row for row in data[key] if int(row[6]) < timestamp]
-                if not closed:
-                    errors[key] = 'Completed candle response is empty'
-                elif any(int(b[0]) - int(a[0]) != (self.signal_interval_ms if key == 'signal' else FIVE_MINUTES)
-                       for a, b in zip(closed, closed[1:])):
-                    errors[key] = 'Nonconsecutive completed candles'
-                elif key == 'signal':
-                    self.signal_bars = closed
-                else:
-                    self.five = closed
-            if key in data and not errors.get(key) and not data.get(key):
-                errors[key] = 'Completed candle response is empty'
-        if 'signal' in data and not errors.get('signal') and not errors.get('five'):
-            self.candle_bucket = self.now_ms() // FIVE_MINUTES
-        if not mark:
+        prior_risk = state.get('risk_monitor') or {}
+        risk = {'mode': 'simulation', 'places_orders': False,
+                'checked_at_ms': now_ms(), 'checked_at_utc': arithmetic.iso(now_ms()),
+                'status': 'unavailable', 'assessment': 'not_evaluated',
+                'clock_source': 'exchange' if clock else 'mark_endpoint',
+                'last_success_at_ms': prior_risk.get('last_success_at_ms'),
+                'last_success_mark_time_ms': prior_risk.get('last_success_mark_time_ms'),
+                'consecutive_failures': int(prior_risk.get('consecutive_failures') or 0) + 1,
+                'errors': {}}
+        state['risk_monitor'] = risk
+        def mark_reference_now():
+            if pending_clock_anchor is not None:
+                server_ms, received = pending_clock_anchor
+                return server_ms + int((time.monotonic() - received) * 1000)
+            return self.now_ms()
+        def unavailable_mark(exc):
+            errors['mark'] = type(exc).__name__ + ': ' + str(exc)[:160]
+            risk['errors'] = {key: errors[key] for key in ('clock', 'mark') if key in errors}
+            try:
+                risk['mark_age_ms'] = mark_reference_now() - int((mark or {})['time'])
+            except (ValueError, KeyError, TypeError, OverflowError):
+                pass
             state['status'] = 'degraded'
             write_json(self.path, state)
-            journal(self.path.with_name('observations.jsonl'), {'checked_at_utc': state['checked_at_utc'], 'errors': errors})
+            journal(self.path.with_name('observations.jsonl'), {'checked_at_utc': state['checked_at_utc'],
+                'errors': errors, 'risk_monitor': risk})
             return state
-        fresh(mark['time'], self.now_ms())
-        price, index = float(mark['markPrice']), float(mark['indexPrice'])
-        if not all(math.isfinite(p) and p > 0 for p in (price, index)):
-            raise ValueError('Invalid mark/index price')
+        if data.get('rules'):
+            try:
+                rules = next(row for row in data['rules']['symbols'] if row['symbol'] == self.symbol)
+                filters = {row['filterType']: row for row in rules['filters']}
+                lot = filters.get('MARKET_LOT_SIZE') or filters['LOT_SIZE']
+                if not all(math.isfinite(float(v)) and float(v) > 0 for v in (
+                        lot['stepSize'], lot['minQty'], lot['maxQty'], filters['PRICE_FILTER']['tickSize'])):
+                    raise ValueError('Invalid contract filters')
+                if rules['status'] != 'TRADING':
+                    errors['rules'] = 'Contract is not trading'
+                self.rules = rules
+                self.rules_at_ms = self.now_ms()
+                write_json(self.path.with_name('contract_rules.json'), self.rules)
+            except (ValueError, KeyError, TypeError, IndexError, StopIteration, OverflowError) as exc:
+                errors['rules'] = type(exc).__name__ + ': ' + str(exc)[:160]
+        for key in ('signal', 'five'):
+            try:
+                if data.get(key):
+                    closed = [row for row in data[key] if int(row[6]) < timestamp]
+                    if not closed:
+                        raise ValueError('Completed candle response is empty')
+                    if any(int(b[0]) - int(a[0]) != (self.signal_interval_ms if key == 'signal' else FIVE_MINUTES)
+                           for a, b in zip(closed, closed[1:])):
+                        raise ValueError('Nonconsecutive completed candles')
+                    for row in closed:
+                        candle = arithmetic.candle(row)
+                        if not all(math.isfinite(v) and v > 0 for v in (
+                                candle.open, candle.high, candle.low, candle.close)) or not math.isfinite(candle.volume):
+                            raise ValueError('Invalid completed candle')
+                    if key == 'signal':
+                        self.signal_bars = closed
+                    else:
+                        self.five = closed
+                if key in data and not errors.get(key) and not data.get(key):
+                    raise ValueError('Completed candle response is empty')
+            except (ValueError, KeyError, TypeError, IndexError, OverflowError) as exc:
+                message = str(exc)[:160]
+                errors[key] = (message if message in ('Completed candle response is empty',
+                    'Nonconsecutive completed candles') else type(exc).__name__ + ': ' + message)
+        if 'signal' in data and not errors.get('signal') and not errors.get('five'):
+            self.candle_bucket = self.now_ms() // FIVE_MINUTES
+        mark_source_available = bool(mark) and not errors.get('mark')
+        try:
+            if not mark or errors.get('mark'):
+                raise ValueError(errors.get('mark') or 'No current mark-price observation')
+            fresh(mark['time'], mark_reference_now())
+            price = float(mark['markPrice'])
+            if not math.isfinite(price) or price <= 0:
+                raise ValueError('Invalid mark price')
+            if state.get('position_history') and int(mark['time']) < int(state['position_history'][-1]['time_ms']):
+                raise ValueError('Mark observation predates the latest inventory')
+        except (ValueError, KeyError, TypeError, OverflowError) as exc:
+            unavailable = unavailable_mark(exc)
+            if mark_source_available:
+                raise
+            return unavailable
+        if pending_clock_anchor is not None:
+            self.exchange_clock_anchor = pending_clock_anchor
+        # The index is an entry-basis input; it is not required to observe risk.
+        index = None
+        try:
+            index = float(mark['indexPrice'])
+            if not math.isfinite(index) or index <= 0:
+                raise ValueError('Invalid index price')
+        except (ValueError, KeyError, TypeError, OverflowError) as exc:
+            errors['index'] = type(exc).__name__ + ': ' + str(exc)[:160]
         fresh_book = False
         try:
             if not book:
@@ -414,10 +540,16 @@ class StockAccount:
             bid, ask = float(book['bids'][0][0]), float(book['asks'][0][0])
             if not 0 < bid <= ask or not math.isfinite(ask):
                 raise ValueError('Invalid crossed/empty book')
+            for levels in (book['bids'], book['asks']):
+                if any(not math.isfinite(float(p)) or float(p) <= 0
+                       or not math.isfinite(float(q)) or float(q) < 0 for p, q in levels):
+                    raise ValueError('Invalid book levels')
             fresh_book = True
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             errors['book'] = str(exc)
-        if data.get('funding') is not None:
+        if not clock:
+            errors.setdefault('funding', 'Settlement deferred without a verified exchange clock')
+        elif data.get('funding') is not None:
             try:
                 if len(data['funding']) >= 1000:
                     raise ValueError('Funding history pagination required; new risk blocked')
@@ -430,6 +562,19 @@ class StockAccount:
                     state['next_funding_ms'] = int(mark['nextFundingTime'])
             except Exception as exc:
                 errors['funding'] = type(exc).__name__ + ': ' + str(exc)[:160]
+        # A settlement mark fallback may itself take time. Never assess or fill
+        # using a mark that expired while that unrelated request was pending.
+        try:
+            fresh(mark['time'], self.now_ms())
+        except (ValueError, KeyError, TypeError, OverflowError) as exc:
+            unavailable_mark(exc)
+            raise
+        if fresh_book:
+            try:
+                fresh(book.get('T') or book.get('E'), self.now_ms())
+            except (ValueError, KeyError, TypeError, OverflowError) as exc:
+                fresh_book = False
+                errors['book'] = str(exc)
         pos = state['position']
         equity = state['wallet_balance'] + (pos['direction'] * pos['qty'] * (price - pos['entry']) if pos else 0)
         state['peak_equity'] = max(state['peak_equity'], equity)
@@ -692,6 +837,14 @@ class StockAccount:
         state['position_qty'] = pos['direction'] * pos['qty'] if pos else 0
         state['last_mark_price'] = price
         state['updated_at_utc'] = arithmetic.iso(self.now_ms())
+        risk.update(status='healthy' if clock and (not pos or fresh_book and lot) else 'degraded',
+                    assessment='evaluated', assessment_time_ms=self.now_ms(),
+                    mark_price=price, mark_time_ms=int(mark['time']),
+                    mark_age_ms=self.now_ms() - int(mark['time']),
+                    last_success_at_ms=now_ms(), last_success_mark_time_ms=int(mark['time']),
+                    consecutive_failures=0, protection_fill_available=bool(fresh_book and lot),
+                    pending_exit=pos.get('pending_exit') if pos else None,
+                    errors={key: errors[key] for key in ('clock', 'book', 'rules') if key in errors})
         state['status'] = 'degraded' if errors else 'healthy'
         state['errors'] = errors
         # Exact independent cash identity, including late funding of already closed inventory.
@@ -708,6 +861,7 @@ class StockAccount:
         observation['entry_blockers'] = state['entry_blockers']
         observation['swing_confirmation'] = state.get('swing_confirmation')
         observation['stock_entry_timing'] = state.get('stock_entry_timing')
+        observation['risk_monitor'] = risk
         state['profit_exit_status'] = ({**pos.get('profit_exit', {}), 'stop': pos['stop']}
             if pos and profit_exits.enabled(cfg) else None)
         if cfg.get('trend_exit_policy') is not None and not pos:
@@ -985,10 +1139,34 @@ def btc_step(account, root, manifest, client):
     path = ROOT / account['state_path']
     profile = json.loads((ROOT / account['strategy_path']).read_text(encoding='utf-8'))
     execution = SimulationAccount(path, profit_exit_policy=profile.get('profit_exit_policy'))
-    clock = decision_runtime.resolve_clock(client)
+    try:
+        clock = decision_runtime.resolve_clock(client)
+    except Exception as exc:
+        # Risk observation has its own timestamped-mark fallback. A failed
+        # decision clock must not prevent that independent protective attempt.
+        clock = {'time_ms': now_ms(), 'source': 'unavailable',
+                 'primary_error': type(exc).__name__ + ': ' + str(exc)[:240]}
     clock_monotonic = time.monotonic()
     health = simulation_risk_monitor.monitor(client, clock['time_ms'], account=execution,
-        status_path=path.with_name('risk_monitor.json'), clock_source=clock['source'])
+        status_path=path.with_name('risk_monitor.json'), clock_source=clock['source'],
+        clock_available=clock['source'] == 'exchange', clock_error=clock.get('primary_error'),
+        mark_observation=clock.get('mark_observation'),
+        freshness_reference_ms=clock.get('freshness_reference_ms'),
+        reference_received_monotonic=clock.get('reference_received_monotonic'))
+    if clock['source'] != 'exchange':
+        state = execution.load()
+        snapshot = execution.snapshot(state.get('last_mark_price'))
+        risk = (health or {}).get('monitor') or {}
+        return {'symbol': 'BTCUSDT', 'status': 'degraded', 'checked_at_utc': arithmetic.iso(now_ms()),
+                'equity': snapshot['account']['margin_balance'], 'wallet_balance': state['wallet_balance'],
+                'return_pct': snapshot['account']['realized_return_pct'], 'position_qty': state['position_qty'],
+                'fill_count_total': state['fill_count_total'], 'fees_paid': state['fees_paid'],
+                'funding_pnl': state['funding_pnl'], 'max_drawdown_pct': state['max_drawdown_pct'],
+                'last_mark_price': state.get('last_mark_price'), 'entry_price': state.get('entry_price'),
+                'signal_status': 'entry_data_unavailable', 'entry_blockers': ['exchange_clock_unavailable'],
+                'profit_exit_status': state.get('profit_exit_status'), 'risk_monitor': risk,
+                'errors': {**risk.get('errors', {}),
+                           'exchange_clock': clock.get('primary_error') or 'No current exchange clock'}}
     report_path = ROOT / account.get('strategy_report_path',
         'data/paper_trading/' + profile['candidate_id'] + '_report.json')
     report = json.loads(report_path.read_text(encoding='utf-8'))
@@ -1082,6 +1260,7 @@ def btc_step(account, root, manifest, client):
             'profit_exit_status': state.get('profit_exit_status'),
             'btc_pullback_entry': pullback if profile.get('btc_pullback_entry_policy') is not None else None,
             'entry_qualification': account.get('entry_qualification'),
+            'risk_monitor': (health or {}).get('monitor'),
             **entry_view,
             'errors': (health or {}).get('monitor', {}).get('errors', {})}
 
@@ -1230,7 +1409,7 @@ def _run_locked(plan, root, args):
                     'swing_confirmation',
                     'execution_entry_gate', 'entry_source_status', 'llm_trade_gate', 'errors', 'observations',
                     'btc_entry_timing', 'btc_pullback_entry', 'stock_entry_timing',
-                    'profit_exit_status', 'realized_pnl')}
+                    'profit_exit_status', 'realized_pnl', 'risk_monitor')}
                 # Heartbeats share the host clock used by the local UI. Market
                 # timestamps keep their exchange clock for freshness validation.
                 view['market_checked_at_utc'] = result.get('checked_at_utc')
@@ -1256,7 +1435,8 @@ def _run_locked(plan, root, args):
                     prior['return_pct'] = (prior['equity'] / 1000 - 1) * 100 if prior['equity'] is not None else None
                 with mutex:
                     shared[account_id] = {**prior, 'symbol': account['symbol'], 'status': 'degraded',
-                        'checked_at_utc': arithmetic.iso(now_ms()), 'errors': errors}
+                        'checked_at_utc': arithmetic.iso(now_ms()), 'errors': errors,
+                        'risk_monitor': ledger.get('risk_monitor') or prior.get('risk_monitor')}
                     completed_at[account_id] = time.monotonic()
                     failed_view = dict(shared[account_id])
                 runner_journal(root / account_id / 'errors.jsonl', failed_view)

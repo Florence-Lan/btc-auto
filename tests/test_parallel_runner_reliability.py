@@ -76,7 +76,7 @@ def test_aster_fallback_discovers_windows_curl_and_preserves_public_tls(monkeypa
 def test_aster_missing_curl_reports_transport_failure_without_file_not_found(monkeypatch):
     monkeypatch.setattr(runner.requests, 'get', Mock(side_effect=requests.Timeout('timeout')))
     monkeypatch.setattr(runner.shutil, 'which', lambda name: None)
-    with pytest.raises(RuntimeError, match='fallback curl transport unavailable'):
+    with pytest.raises(runner.PublicTransportError, match='fallback curl transport unavailable'):
         runner.PublicAster().get('time')
 
 
@@ -149,7 +149,7 @@ def test_aster_non_json_rate_limit_still_enters_cooldown(monkeypatch):
     primary = Mock(return_value=response)
     monkeypatch.setattr(runner.requests, 'get', primary)
     venue = runner.PublicAster()
-    with pytest.raises(ValueError, match='HTML rate-limit'):
+    with pytest.raises(RuntimeError, match='HTTP 429'):
         venue.get('time')
     with pytest.raises(RuntimeError, match='cooldown active'):
         venue.get('time')
@@ -297,3 +297,250 @@ def test_stock_ledger_read_explicitly_uses_utf8(tmp_path):
     venue.get.return_value = {}
     account = runner.StockAccount(LedgerPath(), venue, 'MUUSDT', {})
     account.market_data()
+
+
+def protective_stock(tmp_path, monkeypatch, *, opened=True, stop=95):
+    current = {'now': 10 * runner.FOUR_HOURS + 100_000}
+    monkeypatch.setattr(runner, 'now_ms', lambda: current['now'])
+    monkeypatch.setattr(runner.time, 'monotonic', lambda: current['now'] / 1000)
+    config = json.loads((runner.ROOT / 'config/stock_swing_120_candidate_20261004.json').read_text(encoding='utf-8'))
+    path = tmp_path / 'state.json'
+    state = runner.initial_stock('MUUSDT', current['now'] - 10_000, config)
+    if opened:
+        state['position'] = {'entry': 100, 'qty': 1, 'direction': 1,
+            'entry_time': current['now'] - 5_000, 'signal_time': current['now'] - 5_000,
+            'stop': stop, 'initial_stop': stop, 'entry_fee': 0, 'margin': 10, 'funding': 0}
+        state['position_history'] = [{'time_ms': current['now'] - 5_000, 'signed_qty': 1}]
+    runner.write_json(path, state)
+    account = runner.StockAccount(path, Mock(side_effect=AssertionError('offline fixture')), 'MUUSDT', config)
+    def snapshot():
+        stamp = current['now']
+        return [('clock', {'serverTime': stamp}, None),
+            ('mark', {'time': stamp, 'markPrice': '94', 'indexPrice': '94',
+                      'lastFundingRate': '0', 'nextFundingTime': stamp + 1_000_000}, None),
+            ('book', {'T': stamp, 'bids': [['94', '100']], 'asks': [['94.1', '100']]}, None),
+            ('rules', {'symbols': [{'symbol': 'MUUSDT', 'status': 'TRADING', 'filters': [
+                {'filterType': 'LOT_SIZE', 'stepSize': '.01', 'minQty': '.01', 'maxQty': '100'},
+                {'filterType': 'PRICE_FILTER', 'tickSize': '.01'}]}]}, None),
+            ('funding', None, 'Funding unavailable'), ('signal', None, 'Signal unavailable'),
+            ('five', None, 'Liquidity candle unavailable')]
+    return account, path, current, snapshot
+
+
+@pytest.mark.parametrize('clock_failure', ['missing', 'expired_receipt', 'bad_server_time', 'positive_stale', 'positive_future'])
+def test_stock_bad_clock_keeps_fresh_mark_and_depth_protection(tmp_path, monkeypatch, clock_failure):
+    account, _, _, snapshot = protective_stock(tmp_path, monkeypatch)
+    responses = snapshot()
+    if clock_failure == 'missing':
+        responses[0] = ('clock', None, 'Clock unavailable')
+    elif clock_failure == 'expired_receipt':
+        responses[0][1]['_received_monotonic'] = runner.time.monotonic() - 16
+    elif clock_failure == 'bad_server_time':
+        responses[0][1]['serverTime'] = 'invalid'
+    else:
+        responses[0][1].update(serverTime=runner.now_ms() + (-120_000 if clock_failure == 'positive_stale' else 120_000),
+                               _received_monotonic=runner.time.monotonic())
+    result = account.step(responses)
+    assert result['position'] is None
+    assert result['fills'][-1]['reason'] == 'protective_stop'
+    assert result['status'] == 'degraded'
+    assert result['risk_monitor']['assessment'] == 'evaluated'
+    assert result['risk_monitor']['clock_source'] == 'mark_endpoint'
+    assert result['risk_monitor']['consecutive_failures'] == 0
+    assert 'clock' in result['errors']
+    assert account.exchange_clock_anchor is None
+
+
+@pytest.mark.parametrize('bad_source', ['index', 'signal', 'five', 'rules'])
+def test_bad_entry_inputs_cannot_prevent_existing_stock_stop(tmp_path, monkeypatch, bad_source):
+    account, _, _, snapshot = protective_stock(tmp_path, monkeypatch)
+    responses = snapshot()
+    # Establish last known quantity metadata, then fail a non-protective input.
+    account.rules = responses[3][1]['symbols'][0]
+    if bad_source == 'index':
+        responses[1][1]['indexPrice'] = 'invalid'
+    else:
+        responses = [(label, {'symbols': []} if label == 'rules' else [[1]], None)
+                     if label == bad_source else (label, payload, error)
+                     for label, payload, error in responses]
+    result = account.step(responses)
+    assert result['position'] is None
+    assert result['fills'][-1]['reason'] == 'protective_stop'
+    assert bad_source in result['errors']
+    assert result['risk_monitor']['assessment'] == 'evaluated'
+
+
+def test_stock_failed_marks_preserve_last_success_and_recover_without_stale_fill(tmp_path, monkeypatch):
+    account, _, current, snapshot = protective_stock(tmp_path, monkeypatch, stop=90)
+    good = account.step(snapshot())
+    last_success = good['risk_monitor']['last_success_at_ms']
+    original_position = copy.deepcopy(good['position'])
+    current['now'] += 30_000
+    stale = snapshot()
+    stale[1][1].update(time=current['now'] - 60_001, markPrice='1')
+    with pytest.raises(ValueError, match='Stale or future'):
+        account.step(stale)
+    failed = runner.read_json(account.path)
+    assert failed['position'] == original_position
+    assert failed['fill_count_total'] == 0
+    assert failed['last_mark_price'] == 94
+    assert failed['wallet_balance'] == good['wallet_balance']
+    assert failed['risk_monitor']['status'] == 'unavailable'
+    assert failed['risk_monitor']['assessment'] == 'not_evaluated'
+    assert failed['risk_monitor']['last_success_at_ms'] == last_success
+    assert failed['risk_monitor']['mark_age_ms'] == 60_001
+    assert failed['risk_monitor']['consecutive_failures'] == 1
+    missing = [(label, None, 'Unavailable') if label == 'mark' else (label, payload, error)
+               for label, payload, error in snapshot()]
+    assert account.step(missing)['risk_monitor']['consecutive_failures'] == 2
+    current['now'] += 30_000
+    recovered = account.step(snapshot())
+    assert recovered['risk_monitor']['assessment'] == 'evaluated'
+    assert recovered['risk_monitor']['last_success_at_ms'] == current['now']
+    assert recovered['risk_monitor']['last_success_at_ms'] > last_success
+    assert recovered['risk_monitor']['consecutive_failures'] == 0
+    assert recovered['fill_count_total'] == 0
+
+
+def test_stock_without_fresh_depth_records_stop_pending_without_inventing_fill(tmp_path, monkeypatch):
+    account, _, _, snapshot = protective_stock(tmp_path, monkeypatch)
+    responses = [(label, None, 'Unavailable') if label == 'book' else (label, payload, error)
+                 for label, payload, error in snapshot()]
+    result = account.step(responses)
+    assert result['position']['pending_exit'] == 'protective_stop'
+    assert result['fill_count_total'] == 0
+    assert result['risk_monitor']['assessment'] == 'evaluated'
+    assert not result['risk_monitor']['protection_fill_available']
+
+
+def test_aster_transport_diagnostics_keep_codes_and_redact_exception_messages(monkeypatch):
+    monkeypatch.setattr(runner.requests, 'get', Mock(side_effect=requests.ConnectionError(
+        'https://user:secret@proxy.invalid?api_key=topsecret')))
+    monkeypatch.setattr(runner.shutil, 'which', lambda name: 'curl.exe')
+    fallback = Mock(return_value=subprocess.CompletedProcess([], 56, '', 'secret proxy response'))
+    monkeypatch.setattr(runner.subprocess, 'run', fallback)
+    with pytest.raises(runner.PublicTransportError) as error:
+        runner.PublicAster().get('premiumIndex', {'symbol': 'MUUSDT'})
+    assert error.value.failures[-1]['curl_exit_code'] == 56
+    assert error.value.failures[-1]['category'] == 'receive'
+    import traceback
+    trace = ''.join(traceback.format_exception(error.value))
+    assert 'topsecret' not in trace and 'secret proxy' not in trace and 'user:secret' not in trace
+    environment = fallback.call_args.kwargs['env']
+    assert not any('API_KEY' in key.upper() or 'API_SECRET' in key.upper() for key in environment)
+
+
+@pytest.mark.parametrize('failure', ['chunked', 'decoding', 'bad_json', 'null'])
+def test_aster_broken_response_uses_bounded_verified_fallback(monkeypatch, failure):
+    response = Mock(status_code=200)
+    response.json.side_effect = {'chunked': requests.exceptions.ChunkedEncodingError('private response'),
+                                'decoding': requests.exceptions.ContentDecodingError('private response'),
+                                'bad_json': ValueError('private response'), 'null': None}[failure]
+    if failure == 'null':
+        response.json.return_value = None
+    primary = Mock(return_value=response)
+    monkeypatch.setattr(runner.requests, 'get', primary)
+    monkeypatch.setattr(runner.shutil, 'which', lambda name: 'curl.exe')
+    fallback = Mock(return_value=curl_response({'serverTime': 1000}))
+    monkeypatch.setattr(runner.subprocess, 'run', fallback)
+    assert runner.PublicAster().get('time') == {'serverTime': 1000}
+    primary.assert_called_once()
+    fallback.assert_called_once()
+    response.close.assert_called_once()
+
+
+def test_aster_late_rate_limit_suppresses_unsafe_primary_exception_trace(monkeypatch):
+    venue = runner.PublicAster()
+    def fail(*args, **kwargs):
+        venue.cooldown = runner.now_ms() + 120_000
+        raise requests.ConnectionError('https://user:secret@proxy.invalid?api_key=topsecret')
+    monkeypatch.setattr(venue.deadline, 'run', fail)
+    fallback = Mock(side_effect=AssertionError('Rate limiting must not switch transports'))
+    monkeypatch.setattr(runner.subprocess, 'run', fallback)
+    with pytest.raises(RuntimeError, match='cooldown active') as error:
+        venue.get('time')
+    import traceback
+    trace = ''.join(traceback.format_exception(error.value))
+    assert 'topsecret' not in trace and 'user:secret' not in trace
+    fallback.assert_not_called()
+
+
+@pytest.mark.parametrize('resolution', ['mark_fallback', 'all_sources_failed_initially', 'mark_fallback_after_host_clock_jump'])
+def test_btc_clock_outage_still_observes_risk_and_never_runs_strategy(tmp_path, monkeypatch, resolution):
+    timestamp = 1_791_027_000_000
+    timing = {'wall': timestamp / 1000, 'monotonic': 1000.0}
+    monkeypatch.setattr(runner, 'ROOT', tmp_path)
+    monkeypatch.setattr(runner, 'now_ms', lambda: int(timing['wall'] * 1000))
+    monkeypatch.setattr(runner.time, 'time', lambda: timing['wall'])
+    monkeypatch.setattr(runner.time, 'monotonic', lambda: timing['monotonic'])
+    monkeypatch.setenv('LLM_TRADE_GATE_ENABLED', 'false')
+    monkeypatch.setenv('SIM_TAKER_FEE', '0.00045')
+    monkeypatch.setenv('SIM_SLIPPAGE_BPS', '1')
+    path = tmp_path / 'btc/state.json'
+    account = runner.SimulationAccount(path, allow_llm=False)
+    state = account.reset(1000, now_ms=timestamp - 100_000)
+    state.update(wallet_balance=1000, position_qty=.01, entry_price=100000,
+                 observed_flat_target=True, last_signal_time_ms=timestamp - 90_000,
+                 position_history=[{'time_ms': timestamp - 90_000, 'signed_qty': .01}])
+    account._save(state)
+    (tmp_path / 'profile.json').write_text('{"candidate_id":"offline"}', encoding='utf-8')
+    client = Mock()
+    if resolution == 'mark_fallback_after_host_clock_jump':
+        client.server_time_ms.return_value = timestamp
+        runner.decision_runtime.resolve_clock(client)
+        timing.update(wall=timing['wall'] - 3600, monotonic=timing['monotonic'] + 1)
+    client.server_time_ms.side_effect = OSError('Clock disconnected')
+    mark = {'price': 80000, 'time_ms': timestamp + (1000 if resolution == 'mark_fallback_after_host_clock_jump' else -1000)}
+    client.mark_price_observation.side_effect = ([mark, AssertionError('Do not refetch a validated mark')]
+        if resolution != 'all_sources_failed_initially' else [OSError('First mark failed'), mark])
+    client.symbol_rules.side_effect = AssertionError('No metadata needed for BTC full protective close')
+    execute = Mock(side_effect=AssertionError('Fallback must not run strategy entries'))
+    monkeypatch.setattr(runner, 'execute_report', execute)
+    result = runner.btc_step({'state_path': 'btc/state.json', 'strategy_path': 'profile.json'},
+                             tmp_path, {'start_ms': timestamp - 100_000}, client)
+    assert account.load()['position_qty'] == 0
+    assert account.load()['fill_count_total'] == 1
+    assert result['status'] == 'degraded'
+    assert result['risk_monitor']['assessment'] == 'evaluated'
+    assert result['entry_blockers'] == ['exchange_clock_unavailable']
+    assert client.mark_price_observation.call_count == (2 if resolution == 'all_sources_failed_initially' else 1)
+    client.funding_history.assert_not_called()
+    execute.assert_not_called()
+
+
+def test_aster_successful_curl_is_temporarily_preferred_then_requests_is_retried(monkeypatch):
+    monotonic = {'now': 1000.0}
+    monkeypatch.setattr(runner.time, 'monotonic', lambda: monotonic['now'])
+    response = Mock(status_code=200)
+    response.json.return_value = {'serverTime': 2000}
+    primary = Mock(side_effect=[requests.Timeout('bounded source deadline'), response])
+    fallback = Mock(return_value=curl_response({'serverTime': 1000}))
+    monkeypatch.setattr(runner.requests, 'get', primary)
+    monkeypatch.setattr(runner.shutil, 'which', lambda name: 'curl.exe')
+    monkeypatch.setattr(runner.subprocess, 'run', fallback)
+    venue = runner.PublicAster()
+    assert venue.get('time') == {'serverTime': 1000}
+    monotonic['now'] += 1
+    assert venue.get('time') == {'serverTime': 1000}
+    assert primary.call_count == 1 and fallback.call_count == 2
+    monotonic['now'] += 301
+    assert venue.get('time') == {'serverTime': 2000}
+    assert primary.call_count == 2
+    assert venue.last_public_transport['transport'] == 'requests'
+
+
+def test_aster_preferred_curl_failure_can_recover_via_requests(monkeypatch):
+    primary = Mock()
+    response = Mock(status_code=200)
+    response.json.return_value = {'serverTime': 2000}
+    primary.side_effect = [requests.Timeout('first source deadline'), response, response]
+    fallback = Mock(side_effect=[curl_response({'serverTime': 1000}), subprocess.CompletedProcess([], 56, '', '')])
+    monkeypatch.setattr(runner.requests, 'get', primary)
+    monkeypatch.setattr(runner.shutil, 'which', lambda name: 'curl.exe')
+    monkeypatch.setattr(runner.subprocess, 'run', fallback)
+    venue = runner.PublicAster()
+    assert venue.get('time') == {'serverTime': 1000}
+    assert venue.get('time') == {'serverTime': 2000}
+    assert venue._curl_preferred_until == 0
+    assert venue.get('time') == {'serverTime': 2000}
+    assert primary.call_count == 3 and fallback.call_count == 2

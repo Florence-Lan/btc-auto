@@ -2,6 +2,7 @@ import json
 import subprocess
 import sys
 import threading
+import traceback
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import Mock
@@ -12,6 +13,7 @@ import requests
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import binance_terminal_client as binance
 from public_request_deadline import PublicRequestDeadline
+from public_transport import PublicCurlError, PublicTransportError, safe_transport_error
 
 
 @pytest.fixture
@@ -42,7 +44,9 @@ def exchange_info(step="0.001"):
 
 @pytest.mark.parametrize("failure", [requests.exceptions.SSLError("EOF"),
                                      requests.exceptions.ConnectionError("reset"),
-                                     requests.exceptions.Timeout("timeout")])
+                                     requests.exceptions.Timeout("timeout"),
+                                     requests.exceptions.ChunkedEncodingError("truncated body"),
+                                     requests.exceptions.ContentDecodingError("invalid encoding")])
 def test_connection_failure_uses_same_public_endpoint_and_prefers_working_transport(client, monkeypatch, failure):
     client.session.get.side_effect = failure
     fallback = Mock(return_value=response({"serverTime": 1_790_000_000_000}))
@@ -52,6 +56,7 @@ def test_connection_failure_uses_same_public_endpoint_and_prefers_working_transp
     assert client.last_public_transport == {
         "transport": "curl", "endpoint": "/fapi/v1/time", "observed_at_ms": 1_790_000_000_000,
         "ok": True, "fallback": True, "primary_error_type": type(failure).__name__,
+        "failures": [{"transport": "requests", **safe_transport_error(failure)}],
     }
     assert client.server_time_ms() == 1_790_000_000_000
     assert client.session.get.call_count == 1
@@ -228,6 +233,116 @@ def test_curl_transport_error_does_not_include_tool_output(client, monkeypatch):
     with pytest.raises(requests.ConnectionError, match=r"curl 35") as error:
         client._curl_public_get("/fapi/v1/time", None)
     assert "local proxy detail" not in str(error.value)
+    assert safe_transport_error(error.value)["curl_exit_code"] == 35
+    assert safe_transport_error(error.value)["category"] == "tls"
+
+
+def test_curl_non_utf8_header_does_not_hide_rate_limit(client, monkeypatch):
+    monkeypatch.setattr(binance.shutil, "which", lambda _: "curl.exe")
+    def run(command, **kwargs):
+        header_path = Path(command[command.index("--dump-header") + 1])
+        header_path.write_bytes(b"HTTP/2 429\r\nretry-after: 120\r\nx-provider: \xff\r\n\r\n")
+        return subprocess.CompletedProcess(command, 0, '{"code":-1003,"msg":"limit"}\n429', "")
+    monkeypatch.setattr(binance.subprocess, "run", run)
+    client._curl_preferred_until = 500
+    with pytest.raises(binance.BinanceApiError) as result:
+        client.server_time_ms()
+    assert result.value.retry_at_ms == 1_790_000_125_000
+    client.session.get.assert_not_called()
+
+
+def test_invalid_json_on_success_can_recover_via_other_public_transport(client, monkeypatch):
+    invalid = response({})
+    invalid._content = b"<html>temporarily unavailable</html>"
+    client.session.get.return_value = invalid
+    fallback = Mock(return_value=response({"serverTime": 1_790_000_000_000}))
+    monkeypatch.setattr(client, "_curl_public_get", fallback)
+    assert client.server_time_ms() == 1_790_000_000_000
+    assert client.last_public_transport["failures"][0]["category"] == "invalid_response"
+    fallback.assert_called_once_with("/fapi/v1/time", None)
+
+
+def test_both_failed_attempts_retain_safe_diagnostics(client, monkeypatch):
+    private_url = "https://proxy-user:proxy-password@private.invalid/?api_key=must-not-leak"
+    socket_error = OSError(10054, private_url)
+    primary = requests.exceptions.ConnectionError(socket_error)
+    client.session.get.side_effect = primary
+    monkeypatch.setattr(client, "_curl_public_get", Mock(side_effect=PublicCurlError(
+        "Public fallback transport failed (curl 6)", curl_exit_code=6)))
+    with pytest.raises(PublicTransportError) as result:
+        client.server_time_ms()
+    failures = result.value.failures
+    assert [failure["transport"] for failure in failures] == ["requests", "curl"]
+    assert failures[0]["error_chain"] == ["ConnectionError", type(socket_error).__name__]
+    assert failures[0]["errno"] == [10054]
+    assert failures[1]["curl_exit_code"] == 6
+    assert failures[1]["category"] == "dns"
+    assert client.last_public_transport["failures"] == failures
+    rendered = str(result.value) + json.dumps(client.last_public_transport)
+    rendered += "".join(traceback.format_exception(result.value))
+    for sensitive in ("proxy-user", "proxy-password", "private.invalid", "must-not-leak"):
+        assert sensitive not in rendered
+
+
+def test_two_invalid_public_json_responses_fail_without_returning_data(client, monkeypatch):
+    invalid = response(None)
+    client.session.get.return_value = invalid
+    monkeypatch.setattr(client, "_curl_public_get", Mock(return_value=response(None)))
+    with pytest.raises(PublicTransportError) as result:
+        client.server_time_ms()
+    assert [failure["error_type"] for failure in result.value.failures] == [
+        "InvalidPublicResponse", "InvalidPublicResponse"]
+
+
+def test_preferred_curl_invalid_json_recovers_via_requests(client, monkeypatch):
+    client._curl_preferred_until = 500
+    monkeypatch.setattr(client, "_curl_public_get", Mock(return_value=response(None)))
+    client.session.get.return_value = response({"serverTime": 1_790_000_000_000})
+    assert client.server_time_ms() == 1_790_000_000_000
+    assert client._curl_preferred_until == 0
+    assert client.last_public_transport["failures"][0]["transport"] == "curl"
+
+
+def test_curl_uses_explicit_utf8_and_preserves_windows_runtime_environment(client, monkeypatch):
+    import public_transport
+    environment = {"Path": "runtime-bin", "SystemRoot": "windows-runtime", "TEMP": "temporary",
+                   "https_proxy": "https://proxy-user:proxy-pass@proxy.invalid",
+                   "CURL_CA_BUNDLE": "trusted-ca", "BINANCE_API_KEY": "secret-key",
+                   "BINANCE_API_SECRET": "secret-value", "UNRELATED_SECRET": "other-secret"}
+    monkeypatch.setattr(public_transport.os, "environ", environment)
+    calls = install_fake_curl(monkeypatch, {"serverTime": 1})
+    client._curl_public_get("/fapi/v1/time", None)
+    _, kwargs = calls[0]
+    assert kwargs["encoding"] == "utf-8"
+    assert kwargs["errors"] == "replace"
+    assert kwargs["env"] == {key: environment[key] for key in (
+        "Path", "SystemRoot", "TEMP", "https_proxy", "CURL_CA_BUNDLE")}
+
+
+def test_curl_subprocess_timeout_has_safe_timeout_category(client, monkeypatch):
+    monkeypatch.setattr(binance.shutil, "which", lambda _: "curl.exe")
+    monkeypatch.setattr(binance.subprocess, "run", Mock(side_effect=subprocess.TimeoutExpired(
+        ["curl.exe", "https://private.invalid/?credential=secret"], 17,
+        output="private-output", stderr="proxy-password")))
+    with pytest.raises(PublicCurlError) as result:
+        client._curl_public_get("/fapi/v1/time", None)
+    assert safe_transport_error(result.value)["category"] == "timeout"
+    assert "secret" not in json.dumps(safe_transport_error(result.value))
+    rendered = "".join(traceback.format_exception(result.value))
+    assert "private.invalid" not in rendered and "proxy-password" not in rendered
+
+
+def test_preferred_curl_then_requests_failure_hides_raw_exception_traceback(client, monkeypatch):
+    client._curl_preferred_until = 500
+    monkeypatch.setattr(client, "_curl_public_get", Mock(side_effect=PublicCurlError(
+        "Public fallback transport failed (curl 7)", curl_exit_code=7)))
+    client.session.get.side_effect = requests.exceptions.ProxyError(
+        "https://proxy-user:proxy-password@private.invalid/?api_key=must-not-leak")
+    with pytest.raises(PublicTransportError) as result:
+        client.server_time_ms()
+    rendered = "".join(traceback.format_exception(result.value))
+    assert "proxy-password" not in rendered and "must-not-leak" not in rendered
+    assert result.value.failures[1]["category"] == "proxy"
 
 
 @pytest.mark.parametrize("origin", ["http://fapi.binance.com", "https://user:secret@fapi.binance.com",
