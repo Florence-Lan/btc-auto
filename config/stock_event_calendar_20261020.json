@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "calendar_id": "stock_official_earnings_20261020_v1",
+  "first_seen_at_ms": 1792427764000,
+  "available_at_ms": 1792427764000,
+  "verified_at_ms": 1792427764000,
+  "valid_until_ms": 1793462400000,
+  "coverage_start_ms": 1792427764000,
+  "coverage_end_ms": 1793462400000,
+  "review_due_reason": "Coverage expires at 2026-11-01 00:00 Asia/Shanghai. Refresh known official notices during routine operations and refresh the next coverage period before expiry; no manual approval is required.",
+  "verification_scope": "Pinned official call notices only. No claim that a first release is scheduled exactly at the call, that calls have finished, or that no revised notice exists.",
+  "symbol_reviews": {
+    "MUUSDT": {
+      "status": "no_announced_event_found",
+      "verified_at_ms": 1792427764000,
+      "source_urls": [
+        "https://investors.micron.com/events-and-presentations/default.aspx"
+      ],
+      "note": "No next earnings date was confirmed in this review; absence is not proof no event will be announced."
+    },
+    "SNDKUSDT": {
+      "status": "official_event_verified",
+      "verified_at_ms": 1792427764000,
+      "source_urls": [
+        "https://investor.sandisk.com/node/8381/pdf"
+      ]
+    },
+    "SKHYNIXUSDT": {
+      "status": "official_event_verified",
+      "verified_at_ms": 1792427764000,
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/2120882/000119312526420934/d413172d6k.htm"
+      ]
+    }
+  },
+  "events": [
+    {
+      "event_id": "skhynix_2026q3_call_20261028",
+      "symbols": [
+        "SKHYNIXUSDT"
+      ],
+      "anchor_kind": "official_earnings_call_start",
+      "anchor_time_ms": 1793145600000,
+      "anchor_time_local": "2026-10-28T09:00:00+09:00",
+      "first_release_time_ms": null,
+      "first_release_time_status": "unknown",
+      "call_end_time_ms": null,
+      "call_end_time_status": "unknown",
+      "first_seen_at_ms": 1792427764000,
+      "available_at_ms": 1792427764000,
+      "verified_at_ms": 1792427764000,
+      "source_published_date": "2026-10-14",
+      "source_title": "SK hynix Inc. Form 6-K: 2026 3Q Earnings Results conference call",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/2120882/000119312526420934/d413172d6k.htm"
+    },
+    {
+      "event_id": "sandisk_fy2027q1_call_20261029",
+      "symbols": [
+        "SNDKUSDT"
+      ],
+      "anchor_kind": "official_earnings_call_start",
+      "anchor_time_ms": 1793305800000,
+      "anchor_time_local": "2026-10-29T13:30:00-07:00",
+      "first_release_time_ms": null,
+      "first_release_time_status": "unknown",
+      "call_end_time_ms": null,
+      "call_end_time_status": "unknown",
+      "first_seen_at_ms": 1792427764000,
+      "available_at_ms": 1792427764000,
+      "verified_at_ms": 1792427764000,
+      "source_published_date": "2026-09-29",
+      "source_title": "Sandisk to Report First Quarter Fiscal Year 2027 Results on October 29, 2026",
+      "source_url": "https://investor.sandisk.com/node/8381/pdf"
+    }
+  ]
+}

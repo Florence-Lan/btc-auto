@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "mode": "SIMULATION",
+  "places_orders": false,
+  "sndk_frozen_runtime": {
+    "runtime_root": "data/runtime/frozen_sndk_4h_gate_20261012"
+  },
+  "btc_reentry_shadow": {
+    "enabled": true,
+    "config_path": "config/btc_reentry_shadow_20261020.json",
+    "output_dir": "data/paper_trading/btc_reentry_shadow_20261020"
+  }
+}

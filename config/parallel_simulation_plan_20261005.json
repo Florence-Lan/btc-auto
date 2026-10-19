@@ -7,7 +7,7 @@
   "total_initial_balance_usdt": 4000,
   "capital_transfers_between_accounts": false,
   "historical_warmup_counts_as_forward_performance": false,
-  "stock_research_profile": "config/stock_profit_protection_20261017.json",
+  "stock_research_profile": "config/stock_event_guarded_20261020.json",
   "market_data_policy": {
     "source": "real_public_venue_market_data",
     "required_inputs": [
@@ -77,14 +77,14 @@
   },
   "runner_script": "scripts/run_parallel_simulation.py",
   "plan_id": "btc_memory_stocks_latest_1000_each_20261007",
-  "status": "running_skhynix_profit_protection_20261017",
-  "review_revision": "skhynix_profit_protection_20261017",
-  "review_report": "docs/strategy_update_20261017.md",
+  "status": "running_stock_event_guard_20261020",
+  "review_revision": "stock_event_guard_20261020",
+  "review_report": "docs/strategy_risk_update_20261020.md",
   "user_authorized_start_condition": "User explicitly requested a new four-account paper generation on 2026-10-07.",
   "start_policy": "Fresh 1000 USDT empty accounts, common exchange UTC inception; preserve every earlier generation.",
   "prospective_start_utc": "2026-10-07T13:50:09.264000+00:00",
   "status_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/status.json",
-  "stock_rule_revision_scope": "skhynix_profit_trail_only",
+  "stock_rule_revision_scope": "stock_event_risk_only",
   "previous_plan_archive": "config/parallel_simulation_plan_20261005_archived_before_new_20261007.json",
   "btc_signal_producer_script": "scripts/run_parallel_btc_signals.py",
   "accounts": [
@@ -111,7 +111,7 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_path": "config/stock_entry_timing_20261011.json",
+      "strategy_path": "config/stock_event_guarded_20261020.json",
       "strategy_selection_status": "user_authorized_medium_large_swing_entry_timing_paper_not_forward_proven",
       "state_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/mu/state.json"
     },
@@ -121,7 +121,7 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_path": "config/stock_entry_timing_20261011.json",
+      "strategy_path": "config/stock_event_guarded_20261020.json",
       "strategy_selection_status": "user_authorized_medium_large_swing_entry_timing_paper_not_forward_proven",
       "state_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/sndk/state.json"
     },
@@ -131,7 +131,7 @@
       "venue": "aster",
       "initial_balance_usdt": 1000,
       "max_leverage": 10,
-      "strategy_path": "config/stock_entry_timing_20261011.json",
+      "strategy_path": "config/stock_event_guarded_20261020.json",
       "strategy_selection_status": "user_authorized_medium_large_swing_entry_timing_paper_not_forward_proven",
       "state_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/skhynix/state.json"
     }
@@ -149,7 +149,7 @@
     "verified_at_utc": "2026-10-11T04:21:12.570493+00:00",
     "all_four_worker_heartbeats_verified": true
   },
-  "stock_rule_revision_reason": "User-authorized paper-only SKHYNIX trailing protection revision: activation 8% to 4%, locked underlying return 3% to 1%; MU, SNDK, BTC, risk budgets, current stops and financial ledgers preserved. Not evidence of future profitability.",
+  "stock_rule_revision_reason": "User authorized entry-only earnings-event risk; preserve signals, pending identity, exits, risk budgets and existing financial ledgers.",
   "swing_policy": {
     "requested_at_utc": "2026-10-11T04:11:15.795291+00:00",
     "source_user_instruction": "??????????????????????????????????",
@@ -256,5 +256,14 @@
     "producer_pid": 4944,
     "all_four_worker_heartbeats_verified": true,
     "account_ledgers_preserved": true
+  },
+  "risk_update_activation_20261020": {
+    "activated_at_ms": 1792431562502,
+    "activated_at_utc": "2026-10-19T17:39:22.502000+00:00",
+    "places_orders": false,
+    "original_accounts_preserved": true,
+    "forward_validated": false,
+    "verification_path": "data/research/strategy_risk_update_20261020/activation_20261019T173922_280474Z/verification.json",
+    "btc_reentry_experiment": "config/btc_reentry_shadow_20261020.json"
   }
 }

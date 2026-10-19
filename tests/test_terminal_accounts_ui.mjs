@@ -22,6 +22,26 @@ function status() {
 }
 const fetcher = value => async () => ({ok: true, json: async () => value});
 
+test('stock cards explain earnings blackout, recovery bars and expired calendar separately', async () => {
+  const value = status();
+  const event = {anchor_time_ms: Date.UTC(2026, 9, 30, 4, 30), earliest_resume_at_ms: Date.UTC(2026, 9, 30, 7)};
+  Object.assign(value.accounts.sndk, {signal_status: 'stock_event_blocked',
+    entry_blockers: ['stock_event_blackout'], stock_event_risk: {enabled: true, allowed: false,
+      status: 'blackout', next_event: event, blocked_events: [event], valid_until_ms: Date.UTC(2026, 10, 1)}});
+  const page = root('stocks');
+  const view = createPaperAccounts(page, fetcher(value));
+  await view.ready;
+  assert.match(page.fields.cards.innerHTML, /财报风控：暂停新增/);
+  assert.match(page.fields.cards.innerHTML, /下一电话会|最早复核|两根完整小时行情|保护退出继续/);
+  assert.doesNotMatch(page.fields.cards.innerHTML, /stock_event_blackout/);
+  Object.assign(value.accounts.sndk, {entry_blockers: ['stock_event_calendar_expired'],
+    stock_event_risk: {enabled: true, allowed: false, status: 'unavailable'}});
+  await view.refresh();
+  assert.match(page.fields.cards.innerHTML, /日历已到复核期限|日历需要复核/);
+  assert.doesNotMatch(page.fields.cards.innerHTML, /stock_event_calendar_expired/);
+  view.destroy();
+});
+
 test('stock swing filtering explains the completed higher timeframe while the worker stays healthy', async () => {
   const value = status();
   Object.assign(value.accounts.mu, {signal_family: 'donchian20', signal_timeframe: '1h',

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Keep existing, order-disabled paper services alive on Windows.
 
-Only the three fixed paper scripts below can be adopted/launched. Account
+Only the fixed paper scripts below can be adopted/launched. Account
 ledgers are never initialized or edited here. Status in data/paper_services
 records process identities, heartbeat ages and bounded restart delays.
 """
@@ -21,12 +21,14 @@ import threading
 import time
 
 from process_lock import exclusive_process_lock
+import paper_service_extensions as extensions
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN = ROOT / 'config/parallel_simulation_plan_20261005.json'
 SHADOW = ROOT / 'data/paper_trading/sndk_4h_gate_shadow_20261012'
 ARMS = ('baseline_normal', 'candidate_normal', 'baseline_double', 'candidate_double')
-ALLOWED = ('run_parallel_simulation.py', 'run_parallel_btc_signals.py', 'run_sndk_4h_gate_shadow.py')
+ALLOWED = ('run_parallel_simulation.py', 'run_parallel_btc_signals.py',
+           'run_sndk_4h_gate_shadow.py', 'run_btc_reentry_shadow.py')
 STOP = threading.Event()
 
 
@@ -65,6 +67,7 @@ class Service:
 
 def build_services(root=ROOT, shadow=SHADOW, python=sys.executable):
     root = root.resolve()
+    extra = extensions.load(root)
     plan = read_json(root / 'config/parallel_simulation_plan_20261005.json')
     if plan.get('execution_mode') != 'simulation' or plan.get('live_orders_allowed') is not False:
         raise ValueError('Only a simulation plan with live_orders_allowed=false is accepted')
@@ -99,14 +102,24 @@ def build_services(root=ROOT, shadow=SHADOW, python=sys.executable):
     commands = [
         (python, '-u', str(root / 'scripts' / ALLOWED[0]), '--require-existing', '--poll-seconds', '30'),
         (python, '-u', str(root / 'scripts' / ALLOWED[1]), '--poll-seconds', '30'),
-        (python, '-u', str(root / 'scripts' / ALLOWED[2]), '--require-existing', '--poll-seconds', '30',
+        (python, '-u', str(extra.get('sndk_script', root / 'scripts' / ALLOWED[2])), '--require-existing', '--poll-seconds', '30',
          '--output-dir', str(shadow)),
     ]
     if any(not Path(command[2]).is_file() for command in commands):
         raise ValueError('A required paper script is unavailable')
-    return [Service('main', commands[0], main_status, tuple(a['account_id'] for a in accounts)),
+    services = [Service('main', commands[0], main_status, tuple(a['account_id'] for a in accounts)),
             Service('btc_signals', commands[1], report.with_name('status.json'), startup_grace_seconds=600),
             Service('sndk_shadow', commands[2], shadow / 'status.json', ARMS)]
+    if 'reentry_output' in extra:
+        extensions.require_reentry_ledgers(root, extra['reentry_config'], extra['reentry_output'])
+        script = root / 'scripts' / ALLOWED[3]
+        if not script.is_file():
+            raise ValueError('Required BTC reentry script unavailable')
+        command = (python, '-u', str(script), '--require-existing', '--poll-seconds', '30',
+                   '--output-dir', str(extra['reentry_output']), '--config', str(extra['reentry_config']))
+        services.append(Service('btc_reentry_shadow', command, extra['reentry_output'] / 'status.json',
+                                ARMS, startup_grace_seconds=600))
+    return services
 
 
 def split_windows_command(command_line):
@@ -134,28 +147,43 @@ def canonical_command(argv, root=ROOT, shadow=SHADOW):
     if not argv:
         return None
     script = contained(root, argv.pop(0))
-    if script.parent != (root / 'scripts').resolve() or script.name not in ALLOWED:
+    extra = extensions.load(root, verify_frozen=False)
+    allowed_paths = {(root / 'scripts' / name).resolve() for name in ALLOWED}
+    if 'sndk_script' in extra:
+        allowed_paths.add(extra['sndk_script'].resolve())
+    if script not in allowed_paths:
         return None
+    script_name = script.name.casefold()
     flags = {}
     while argv:
         flag = argv.pop(0)
         if flag == '--require-existing' and flag not in flags:
             flags[flag] = True
-        elif flag in ('--poll-seconds', '--output-dir') and flag not in flags and argv:
+        elif flag in ('--poll-seconds', '--output-dir', '--config') and flag not in flags and argv:
             flags[flag] = argv.pop(0)
         else:
             return None
     if flags.get('--poll-seconds', '30') != '30':
         return None
-    if script.name == ALLOWED[1]:
+    if script_name == ALLOWED[1]:
         if set(flags) - {'--poll-seconds'}:
             return None
     elif not flags.get('--require-existing'):
         return None
-    if script.name != ALLOWED[2] and '--output-dir' in flags:
+    if script_name not in (ALLOWED[2], ALLOWED[3]) and '--output-dir' in flags:
         return None
+    if script_name != ALLOWED[3] and '--config' in flags:
+        return None
+    if script_name == ALLOWED[3]:
+        if 'reentry_output' not in extra:
+            return None
+        output = contained(root, flags.get('--output-dir', extra['reentry_output']), 'data/paper_trading')
+        config = contained(root, flags.get('--config', extra['reentry_config']), 'config')
+        if output != extra['reentry_output'] or config != extra['reentry_config']:
+            return None
+        return executable, str(script).casefold(), str(output).casefold(), str(config).casefold()
     output = str(contained(root, flags.get('--output-dir', root / 'data/paper_trading/sndk_4h_gate_shadow_20261012'), 'data/paper_trading')).casefold() \
-        if script.name == ALLOWED[2] else None
+        if script_name == ALLOWED[2] else None
     return executable, str(script).casefold(), output
 
 
@@ -469,7 +497,9 @@ class Supervisor:
                     matches.append(identity)
                 # The same paper script with other flags must not race an
                 # existing account writer, even if it does not match for adoption.
-                elif any(str(contained(self.root, arg)).casefold() == expected[1]
+                elif any((candidate := contained(self.root, arg)).name.casefold() == Path(expected[1]).name.casefold()
+                         and (candidate.parent == (self.root / 'scripts').resolve()
+                              or candidate == extensions.load(self.root, verify_frozen=False).get('sndk_script'))
                          for arg in identity.argv[1:3] if not arg.startswith('-')):
                     conflicts.append(identity)
             except (ValueError, OSError):

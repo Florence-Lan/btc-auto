@@ -21,6 +21,8 @@ from zoneinfo import ZoneInfo
 import requests
 
 import event_risk
+from public_text_transport import PublicTextTransport
+from public_transport import PublicTransportError, safe_transport_error
 
 UTC = timezone.utc
 ET_ZONE = ZoneInfo("America/New_York")
@@ -33,6 +35,8 @@ RSS = {
     "un_news": "https://news.un.org/feed/subscribe/en/news/topic/peace-and-security/feed/rss.xml",
 }
 REQUIRED = (*RSS, "fomc_calendar", "economic_calendar", "rate_expectations")
+SOURCE_MAX_AGE = timedelta(hours=1)
+_text_transport = PublicTextTransport()
 
 
 def iso(value):
@@ -52,9 +56,20 @@ def digest(value):
 
 
 def fetch(url):
-    response = requests.get(url, headers={"User-Agent": "btc-auto-public-research/1.0"}, timeout=20)
-    response.raise_for_status()
-    return response.content.decode("utf-8-sig")
+    return _text_transport.get(url)
+
+
+def safe_error(exc):
+    """Keep proxy URLs, credentials and provider response bodies out of logs."""
+    if isinstance(exc, PublicTransportError):
+        return "PublicTransportError: " + "; ".join(
+            f"{failure['transport']}={failure['error_type']}:{failure['category']}"
+            for failure in exc.failures)
+    if isinstance(exc, requests.RequestException):
+        details = safe_transport_error(exc)
+        status = getattr(exc, "status", None)
+        return f"{details['error_type']}: {details['category']}" + (f" HTTP {status}" if status else "")
+    return type(exc).__name__
 
 
 def news_category(source, title):
@@ -191,7 +206,7 @@ def economic_calendar(now):
             return rows, errors
         errors.append("BLS calendar has no upcoming supported releases")
     except (requests.RequestException, ValueError, KeyError) as exc:
-        errors.append(f"BLS: {type(exc).__name__}: {str(exc)[:160]}")
+        errors.append("BLS: " + safe_error(exc))
     # Official alternate calendar, not a fabricated release-date recurrence.
     first = now.astimezone(ET_ZONE).replace(day=1)
     next_month = (first + timedelta(days=32)).replace(day=1)
@@ -333,7 +348,7 @@ def rate_expectation(calendars, factor_payload, now):
 def expectation_at(payload, timestamp_ms):
     now = datetime.fromtimestamp(timestamp_ms / 1000, UTC)
     rows = [r for r in payload.get("rate_expectations", []) if utc(r["available_at_utc"]) <= now
-            and utc(r["meeting_at_utc"]) > now and now - utc(r["quote_at_utc"]) <= timedelta(days=5)
+            and utc(r["meeting_at_utc"]) > now and timedelta(0) <= now - utc(r["quote_at_utc"]) <= timedelta(days=5)
             and now - utc(r["available_at_utc"]) <= timedelta(hours=2)]
     return max(rows, key=lambda r: r["available_at_utc"]) if rows else None
 
@@ -373,10 +388,79 @@ def health_at(payload, timestamp_ms):
     if index < 0:
         return False, ["coverage_not_observed"]
     row = checks[index]
-    if timestamp_ms - times[index] > 60 * 60_000:
+    if timestamp_ms - times[index] > SOURCE_MAX_AGE.total_seconds() * 1000:
         return False, ["public_context_stale"]
-    missing = [name for name in REQUIRED if not row["sources"].get(name, {}).get("ok")]
+    missing = []
+    for name in REQUIRED:
+        state = row["sources"].get(name, {})
+        valid = state.get("ok", False)
+        if valid and state.get("fetch_ok") is False and not state.get("last_success_at_utc"):
+            valid = False
+        # A new coverage check cannot renew cached content. Legacy rows retain
+        # their original one-hour check clock; new rows track each source clock.
+        if valid and "last_success_at_utc" in state:
+            try:
+                success = event_risk._utc_ms(state["last_success_at_utc"])
+                valid = 0 <= timestamp_ms - success <= SOURCE_MAX_AGE.total_seconds() * 1000
+                valid = valid and success <= times[index]
+            except (TypeError, ValueError, OverflowError):
+                valid = False
+        if not valid:
+            missing.append(name)
     return not missing, missing
+
+
+def _last_source_success(previous, name, now):
+    """Recover a receipt clock, including snapshots from before this upgrade."""
+    for check in reversed(previous.get("coverage_checks", [])):
+        try:
+            observed = utc(check["available_at_utc"])
+            if observed > now:
+                continue
+            state = check.get("sources", {}).get(name, {})
+            raw = state.get("last_success_at_utc")
+            if raw is None and state.get("ok") and state.get("fetch_ok", True):
+                raw = check["available_at_utc"]
+            if raw is None:
+                continue
+            successful = utc(raw)
+            if successful <= observed and successful <= now:
+                return successful
+            # Explicit future clocks are invalid evidence, never replace them
+            # with this newer check timestamp or another historical success.
+            return None
+        except (TypeError, ValueError, KeyError, OverflowError):
+            return None
+    return None
+
+
+def _source_content_available(previous, name, success, now):
+    try:
+        if name in RSS:
+            return any(row.get("source") == name and row.get("source_url") == RSS[name]
+                       and utc(row["first_seen_at_utc"]) <= success
+                       for row in previous.get("news", []))
+        if name in {"fomc_calendar", "economic_calendar"}:
+            return any(row.get("source") == name and utc(row["first_seen_at_utc"]) <= success
+                       and utc(row["scheduled_at_utc"]) > now
+                       and (not row.get("superseded_at_utc") or utc(row["superseded_at_utc"]) > now)
+                       for row in previous.get("calendars", []))
+        expectation = expectation_at(previous, int(now.timestamp() * 1000))
+        return bool(expectation and utc(expectation["available_at_utc"]) <= success)
+    except (TypeError, ValueError, KeyError, OverflowError):
+        return False
+
+
+def _source_status(previous, name, now, *, error=None, received_at=None):
+    if error is None:
+        return {"ok": True, "fetch_ok": True, "status": "live", "error": None,
+                "last_success_at_utc": iso(received_at or now)}
+    success = _last_source_success(previous, name, now)
+    usable = (success is not None and timedelta(0) <= now - success <= SOURCE_MAX_AGE
+              and _source_content_available(previous, name, success, now))
+    return {"ok": bool(usable), "fetch_ok": False,
+            "status": "cached" if usable else "unavailable", "error": error,
+            "last_success_at_utc": iso(success) if success else None}
 
 
 def apply_entry_coverage(sleeves, payload):
@@ -399,18 +483,19 @@ def collect(output, factor_path):
     jobs = {name: (lambda n=name, u=url: parse_rss(fetch(u), n, u, datetime.now(UTC))) for name, url in RSS.items()}
     jobs["fomc_calendar"] = lambda: parse_fomc(fetch(FED_CALENDAR), datetime.now(UTC))
     jobs["economic_calendar"] = lambda: economic_calendar(datetime.now(UTC))
-    status, collected = {}, {}
+    status, collected, attempts = {}, {}, {}
 
     def run(item):
         name, fn = item
         try:
-            return name, fn(), None
+            value = fn()
+            return name, value, None, datetime.now(UTC)
         except (requests.RequestException, ValueError, KeyError, ET.ParseError) as exc:
-            return name, None, f"{type(exc).__name__}: {str(exc)[:240]}"
+            return name, None, safe_error(exc), datetime.now(UTC)
 
     with ThreadPoolExecutor(max_workers=5) as pool:
-        for name, value, error in pool.map(run, jobs.items()):
-            status[name] = {"ok": error is None, "error": error}
+        for name, value, error, received in pool.map(run, jobs.items()):
+            attempts[name] = {"error": error, "received_at": received}
             if error is None:
                 collected[name] = value
     now = datetime.now(UTC)
@@ -419,7 +504,6 @@ def collect(output, factor_path):
         for row in collected.get(source, []):
             news.setdefault(row["news_id"], row)
     economic, fallback_errors = collected.get("economic_calendar", ([], []))
-    status["economic_calendar"]["fallback_errors"] = fallback_errors
     calendars = merge_calendar(previous.get("calendars", []), collected.get("fomc_calendar", []) + economic, now)
     expectations = list(previous.get("rate_expectations", []))
     factors = {}
@@ -430,16 +514,25 @@ def collect(output, factor_path):
         # Receipt, not request start, determines first possible forward use.
         expectation["available_at_utc"] = iso(datetime.now(UTC))
         expectations.append(expectation)
-        status["rate_expectations"] = {"ok": True, "contract": expectation["contract"]}
+        attempts["rate_expectations"] = {"error": None, "received_at": datetime.now(UTC)}
+        rate_contract = expectation["contract"]
     except (OSError, ValueError, KeyError) as exc:
-        status["rate_expectations"] = {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+        attempts["rate_expectations"] = {"error": safe_error(exc), "received_at": datetime.now(UTC)}
+        rate_contract = None
     now = datetime.now(UTC)
+    status = {name: _source_status(previous, name, now, **attempts[name]) for name in REQUIRED}
+    status["economic_calendar"]["fallback_errors"] = fallback_errors
+    if rate_contract:
+        status["rate_expectations"]["contract"] = rate_contract
     payload = {"schema_version": 1, "generated_at_utc": iso(now), "news": list(news.values()),
                "calendars": calendars, "rate_expectations": expectations,
                "policy_surprises": policy_surprises(expectations, factors, now),
                "events": make_events(list(news.values()), calendars),
                "coverage_checks": previous.get("coverage_checks", []) + [{"available_at_utc": iso(now), "sources": status}],
-               "metadata": {"source_status": status, "news_classification": "headline_rules_risk_only",
+               "metadata": {"source_status": status,
+                            "errors": {name: state["error"] for name, state in status.items()
+                                       if not state["fetch_ok"]},
+                            "news_classification": "headline_rules_risk_only",
                             "economic_consensus_surprises": "unavailable_no_verified_consensus_feed",
                             "policy_surprise_status": "requires_archived_premeeting_expectation_and_released_actual",
                             "sources": {**RSS, "fomc_calendar": FED_CALENDAR, "economic_calendar": NYFED_CALENDAR}}}
@@ -449,7 +542,9 @@ def collect(output, factor_path):
     event_risk.load_event_snapshot(temporary)
     os.replace(temporary, output)
     for name, state in status.items():
-        print(f"{name}: {'ok' if state['ok'] else state.get('error')}", flush=True)
+        detail = ("live" if state["fetch_ok"] else
+                  f"{state['status']} last_success={state['last_success_at_utc']} fetch_error={state['error']}")
+        print(f"{name}: {detail}", flush=True)
     print(f"news={len(news)} calendar_versions={len(calendars)} events={len(payload['events'])}")
     return payload
 

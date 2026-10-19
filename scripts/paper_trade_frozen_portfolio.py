@@ -21,6 +21,7 @@ import macro_regime
 import multifactor
 import portfolio_risk
 import public_context
+import public_text_transport
 import world_event_risk
 import market_intelligence
 import simulate_range_swing as sim
@@ -248,6 +249,7 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
         profile["portfolio_risk_sha256"] = frozen_strategy.sha256_file(Path(portfolio_risk.__file__))
         if public is not None:
             profile["public_context_sha256"] = frozen_strategy.sha256_file(Path(public_context.__file__))
+            profile["public_text_transport_sha256"] = frozen_strategy.sha256_file(Path(public_text_transport.__file__))
             profile["event_risk_sha256"] = frozen_strategy.sha256_file(Path(event_risk.__file__))
     causal_hourly = (args.tiered_drawdown and research_profile is None
                      and "timeseries_trend" in strategy_modes)

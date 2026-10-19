@@ -17,6 +17,7 @@ signalNames.direction_filtered = '本根信号不符合账户的方向规则';
 signalNames.swing_confirmation_blocked = '等待4小时波段方向确认';
 signalNames.entry_signal_invalidated = '突破已失效，等待新小时信号';
 signalNames.entry_timing_blocked = '入场价格超出信号有效范围';
+signalNames.stock_event_blocked = '财报事件限制新增交易';
 const blockerNames = {prior_5m_volume:'此前5分钟成交量为0或缺失', funding:'资金费超限',
   mark_index_basis:'标记价与指数价偏离超限', book_mark_basis:'盘口与标记价偏离超限',
   entry_gap:'追价距离超限', bid_ask_spread:'买卖价差超过入场上限',
@@ -34,6 +35,29 @@ const blockerNames = {prior_5m_volume:'此前5分钟成交量为0或缺失', fun
   entry_timing_fill_extension_exceeded:'成交距突破位超过1 ATR',
   entry_timing_trigger_missing:'原突破位资料缺失，等待新信号',
   entry_timing_trigger_invalid:'原突破位资料无效，等待新信号'};
+const stockEventReasonName = reason => ({
+  stock_event_blackout: '处于财报电话会前后观察窗口',
+  stock_event_post_event_bars_unavailable: '等待财报后两根完整小时行情',
+  stock_event_calendar_expired: '财报日历已到复核期限，暂停新增',
+  stock_event_calendar_unavailable: '财报日历暂不可用，暂停新增',
+  stock_event_calendar_not_yet_available: '财报日历尚未到可用时间',
+  stock_event_calendar_outside_coverage: '当前时间超出财报日历覆盖期',
+  stock_event_symbol_not_covered: '财报日历尚未覆盖此标的',
+}[reason] || (String(reason).startsWith('stock_event_') ? '财报日历需要复核，暂停新增' : ''));
+
+function stockEventDetails(account) {
+  const gate = account.stock_event_risk;
+  if (!gate?.enabled) return '';
+  const label = {clear: '当前窗口外', blackout: '暂停新增', unavailable: '日历需要复核',
+    not_active_yet: '等待生效'}[gate.status] || '等待检查';
+  const pieces = [`财报风控：${label}`];
+  if (gate.next_event?.anchor_time_ms) pieces.push(`下一电话会 ${localTime(gate.next_event.anchor_time_ms)}`);
+  const resume = Math.max(0, ...(gate.blocked_events || []).map(event => Number(event.earliest_resume_at_ms) || 0));
+  if (resume) pieces.push(`最早复核 ${localTime(resume)}，并等待两根完整小时行情`);
+  if (gate.valid_until_ms) pieces.push(`日历有效至 ${localTime(gate.valid_until_ms)}`);
+  if (!gate.allowed) pieces.push('保护退出继续');
+  return pieces.join(' · ');
+}
 const dataRoot = '/data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007';
 const stockSymbols = {mu: 'MUUSDT', sndk: 'SNDKUSDT', skhynix: 'SKHYNIXUSDT'};
 const reasonName = reason => ({protective_stop: '保护止损', one_r_partial: '1R分批止盈',
@@ -256,7 +280,7 @@ export function createPaperAccounts(root, fetcher = globalThis.fetch) {
         const error = Object.entries(a.errors || {}).map(([k,v]) => `${escape(k)}: ${escape(v)}`).join('<br>');
         const family = {breakout:'趋势突破', donchian20:'20根收盘线突破', ema_transition:'均线交叉', trend_pullback:'趋势回调', range_reversion:'震荡回归'}[a.signal_family] || '策略更新中';
         const direction = {both:'双向', long:'只做多', short:'只做空'}[a.entry_direction] || '—';
-        const blockers = (a.entry_blockers || []).map(k => id === 'btc' ? btcBlockerName(k, a) : blockerNames[k] || signalNames[k] || k).join('；');
+        const blockers = (a.entry_blockers || []).map(k => id === 'btc' ? btcBlockerName(k, a) : blockerNames[k] || stockEventReasonName(k) || signalNames[k] || k).join('；');
         const btcDetails = id === 'btc' ? btcEntryDetails(a) : '';
         const signalLabel = id === 'btc' && a.signal_status === 'entry_blocked' ? '入场条件未通过 · 暂停新增' : signalNames[a.signal_status] || '等待状态更新';
         const volume = a.entry_checks ? `此前5分钟成交量 ${money(a.entry_checks.prior_5m_volume)} · 入场检查 ${localTime(a.entry_checks.checked_at_ms)}` : '';
@@ -264,7 +288,8 @@ export function createPaperAccounts(root, fetcher = globalThis.fetch) {
         const qualification = a.entry_qualification?.approved_for_forward_simulation === false ? a.entry_qualification.reason : '';
         const confirmation = a.swing_confirmation;
         const swing = confirmation?.enabled ? `4小时确认：${{1:'多头', '-1':'空头', 0:'趋势未形成'}[confirmation.direction] || '等待完整行情'}${Number.isFinite(confirmation.ema_spread_fraction) ? ' · 均线间距 '+(confirmation.ema_spread_fraction * 100).toFixed(2)+'%' : ''}${confirmation.confirmation_close_ms ? ' · 收盘 '+localTime(confirmation.confirmation_close_ms) : ''}` : '';
-        const signal = `<p class="parallel-age">${id !== 'btc' ? escape(family)+' · '+escape(direction)+' · '+escape(a.signal_timeframe || '—')+'<br>' : ''}${escape(signalLabel)}${blockers && !blockers.includes(signalLabel) ? '<br>'+escape(blockers) : ''}${swing ? '<br>'+escape(swing) : ''}${btcDetails ? '<br>'+escape(btcDetails) : ''}${qualification ? '<br>'+escape(qualification) : ''}${volume ? '<br>'+escape(volume) : ''}${spread ? '<br>'+escape(spread) : ''}${id !== 'btc' ? '<br>下一根收盘 '+localTime(a.next_signal_time_ms) : ''}</p>`;
+          const events = id !== 'btc' ? stockEventDetails(a) : '';
+          const signal = `<p class="parallel-age">${id !== 'btc' ? escape(family)+' · '+escape(direction)+' · '+escape(a.signal_timeframe || '—')+'<br>' : ''}${escape(signalLabel)}${blockers && !blockers.includes(signalLabel) ? '<br>'+escape(blockers) : ''}${swing ? '<br>'+escape(swing) : ''}${events ? '<br>'+escape(events) : ''}${btcDetails ? '<br>'+escape(btcDetails) : ''}${qualification ? '<br>'+escape(qualification) : ''}${volume ? '<br>'+escape(volume) : ''}${spread ? '<br>'+escape(spread) : ''}${id !== 'btc' ? '<br>下一根收盘 '+localTime(a.next_signal_time_ms) : ''}</p>`;
         const p = a.profit_exit_status;
         const profit = id === 'btc' ? btcProfitMarkup(a) : p ? `<p class="parallel-age">分批止盈：${p.split_skipped ? '数量不足以拆分 · 整仓保护' : p.stage_done ? '首段完成 · 余仓跟踪保护' : p.armed ? '首段部分成交 · 继续完成减仓' : p.trigger_observed_at_ms ? '已触发1R · 等待可成交数量' : '等待达到1R'}<br>首段已退出 ${money(p.filled_qty)} · 当前保护价 ${money(p.stop)}</p>` : '';
         const pullback = id === 'btc' ? btcPullbackMarkup(a) : '';

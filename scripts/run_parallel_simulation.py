@@ -29,6 +29,7 @@ import market_data_runtime
 import btc_entry_timing
 import btc_pullback_entry
 import stock_entry_timing
+import stock_event_risk
 import simulation_risk_monitor
 import stock_swing_profiles
 import stock_swing_signals as signals
@@ -397,6 +398,19 @@ class StockAccount:
             journal(self.path.with_name('entry_timing_decisions.jsonl'), outcome)
         return decision
 
+    def record_stock_event_risk(self, state, phase, reference_ms=None):
+        """Entry-only check; invalid calendars must never interrupt exits."""
+        if not stock_event_risk.enabled(self.config):
+            state['stock_event_risk'] = None
+            return {'enabled': False, 'allowed': True, 'reasons': []}
+        outcome = stock_event_risk.evaluate(self.config, self.symbol,
+            self.now_ms() if reference_ms is None else reference_ms,
+            closed_hourly_bars=self.signal_bars if self.signal_timeframe == '1h' else None,
+            root=ROOT, reference_clock=self.now_ms)
+        outcome['phase'] = phase
+        state['stock_event_risk'] = outcome
+        return outcome
+
     def step(self, market_data=None):
         state = json.loads(self.path.read_text(encoding='utf-8'))  # Corrupt ledgers never reset silently.
         cfg = self.config
@@ -439,6 +453,7 @@ class StockAccount:
         state['observations'] += 1
         state['checked_at_utc'] = arithmetic.iso(self.now_ms())
         state['errors'] = errors
+        self.record_stock_event_risk(state, 'observation')
         prior_risk = state.get('risk_monitor') or {}
         risk = {'mode': 'simulation', 'places_orders': False,
                 'checked_at_ms': now_ms(), 'checked_at_utc': arithmetic.iso(now_ms()),
@@ -664,6 +679,7 @@ class StockAccount:
         state['signal_status'] = 'holding' if pos else 'waiting_for_new_closed_bar'
         state['entry_checks'] = None
         state['entry_blockers'] = []
+        event_gate = self.record_stock_event_risk(state, 'retry')
         if cfg.get('swing_confirmation_policy') is not None and (errors.get('signal') or not self.signal_bars):
             state['swing_confirmation'] = {'enabled': True, 'allowed': False,
                 'reasons': ['swing_hourly_data_unavailable'], 'confirmation_timeframe': '4h',
@@ -738,7 +754,10 @@ class StockAccount:
         if not pos and pending and cfg.get('entry_enabled', True):
             state['signal_status'] = 'entry_data_unavailable'
             state['entry_blockers'] = list(errors) or ['entry_data_unavailable']
-            if self.five and lot and fresh_book and not errors and clock:
+            if not event_gate['allowed']:
+                state['signal_status'] = 'stock_event_blocked'
+                state['entry_blockers'] = event_gate['reasons']
+            elif self.five and lot and fresh_book and not errors and clock:
                 sig = signals.Signal(**pending['signal'])
                 boundary = pending['boundary_ms']
                 state['signal_status'] = 'risk_halted' if state['risk_halted'] or dd >= cfg['account_soft_drawdown_fraction'] else 'cooldown'
@@ -802,12 +821,22 @@ class StockAccount:
                                             and sig.direction * (stop - liq) / result['price'] >= cfg['minimum_liquidation_distance_buffer']):
                                         fresh(book.get('T') or book.get('E'), self.now_ms())
                                         fresh(mark['time'], self.now_ms())
-                                        record = self.fill(state, result, self.now_ms(), sig.direction,
-                                            'fresh_closed_' + self.signal_timeframe + '_signal')
-                                        state['position'] = pos = candidate
-                                        state['pending_signal'] = None
-                                        state['position_history'].append({'time_ms': record['time_ms'], 'signed_qty': sig.direction * result['qty']})
-                                        state['signal_status'] = 'entered' if not result['partial'] else 'entered_partial_ioc_remainder_cancelled'
+                                        fill_at_ms = self.now_ms()
+                                        fill_event = self.record_stock_event_risk(state, 'fill', fill_at_ms)
+                                        if fill_event['allowed']:
+                                            fill_at_ms = fill_event.get('checked_at_ms', fill_at_ms)
+                                            fresh(book.get('T') or book.get('E'), fill_at_ms)
+                                            fresh(mark['time'], fill_at_ms)
+                                            candidate['entry_time'] = fill_at_ms
+                                            record = self.fill(state, result, fill_at_ms, sig.direction,
+                                                'fresh_closed_' + self.signal_timeframe + '_signal')
+                                            state['position'] = pos = candidate
+                                            state['pending_signal'] = None
+                                            state['position_history'].append({'time_ms': record['time_ms'], 'signed_qty': sig.direction * result['qty']})
+                                            state['signal_status'] = 'entered' if not result['partial'] else 'entered_partial_ioc_remainder_cancelled'
+                                        else:
+                                            state['signal_status'] = 'stock_event_blocked'
+                                            state['entry_blockers'] = fill_event['reasons']
                                     else:
                                         if not fill_timing['allowed']:
                                             state['signal_status'] = ('entry_signal_invalidated' if fill_timing['cancel_pending']
@@ -832,6 +861,12 @@ class StockAccount:
         if not pos and not cfg.get('entry_enabled', True):
             state['signal_status'] = 'strategy_not_qualified'
             state['entry_blockers'] = ['strategy_not_qualified']
+        elif not pos and stock_event_risk.enabled(cfg):
+            current_event = state.get('stock_event_risk') or {}
+            if not current_event.get('allowed', False):
+                state['signal_status'] = 'stock_event_blocked'
+                state['entry_blockers'] = list(dict.fromkeys(
+                    state['entry_blockers'] + current_event.get('reasons', [])))
         state['equity'] = state['wallet_balance'] + (pos['direction'] * pos['qty'] * (price - pos['entry']) if pos else 0)
         state['return_pct'] = (state['equity'] / 1000 - 1) * 100
         state['position_qty'] = pos['direction'] * pos['qty'] if pos else 0
@@ -861,6 +896,7 @@ class StockAccount:
         observation['entry_blockers'] = state['entry_blockers']
         observation['swing_confirmation'] = state.get('swing_confirmation')
         observation['stock_entry_timing'] = state.get('stock_entry_timing')
+        observation['stock_event_risk'] = state.get('stock_event_risk')
         observation['risk_monitor'] = risk
         state['profit_exit_status'] = ({**pos.get('profit_exit', {}), 'stop': pos['stop']}
             if pos and profit_exits.enabled(cfg) else None)
@@ -882,7 +918,7 @@ def stock_config(plan, symbol):
     common = {key: profile[key] for key in ('signal_timeframe', 'execution_timeframe', 'cooldown_signal_bars',
                                           'max_entry_spread_fraction', 'profit_exit_policy', 'trend_exit_policy',
                                           'entry_quality_policy', 'swing_confirmation_policy',
-                                          'entry_timing_policy') if key in profile}
+                                          'entry_timing_policy', 'stock_event_risk_policy') if key in profile}
     cfg = {**base, **common, **profile['symbol_profiles'][symbol],
         'candidate_id': profile['symbol_profiles'][symbol].get('candidate_id', profile['candidate_id']),
         'risk_fraction_per_trade': profile['risk_fraction_per_bucket_trade'],
@@ -914,6 +950,12 @@ def synchronize_stock_rules(plan, root, manifest):
             continue
         exit_only = plan.get('stock_rule_revision_scope') == 'profit_exits_only'
         timing_only = plan.get('stock_rule_revision_scope') == 'entry_timing_only'
+        event_only = plan.get('stock_rule_revision_scope') == 'stock_event_risk_only'
+        if event_only:
+            ignored = {'stock_event_risk_policy', 'candidate_id'}
+            if ({k: v for k, v in state['rule'].items() if k not in ignored}
+                    != {k: v for k, v in cfg.items() if k not in ignored}):
+                raise ValueError('Stock-event migration cannot alter signals, exits or risk settings')
         if timing_only:
             ignored = {'entry_timing_policy', 'candidate_id'}
             if ({k: v for k, v in state['rule'].items() if k not in ignored}
@@ -934,7 +976,12 @@ def synchronize_stock_rules(plan, root, manifest):
         if cfg.get('trend_exit_policy') != revision['previous_rule'].get('trend_exit_policy'):
             state['trend_exit_active_after_ms'] = activated
             state.pop('trend_exit_status', None)
-        if timing_only:
+        if event_only:
+            # An event gate is entry admission, not a new signal experiment.
+            # Preserve pending identity/expiry, consumed candles, activation and
+            # all financial/inventory fields; every retry/fill checks the gate.
+            state.pop('stock_event_risk', None)
+        elif timing_only:
             # Consume no old candle again, and carry all existing inventory/ledger state.
             state.update(signal_active_after_ms=activated, pending_signal=None,
                 last_signal_result='entry_timing_revision_wait',
@@ -1408,7 +1455,7 @@ def _run_locked(plan, root, args):
                     'last_signal_time_ms', 'signal_active_after_ms', 'entry_checks', 'entry_blockers', 'entry_qualification',
                     'swing_confirmation',
                     'execution_entry_gate', 'entry_source_status', 'llm_trade_gate', 'errors', 'observations',
-                    'btc_entry_timing', 'btc_pullback_entry', 'stock_entry_timing',
+                    'btc_entry_timing', 'btc_pullback_entry', 'stock_entry_timing', 'stock_event_risk',
                     'profit_exit_status', 'realized_pnl', 'risk_monitor')}
                 # Heartbeats share the host clock used by the local UI. Market
                 # timestamps keep their exchange clock for freshness validation.
