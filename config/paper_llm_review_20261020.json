@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "mode": "SIMULATION",
+  "places_orders": false,
+  "provider": "codex",
+  "model": "gpt-6.1-sol",
+  "reasoning_effort": "medium",
+  "codex_bin": "c:\\Users\\10230\\.vscode\\extensions\\openai.chatgpt-26.1007.21434-win32-x64\\bin\\windows-x86_64\\codex.exe",
+  "codex_sha256": "f5521b058ca08e249afd3b25b4681e81100181d92e73aa6b94bb8e75c2aa487b",
+  "cli_version": "codex-cli 0.162.0-alpha.17.2"
+}

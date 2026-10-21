@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import event_risk
-from factor_data_freshness import OIL_MAX_AGE_MS
+from factor_data_freshness import OIL_MAX_AGE_MS, describe_factors
 import macro_regime
 import multifactor
 import public_context
@@ -85,6 +85,7 @@ def decision_at(report, timestamp, side):
             decision = multifactor.decision_at(factor, timestamp, side, profile, public)
             details["factor"] = asdict(decision)
             details["factor_source_status"] = factor_source_status(factor, timestamp, decision)
+            details["factor_data_freshness"] = describe_factors(factor, timestamp, profile, decision)
             if not decision.allowed:
                 reasons.extend("current_factor:" + reason for reason in decision.reasons)
         elif report.get("multifactor_overlay") is not None:

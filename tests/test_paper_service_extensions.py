@@ -127,3 +127,61 @@ def test_old_sndk_writer_is_a_conflict_when_frozen_runtime_selected(layout):
     control.tick()
     assert control.managed['sndk_shadow'].status == 'conflict'
     assert not backend.started
+
+
+def test_corrected_btc_binding_preserves_old_generation_and_refuses_other_paths(layout):
+    root, shadow, _ = layout
+    old = enable_reentry(root)
+    original = (old / 'manifest.json').read_bytes()
+    new_config = 'config/btc_reentry_compat_shadow_20261020.json'
+    new_output = extensions.REENTRY_BINDINGS[new_config]
+    save(root / new_config, {'mode': 'SIMULATION', 'places_orders': False, 'automatic_strategy_promotion': False})
+    save(root / new_output / 'manifest.json', {'started_at_ms': 456})
+    for arm in extensions.ARMS:
+        save(root / new_output / arm / 'state.json', {'mode': 'simulation'})
+    write_extensions(root, btc_reentry_shadow={'enabled': True, 'config_path': new_config, 'output_dir': new_output})
+    service = paper.build_services(root, shadow)[-1]
+    assert service.status_path == root / new_output / 'status.json'
+    assert paper.canonical_command(service.command, root) is not None
+    assert (old / 'manifest.json').read_bytes() == original
+    write_extensions(root, btc_reentry_shadow={'enabled': True, 'config_path': new_config, 'output_dir': extensions.REENTRY_OUTPUT})
+    with pytest.raises(ValueError, match='binding'):
+        extensions.load(root)
+
+
+def test_stock_macro_service_requires_all_twelve_ledgers_and_exact_command(layout):
+    root, shadow, _ = layout
+    save(root / extensions.MACRO_CONFIG, {'mode': 'SIMULATION', 'places_orders': False,
+        'automatic_strategy_promotion': False, 'symbols': list(extensions.MACRO_SYMBOLS)})
+    output = root / extensions.MACRO_OUTPUT
+    save(output / 'manifest.json', {'started_at_ms': 456})
+    for symbol in extensions.MACRO_SYMBOLS:
+        for arm in extensions.ARMS:
+            save(output / symbol / arm / 'state.json', {'mode': 'simulation'})
+    write_extensions(root, stock_macro_shadow={'enabled': True,
+        'config_path': extensions.MACRO_CONFIG, 'output_dir': extensions.MACRO_OUTPUT})
+    service = paper.build_services(root, shadow)[-1]
+    assert service.name == 'stock_macro_shadow' and len(service.account_ids) == 12
+    assert paper.canonical_command(service.command, root) is not None
+    assert paper.canonical_command((*service.command, '--once'), root) is None
+    (output / extensions.MACRO_SYMBOLS[0] / extensions.ARMS[0] / 'state.json').unlink()
+    with pytest.raises(ValueError, match='all twelve'):
+        paper.build_services(root, shadow)
+
+
+def test_pinned_review_environment_rejects_binary_drift_without_editing_global_settings(layout):
+    root, _, _ = layout
+    assert extensions.review_environment(root) == {}
+    executable = root / 'review.exe'
+    executable.write_bytes(b'first')
+    config = {'schema_version': 1, 'mode': 'SIMULATION', 'places_orders': False,
+        'provider': 'codex', 'model': 'gpt-6.1-sol', 'reasoning_effort': 'medium',
+        'codex_bin': str(executable), 'codex_sha256': hashlib.sha256(b'first').hexdigest(),
+        'cli_version': 'fixture'}
+    save(root / extensions.REVIEW_CONFIG, config)
+    expected = extensions.review_environment(root)
+    assert expected['LLM_TRADE_GATE_ENABLED'] == 'true'
+    assert expected['LLM_CODEX_REASONING_EFFORT'] == 'medium'
+    executable.write_bytes(b'changed')
+    with pytest.raises(ValueError, match='missing or changed'):
+        extensions.review_environment(root)

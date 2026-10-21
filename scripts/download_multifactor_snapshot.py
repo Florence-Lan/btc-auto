@@ -288,6 +288,9 @@ def collect(output: Path, start_ms: int, end_ms: int, *, only_due=False, force=F
             source_status[name] = {
                 **state,
                 "ok": error is None, "error": error, "last_attempt_ms": received,
+                "fetch_ok": transport_error is None,
+                "last_fetch_success_ms": (received if transport_error is None else
+                                          state.get("last_fetch_success_ms", state.get("last_success_ms"))),
                 "status": "stale" if stale else "error" if error else "healthy",
                 "last_success_ms": state.get("last_success_ms") if error else received,
                 "consecutive_failures": failures,

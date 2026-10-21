@@ -4,13 +4,25 @@ Every path is local to the workspace. Existing experiment fingerprints remain
 authoritative; this module never initializes or edits their ledgers.
 """
 from pathlib import Path
+from functools import lru_cache
 import hashlib
 import json
 
 CONFIG = 'config/paper_service_extensions_20261020.json'
 REENTRY_CONFIG = 'config/btc_reentry_shadow_20261020.json'
 REENTRY_OUTPUT = 'data/paper_trading/btc_reentry_shadow_20261020'
+REENTRY_BINDINGS = {REENTRY_CONFIG: REENTRY_OUTPUT,
+    'config/btc_reentry_compat_shadow_20261020.json': 'data/paper_trading/btc_reentry_compat_shadow_20261020'}
+MACRO_CONFIG = 'config/stock_macro_shadow_20261021.json'
+MACRO_OUTPUT = 'data/paper_trading/stock_macro_shadow_20261021'
+MACRO_SYMBOLS = ('MUUSDT', 'SNDKUSDT', 'SKHYNIXUSDT')
 ARMS = ('baseline_normal', 'candidate_normal', 'baseline_double', 'candidate_double')
+REVIEW_CONFIG = 'config/paper_llm_review_20261020.json'
+
+
+@lru_cache(maxsize=4)
+def _executable_digest(path, modified_ns, size):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
 def read(path):
@@ -23,6 +35,29 @@ def contained(root, relative, prefix):
     return path
 
 
+def review_environment(root):
+    """A paper-service-only override; never edit global Codex settings or dotenv."""
+    path = Path(root) / REVIEW_CONFIG
+    if not path.exists():
+        return {}
+    config = read(path)
+    if (set(config) != {'schema_version', 'mode', 'places_orders', 'provider', 'model',
+                       'reasoning_effort', 'codex_bin', 'codex_sha256', 'cli_version'}
+            or config['schema_version'] != 1 or config['mode'] != 'SIMULATION'
+            or config['places_orders'] is not False or config['provider'] != 'codex'
+            or config['model'] != 'gpt-6.1-sol' or config['reasoning_effort'] not in ('minimal', 'low', 'medium', 'high')):
+        raise ValueError('Invalid independent paper LLM review configuration')
+    executable = Path(config['codex_bin'])
+    if not executable.is_absolute() or not executable.is_file() or executable.suffix.lower() != '.exe':
+        raise ValueError('Pinned paper review executable missing or changed; run a new diagnostic first')
+    identity = executable.stat()
+    if _executable_digest(str(executable), identity.st_mtime_ns, identity.st_size) != config['codex_sha256']:
+        raise ValueError('Pinned paper review executable missing or changed; run a new diagnostic first')
+    return {'LLM_PROVIDER': config['provider'], 'LLM_CODEX_MODEL': config['model'],
+            'LLM_CODEX_REASONING_EFFORT': config['reasoning_effort'], 'CODEX_BIN': str(executable),
+            'LLM_TRADE_GATE_ENABLED': 'true'}
+
+
 def load(root, verify_frozen=True):
     root = Path(root).resolve()
     path = root / CONFIG
@@ -32,7 +67,7 @@ def load(root, verify_frozen=True):
     if (spec.get('schema_version') != 1 or spec.get('mode') != 'SIMULATION'
             or spec.get('places_orders') is not False
             or set(spec) - {'schema_version', 'mode', 'places_orders',
-                             'sndk_frozen_runtime', 'btc_reentry_shadow'}):
+                             'sndk_frozen_runtime', 'btc_reentry_shadow', 'stock_macro_shadow'}):
         raise ValueError('Invalid paper service extensions')
     result = {}
     frozen = spec.get('sndk_frozen_runtime')
@@ -64,11 +99,20 @@ def load(root, verify_frozen=True):
     if reentry is not None:
         if (not isinstance(reentry, dict) or set(reentry) != {'enabled', 'config_path', 'output_dir'}
                 or type(reentry['enabled']) is not bool
-                or reentry['config_path'] != REENTRY_CONFIG or reentry['output_dir'] != REENTRY_OUTPUT):
+                or REENTRY_BINDINGS.get(reentry['config_path']) != reentry['output_dir']):
             raise ValueError('Invalid BTC reentry service binding')
         if reentry['enabled']:
-            result['reentry_config'] = contained(root, REENTRY_CONFIG, 'config')
-            result['reentry_output'] = contained(root, REENTRY_OUTPUT, 'data/paper_trading')
+            result['reentry_config'] = contained(root, reentry['config_path'], 'config')
+            result['reentry_output'] = contained(root, reentry['output_dir'], 'data/paper_trading')
+    macro = spec.get('stock_macro_shadow')
+    if macro is not None:
+        if (not isinstance(macro, dict) or set(macro) != {'enabled', 'config_path', 'output_dir'}
+                or type(macro['enabled']) is not bool or macro['config_path'] != MACRO_CONFIG
+                or macro['output_dir'] != MACRO_OUTPUT):
+            raise ValueError('Invalid stock macro service binding')
+        if macro['enabled']:
+            result['macro_config'] = contained(root, MACRO_CONFIG, 'config')
+            result['macro_output'] = contained(root, MACRO_OUTPUT, 'data/paper_trading')
     return result
 
 
@@ -80,3 +124,15 @@ def require_reentry_ledgers(root, config, output):
     if not (output / 'manifest.json').is_file() or any(
             not (output / arm / 'state.json').is_file() for arm in ARMS):
         raise ValueError('Existing BTC reentry manifest and all four ledgers required; bootstrap separately')
+
+
+def require_macro_ledgers(root, config, output):
+    spec = read(config)
+    if (spec.get('mode') != 'SIMULATION' or spec.get('places_orders') is not False
+            or spec.get('automatic_strategy_promotion') is not False
+            or spec.get('symbols') != list(MACRO_SYMBOLS)):
+        raise ValueError('Only an isolated order-disabled stock macro experiment is accepted')
+    if not (output / 'manifest.json').is_file() or any(
+            not (output / symbol / arm / 'state.json').is_file()
+            for symbol in MACRO_SYMBOLS for arm in ARMS):
+        raise ValueError('Existing stock macro manifest and all twelve ledgers required; bootstrap separately')

@@ -32,7 +32,8 @@ FIVE_MINUTES = 300000
 ENVIRONMENT_KEYS = ('SIM_TAKER_FEE','SIM_SLIPPAGE_BPS','SIM_MAX_LEVERAGE',
     'SIM_MAX_NOTIONAL_USDT','MAX_SIGNAL_AGE_SECONDS','LLM_TRADE_GATE_ENABLED',
     'LLM_PROVIDER','LLM_MODEL','LLM_CODEX_MODEL','LLM_MIN_CONFIDENCE',
-    'LLM_REJECTION_CACHE_SECONDS','LLM_TIMEOUT_SECONDS','LLM_CODEX_TIMEOUT_SECONDS')
+    'LLM_REJECTION_CACHE_SECONDS','LLM_TIMEOUT_SECONDS','LLM_CODEX_TIMEOUT_SECONDS',
+    'LLM_CODEX_REASONING_EFFORT','CODEX_BIN')
 
 
 def iso(ms):
@@ -103,6 +104,12 @@ def load_design(path=DEFAULT_CONFIG):
         'profile_sha256':{p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
             for p in (profile_path,base_path)}, 'source_sha256':source_hashes(),
         'execution_environment':{key:os.getenv(key) for key in ENVIRONMENT_KEYS}}
+    if spec.get('require_review_compatibility') is True:
+        if not llm_trade_gate.env_enabled('LLM_TRADE_GATE_ENABLED'):
+            raise ValueError('The corrected experiment requires the LLM review gate')
+        fingerprint['review_provider_configuration'] = llm_trade_gate.review_provider_configuration()
+        executable = Path(fingerprint['review_provider_configuration']['executable'])
+        fingerprint['review_executable_sha256'] = hashlib.sha256(executable.read_bytes()).hexdigest()
     # Validate costs before any ledger initialization. Values are not credentials.
     fee = float(os.getenv('SIM_TAKER_FEE','0.00045') or .00045)
     slip = float(os.getenv('SIM_SLIPPAGE_BPS','1.0') or 1)

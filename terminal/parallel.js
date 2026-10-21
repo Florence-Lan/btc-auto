@@ -225,6 +225,49 @@ function btcEntryDetails(account) {
   return details.join('；');
 }
 
+const factorAge = ms => !Number.isFinite(ms) || ms < 0 ? '—'
+  : ms >= 86_400_000 ? `${(ms / 86_400_000).toFixed(1)} 天`
+  : ms >= 3_600_000 ? `${(ms / 3_600_000).toFixed(1)} 小时`
+  : `${(ms / 60_000).toFixed(1)} 分钟`;
+
+export function factorFreshnessMarkup(diagnostics) {
+  const factors = diagnostics?.factors;
+  const heading = '<div class="panel-heading"><div><small>OBSERVATION / COLLECTION DATES</small><h2>宏观因子观测日期</h2></div></div>';
+  if (!factors || typeof factors !== 'object' || Array.isArray(factors) || !Object.keys(factors).length) {
+    return `${heading}<p class="experiment-description">尚无逐项日期记录，等待下一次因子检查。抓取成功不能证明观测是实时数据。</p>`;
+  }
+  const cadence = {hourly: '小时数据', settlement: '结算数据', daily: '日数据', weekly: '周数据', unknown: '频率未记录'};
+  const statusName = {fresh: '现行时限内', stale: '观测已过期', missing: '观测缺失', not_used: '未直接用于模型'};
+  const rows = Object.entries(factors).map(([id, factor]) => {
+    const f = factor && typeof factor === 'object' ? factor : {};
+    const status = statusName[f.status] || '状态未记录';
+    const role = f.group == null ? '未直接使用' : f.group_enabled === false ? '因子组未启用'
+      : f.optional ? '可选输入' : '因子组必需输入';
+    const fetch = f.fetch_ok === true ? '最近抓取成功' : f.fetch_ok === false ? '最近抓取失败' : '抓取结果未单独记录';
+    const notes = [...(Array.isArray(f.notes) ? f.notes : [])];
+    if (f.ignored) notes.push('本次判断未计入');
+    const observed = Number.isFinite(f.latest_observed_at_ms) ? localTime(f.latest_observed_at_ms) : '未取得可用观测';
+    const dateLabel = f.fetch_success_time_kind === 'legacy_usable_collection_record' ? '成功接收（旧版可用记录）' : '成功接收';
+    const dates = [`${dateLabel} ${Number.isFinite(f.last_fetch_success_ms) ? localTime(f.last_fetch_success_ms) : '未记录'}`,
+      `最近尝试 ${Number.isFinite(f.last_fetch_attempt_ms) ? localTime(f.last_fetch_attempt_ms) : '未记录'}`];
+    return `<tr><td><strong>${escape(f.name || id)}</strong><small class="stock-table-symbol">${escape(cadence[f.cadence] || cadence.unknown)} · ${escape(role)}</small></td>`
+      + `<td>${escape(observed)}<small class="stock-table-symbol">距检查时间 ${escape(factorAge(f.age_ms))}</small></td>`
+      + `<td>${Number.isFinite(f.max_age_ms) ? escape(factorAge(f.max_age_ms)) : '未设交易阈值'}</td>`
+      + `<td class="${['stale', 'missing'].includes(f.status) ? 'parallel-warning' : ''}">${escape(status)}<small class="stock-table-symbol">${notes.map(escape).join('；')}</small></td>`
+      + `<td>${escape(fetch)}</td><td>${dates.map(escape).join('<br>')}</td></tr>`;
+  }).join('');
+  return `${heading}<p class="experiment-description">检查记录：北京时间 ${escape(localTime(diagnostics.checked_at_ms))}。日/周数据含发布延迟；“现行时限内”只表示未超过策略容忍期，来源抓取成功不等于实时观测。下列日期均为北京时间。</p>`
+    + `<div class="table-wrap factor-freshness-scroll"><table><thead><tr><th>因子 / 发布频率</th><th>实际观测时间 / 滞后</th><th>现行允许滞后</th><th>数据新鲜度 / 用途</th><th>来源抓取</th><th>抓取日期</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function btcFactorFreshness(account) {
+  const gate = account?.execution_entry_gate || {};
+  return [gate, ...Object.values(gate.by_side || {})]
+    .map(decision => decision?.factor_data_freshness)
+    .filter(value => value && typeof value === 'object')
+    .sort((a, b) => (b.checked_at_ms || 0) - (a.checked_at_ms || 0))[0];
+}
+
 export function stockTradingMarkup(ledgers) {
   const positions = [], trades = [], errors = [];
   for (const {id, state, error} of ledgers) {
@@ -297,6 +340,9 @@ export function createPaperAccounts(root, fetcher = globalThis.fetch) {
           && Number.isFinite(a.entry_price) && a.entry_price > 0 ? `<div><dt>实际持仓均价</dt><dd>${money(a.entry_price)}</dd></div>` : '';
         return `<article class="panel parallel-card"><h2>${name}</h2><span class="parallel-state ${healthy ? '' : 'parallel-warning'}">${status}</span><div class="parallel-equity">${money(a.equity)}</div><small>USDT · 收益 ${a.return_pct == null ? '—' : Number(a.return_pct).toFixed(4)+'%'}</small><dl><div><dt>仓位</dt><dd>${a.position_qty == null ? '—' : a.position_qty === 0 ? '空仓' : escape(a.position_qty)}</dd></div><div><dt>模拟成交次数</dt><dd>${a.fill_count_total ?? '—'}</dd></div><div><dt>累计手续费</dt><dd>${money(a.fees_paid)}</dd></div><div><dt>累计资金费损益</dt><dd>${money(a.funding_pnl)}</dd></div><div><dt>最大回撤</dt><dd>${a.max_drawdown_pct == null ? '—' : Number(a.max_drawdown_pct).toFixed(4)+'%'}</dd></div><div><dt>标记价</dt><dd>${money(a.last_mark_price)}</dd></div>${entryPrice}</dl>${pullback}${profit}<details class="account-signal-details"><summary>策略与入场检查</summary>${signal}</details><p class="parallel-age">检查 ${localTime(a.checked_at_utc)}</p>${error ? `<p class="parallel-error">${error}</p>` : ''}</article>`;
       }).join('');
+      if (group === 'btc' && $('#factor-freshness')) {
+        $('#factor-freshness').innerHTML = factorFreshnessMarkup(btcFactorFreshness(result.accounts?.btc));
+      }
       if (group === 'stocks' && $('#positions') && $('#trades')) {
         const results = await Promise.allSettled(ids.map(async id => {
           const response = await fetcher(`${dataRoot}/${id}/state.json?v=${Date.now()}`, {cache: 'no-store'});
@@ -330,6 +376,9 @@ export function createPaperAccounts(root, fetcher = globalThis.fetch) {
       $('#heartbeat').classList.add('parallel-warning');
       $('#total').textContent = '当前权益暂不可用';
       $('#cards').textContent = '等待运行记录恢复';
+      if (group === 'btc' && $('#factor-freshness')) {
+        $('#factor-freshness').innerHTML = factorFreshnessMarkup(null);
+      }
       if ($('#comparison')) $('#comparison').hidden = true;
       if ($('#positions')) $('#positions').innerHTML = '<tr><td colspan="7">持仓数据暂不可用，等待恢复</td></tr>';
       if ($('#trades')) $('#trades').innerHTML = '<tr><td colspan="7">成交数据暂不可用，等待恢复</td></tr>';

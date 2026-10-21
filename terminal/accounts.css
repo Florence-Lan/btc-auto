@@ -68,3 +68,8 @@ a.workspace-tab { text-decoration: none; }
 
 .experiment-description { margin: 12px 22px; color: var(--muted); font-size: 13px; line-height: 1.8; }
 .experiment-trades > summary { padding: 18px 22px; cursor: pointer; color: var(--accent-deep); font-size: 13px; }
+.factor-freshness-scroll { max-height: 420px; overflow: auto; }
+.factor-freshness-scroll table { min-width: 1080px; }
+.factor-freshness-scroll thead th { position: sticky; top: 0; background: var(--surface, #fff); z-index: 1; }
+.factor-freshness-scroll td { white-space: normal; min-width: 125px; line-height: 1.6; vertical-align: top; }
+.factor-freshness-scroll td:nth-child(4) { min-width: 220px; }

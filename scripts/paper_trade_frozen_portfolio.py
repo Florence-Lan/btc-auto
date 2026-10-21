@@ -19,6 +19,7 @@ import execution_portfolio
 import forward_macro
 import macro_regime
 import multifactor
+from factor_data_freshness import describe_factors
 import portfolio_risk
 import public_context
 import public_text_transport
@@ -355,6 +356,7 @@ def run_once(args: argparse.Namespace) -> dict[str, Any]:
             for side in ("long", "short")
         }
         factor_diagnostics["data_metadata"] = factor_snapshot.metadata
+        factor_diagnostics["data_freshness"] = describe_factors(factor_snapshot, now_ms, factor_profile)
     if args.macro_snapshot:
         snapshot = macro_regime.load_macro_snapshot(args.macro_snapshot)
         sleeves, macro_diagnostics = forward_macro.apply_overlay(

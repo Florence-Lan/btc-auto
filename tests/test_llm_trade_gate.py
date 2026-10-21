@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import json
 import copy
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -34,6 +35,9 @@ class LLMTradeGateTests(unittest.TestCase):
                 "LLM_TRADE_GATE_ENABLED": "true",
                 "LLM_MIN_CONFIDENCE": "0.70",
                 "LLM_REJECTION_CACHE_SECONDS": "900",
+                "LLM_PROVIDER": "codex",
+                "LLM_CODEX_MODEL": "",
+                "LLM_CODEX_REASONING_EFFORT": "",
             },
             clear=False,
         )
@@ -434,6 +438,7 @@ class LLMTradeGateTests(unittest.TestCase):
         def fake_run(command, **kwargs):
             captured["command"] = command
             captured["input"] = kwargs["input"]
+            captured["env"] = kwargs["env"]
             output_path = Path(command[command.index("--output-last-message") + 1])
             output_path.write_text(json.dumps({
                 "allow": True,
@@ -451,8 +456,97 @@ class LLMTradeGateTests(unittest.TestCase):
         self.assertEqual(decision["provider"], "codex")
         self.assertIn("read-only", captured["command"])
         self.assertIn('history.persistence="none"', captured["command"])
+        self.assertIn('model_reasoning_effort="medium"', captured["command"])
+        self.assertEqual(captured["command"][captured["command"].index("--model") + 1],
+                         "gpt-6.1-sol")
+        self.assertEqual(decision["reasoning_effort"], "medium")
         self.assertIn("--output-schema", captured["command"])
         self.assertIn("Point-in-time trade context", captured["input"])
+
+    def test_codex_review_environment_excludes_parent_trading_credentials(self) -> None:
+        with mock.patch.dict("os.environ", {"BINANCE_API_KEY": "private-key",
+                "BINANCE_API_SECRET": "private-secret", "OPENAI_API_KEY": "private-api",
+                "CUSTOM_SECRET": "private-custom", "PATH": "runtime-path",
+                "USERPROFILE": "login-profile"}, clear=True):
+            env = llm_trade_gate._codex_review_environment()
+        self.assertEqual(env, {"PATH": "runtime-path", "USERPROFILE": "login-profile"})
+
+    def test_invalid_reasoning_blocks_increases_but_never_blocks_reductions(self) -> None:
+        with mock.patch.dict("os.environ", {"LLM_CODEX_REASONING_EFFORT": "ultra"}):
+            provider = mock.Mock(return_value=self.response(True))
+            gated, decision = self.apply(2.0, current_qty=.002, provider=provider)
+            self.assertEqual(gated["target_leverage"], 1.0)
+            self.assertEqual(decision["status"], "error_blocked")
+            provider.assert_not_called()
+            for requested in (0.0, .5, 1.0):
+                reduced, info = self.apply(requested, current_qty=.002, provider=provider)
+                self.assertEqual(reduced["target_leverage"], requested)
+                self.assertEqual(info["status"], "bypassed_non_increasing")
+
+    def test_provider_configuration_changes_invalidate_success_and_error_caches(self) -> None:
+        changes = ({"LLM_CODEX_MODEL": "existing-model"},
+                   {"LLM_CODEX_REASONING_EFFORT": "high"},
+                   {"LLM_CODEX_TIMEOUT_SECONDS": "60"},
+                   {"CODEX_BIN": "other-codex.exe"}, {"LLM_PROVIDER": "openai"})
+        for approved in (True, False):
+            for change in changes:
+                with self.subTest(approved=approved, change=change):
+                    provider = (mock.Mock(return_value=self.response(True)) if approved else
+                                mock.Mock(side_effect=RuntimeError("old CLI configuration failed")))
+                    _, prior = self.apply(1.0, provider=provider)
+                    original = copy.deepcopy(prior)
+                    self.advance(1)
+                    fresh = mock.Mock(return_value=self.response(False))
+                    with mock.patch.dict("os.environ", change):
+                        gated, decision = self.apply(1.0, provider=fresh, previous=prior)
+                    fresh.assert_called_once()
+                    self.assertEqual(gated["target_leverage"], 0)
+                    self.assertEqual(prior, original)
+                    self.assertNotEqual(decision["review_provider_configuration_sha256"],
+                                        prior["review_provider_configuration_sha256"])
+
+    def test_changed_review_model_rechecks_genuine_rejection_without_rewriting_history(self) -> None:
+        _, prior = self.apply(1.0, provider=lambda _: self.response(False))
+        original = copy.deepcopy(prior)
+        self.advance(30)
+        provider = mock.Mock(return_value=self.response(True))
+        with mock.patch.dict("os.environ", {"LLM_CODEX_MODEL": "same-role-review-model"}):
+            gated, fresh = self.apply(1.0, provider=provider, previous=prior)
+        provider.assert_called_once()
+        self.assertEqual(gated["target_leverage"], 1.0)
+        self.assertEqual(prior, original)
+        self.assertNotEqual(fresh["reviewed_at_utc"], prior["reviewed_at_utc"])
+        self.assertEqual(fresh["review_trigger"], "untrusted_rejection_cache")
+
+    def test_replaced_cli_invalidates_cached_approval_even_at_the_same_path(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            executable = Path(directory) / "codex.exe"
+            executable.write_bytes(b"test binary v1")
+            with mock.patch.dict("os.environ", {"CODEX_BIN": str(executable)}):
+                _, prior = self.apply(1.0, provider=lambda _: self.response(True))
+                fingerprint = llm_trade_gate.review_provider_fingerprint()
+                self.assertEqual(len(fingerprint["review_provider_configuration"]["executable_sha256"]), 64)
+                executable.write_bytes(b"different test binary v2")
+                provider = mock.Mock(return_value=self.response(False))
+                gated, fresh = self.apply(1.0, provider=provider, previous=prior)
+            provider.assert_called_once()
+            self.assertEqual(gated["target_leverage"], 0.0)
+            self.assertNotEqual(fresh["review_provider_configuration_sha256"],
+                                prior["review_provider_configuration_sha256"])
+
+    def test_preflight_rejects_synthetic_fixture_without_account_or_dotenv_import(self) -> None:
+        import check_llm_trade_gate as check
+        version = mock.Mock(returncode=0, stdout="codex-cli 0.44.0\n")
+        with (mock.patch.object(llm_trade_gate.shutil, "which", return_value="codex.exe"),
+              mock.patch.object(check.subprocess, "run", return_value=version),
+              mock.patch.object(llm_trade_gate, "request_codex_decision",
+                                return_value=self.response(False)) as provider):
+            info = check.check()
+        self.assertTrue(info["ok"])
+        self.assertFalse(info["places_orders"])
+        self.assertFalse(info["loads_dotenv"])
+        self.assertTrue(provider.call_args.args[0]["diagnostic_only"])
+        self.assertEqual(info["cli_version"], "codex-cli 0.44.0")
 
     def review_report(self):
         cutoff = int(self.clock.timestamp() * 1000)
@@ -586,6 +680,20 @@ class LLMTradeGateTests(unittest.TestCase):
         self.assertEqual(context["strategy_review_context"], {})
         self.assertEqual(context["components"][0]["strategy_context"]["status"], "unavailable")
         self.assertEqual(context["multifactor_overlay"], {})
+
+    def test_display_only_factor_freshness_cannot_change_review_input_or_causal_exclusions(self) -> None:
+        report, proposed = self.review_report()
+        baseline = llm_trade_gate.build_decision_context(report, proposed, current_leverage=0,
+                                                        mode="simulation")
+        diagnostics = {"display_only": True, "age_days": 12,
+                       "generated_at_utc": (self.clock + timedelta(days=1)).isoformat()}
+        report["multifactor_overlay"]["data_freshness"] = copy.deepcopy(diagnostics)
+        report["execution_entry_gate"] = {"factor_data_freshness": copy.deepcopy(diagnostics)}
+        original = copy.deepcopy(report)
+        context = llm_trade_gate.build_decision_context(report, proposed, current_leverage=0,
+                                                       mode="simulation")
+        self.assertEqual(context, baseline)
+        self.assertEqual(report, original)
 
     def test_forward_policy_retains_opposing_returns_but_does_not_force_approval(self) -> None:
         report, proposed = self.review_report()

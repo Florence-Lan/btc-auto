@@ -28,7 +28,7 @@ PLAN = ROOT / 'config/parallel_simulation_plan_20261005.json'
 SHADOW = ROOT / 'data/paper_trading/sndk_4h_gate_shadow_20261012'
 ARMS = ('baseline_normal', 'candidate_normal', 'baseline_double', 'candidate_double')
 ALLOWED = ('run_parallel_simulation.py', 'run_parallel_btc_signals.py',
-           'run_sndk_4h_gate_shadow.py', 'run_btc_reentry_shadow.py')
+           'run_sndk_4h_gate_shadow.py', 'run_btc_reentry_shadow.py', 'run_stock_macro_shadow.py')
 STOP = threading.Event()
 
 
@@ -119,6 +119,16 @@ def build_services(root=ROOT, shadow=SHADOW, python=sys.executable):
                    '--output-dir', str(extra['reentry_output']), '--config', str(extra['reentry_config']))
         services.append(Service('btc_reentry_shadow', command, extra['reentry_output'] / 'status.json',
                                 ARMS, startup_grace_seconds=600))
+    if 'macro_output' in extra:
+        extensions.require_macro_ledgers(root, extra['macro_config'], extra['macro_output'])
+        script = root / 'scripts' / ALLOWED[4]
+        if not script.is_file():
+            raise ValueError('Required stock macro script unavailable')
+        command = (python, '-u', str(script), '--require-existing', '--poll-seconds', '30',
+                   '--output-dir', str(extra['macro_output']), '--config', str(extra['macro_config']))
+        account_ids = tuple(symbol + '_' + arm for symbol in extensions.MACRO_SYMBOLS for arm in ARMS)
+        services.append(Service('stock_macro_shadow', command, extra['macro_output'] / 'status.json',
+                                account_ids, account_stale_seconds=600, startup_grace_seconds=600))
     return services
 
 
@@ -170,16 +180,17 @@ def canonical_command(argv, root=ROOT, shadow=SHADOW):
             return None
     elif not flags.get('--require-existing'):
         return None
-    if script_name not in (ALLOWED[2], ALLOWED[3]) and '--output-dir' in flags:
+    if script_name not in (ALLOWED[2], ALLOWED[3], ALLOWED[4]) and '--output-dir' in flags:
         return None
-    if script_name != ALLOWED[3] and '--config' in flags:
+    if script_name not in (ALLOWED[3], ALLOWED[4]) and '--config' in flags:
         return None
-    if script_name == ALLOWED[3]:
-        if 'reentry_output' not in extra:
+    if script_name in (ALLOWED[3], ALLOWED[4]):
+        prefix = 'reentry' if script_name == ALLOWED[3] else 'macro'
+        if prefix + '_output' not in extra:
             return None
-        output = contained(root, flags.get('--output-dir', extra['reentry_output']), 'data/paper_trading')
-        config = contained(root, flags.get('--config', extra['reentry_config']), 'config')
-        if output != extra['reentry_output'] or config != extra['reentry_config']:
+        output = contained(root, flags.get('--output-dir', extra[prefix + '_output']), 'data/paper_trading')
+        config = contained(root, flags.get('--config', extra[prefix + '_config']), 'config')
+        if output != extra[prefix + '_output'] or config != extra[prefix + '_config']:
             return None
         return executable, str(script).casefold(), str(output).casefold(), str(config).casefold()
     output = str(contained(root, flags.get('--output-dir', root / 'data/paper_trading/sndk_4h_gate_shadow_20261012'), 'data/paper_trading')).casefold() \
@@ -619,6 +630,8 @@ def main():
     parser.add_argument('--check', action='store_true', help='Validate configuration/ledgers without starting processes')
     args = parser.parse_args()
     try:
+        review_environment = extensions.review_environment(ROOT)
+        os.environ.update(review_environment)
         services = build_services(shadow=args.shadow_output_dir)
     except (OSError, ValueError, KeyError) as exc:
         print('Paper service configuration rejected: ' + str(exc), flush=True)
@@ -643,6 +656,8 @@ def main():
             while not STOP.is_set():
                 try:
                     # Safety guards are re-read before every process action.
+                    if extensions.review_environment(ROOT) != review_environment:
+                        raise ValueError('Paper review settings changed; restart after diagnostic verification')
                     current = build_services(shadow=args.shadow_output_dir)
                     if current != services:
                         raise ValueError('Service paths changed; restart the supervisor after review')

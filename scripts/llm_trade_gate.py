@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import time
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -17,11 +18,14 @@ import requests
 
 
 DecisionProvider = Callable[[dict[str, Any]], dict[str, Any]]
-DECISION_CACHE_VERSION = 3
+DECISION_CACHE_VERSION = 4
 REVIEW_PROMPT_VERSION = 3
 REVIEW_CONTEXT_VERSION = 3
 ADMISSION_POLICY_VERSION = 3
 BASE_BAR_MS = 5 * 60 * 1000
+DEFAULT_CODEX_MODEL = "gpt-6.1-sol"
+DEFAULT_CODEX_REASONING_EFFORT = "medium"
+CODEX_REASONING_EFFORTS = frozenset({"minimal", "low", "medium", "high"})
 
 
 DECISION_SCHEMA = {
@@ -299,6 +303,9 @@ def build_decision_context(
     proposed = float(target.get("target_leverage") or 0)
     proposed_side = "long" if proposed > 0 else "short"
     price_change = (signal_price / origin_price - 1) * 100 if signal_price and origin_price and origin_price > 0 else None
+    # Keep display-only multifactor.data_freshness and execution_entry_gate's
+    # factor_data_freshness outside review input, causal exclusions and hashes.
+    # Execution-entry diagnostics are not part of this context's allowlist.
     multifactor = {
         key: value for key, value in (report.get("multifactor_overlay") or {}).items()
         if key in {"candidate_id", "profile_sha256", "availability_mode", "current",
@@ -443,14 +450,81 @@ def request_openai_decision(context: dict[str, Any]) -> dict[str, Any]:
     return decision
 
 
+def review_provider_configuration() -> dict[str, Any]:
+    """Nonsecret, explicit review settings also establish cache identity."""
+    provider = os.getenv("LLM_PROVIDER", "codex").strip().lower()
+    if provider == "codex":
+        model = os.getenv("LLM_CODEX_MODEL", "").strip() or DEFAULT_CODEX_MODEL
+        effort = os.getenv("LLM_CODEX_REASONING_EFFORT", "").strip() or DEFAULT_CODEX_REASONING_EFFORT
+        if effort not in CODEX_REASONING_EFFORTS:
+            raise ValueError("LLM_CODEX_REASONING_EFFORT must be minimal, low, medium or high")
+        timeout = _finite(os.getenv("LLM_CODEX_TIMEOUT_SECONDS", "90") or 90)
+        if timeout is None or not 0 < timeout <= 300:
+            raise ValueError("LLM_CODEX_TIMEOUT_SECONDS must be between 0 and 300")
+        executable = (os.getenv("CODEX_BIN", "").strip()
+                      or shutil.which("codex.exe") or shutil.which("codex"))
+        return {"provider": provider, "model": model, "reasoning_effort": effort,
+                "timeout_seconds": timeout, "executable": executable,
+                "executable_sha256": _executable_sha256(executable)}
+    if provider == "openai":
+        return {"provider": provider, "model": os.getenv("LLM_MODEL", "gpt-5.4-nano").strip(),
+                "timeout_seconds": os.getenv("LLM_TIMEOUT_SECONDS", "12"),
+                "endpoint_sha256": hashlib.sha256(os.getenv(
+                    "OPENAI_BASE_URL", "https://api.openai.com/v1").encode()).hexdigest()}
+    raise ValueError("LLM_PROVIDER must be codex or openai")
+
+
+@lru_cache(maxsize=16)
+def _hash_executable_file(path: str, modified_ns: int, size: int) -> str:
+    # Stat fields invalidate this cache when a CLI is replaced. A .cmd or .ps1
+    # identifies only that wrapper; pin the actual .exe for deployment identity.
+    digest = hashlib.sha256()
+    with open(path, "rb") as source:
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _executable_sha256(executable: str | None) -> str | None:
+    if not executable:
+        return None
+    path = Path(executable)
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return None  # The provider call still fails closed if the CLI is missing.
+    return _hash_executable_file(str(path.resolve()), stat.st_mtime_ns, stat.st_size)
+
+
+def review_provider_fingerprint() -> dict[str, Any]:
+    """Nonsecret effective settings and binary identity for cache/deployment audit."""
+    settings = {**review_provider_configuration(),
+                "minimum_confidence": os.getenv("LLM_MIN_CONFIDENCE", "0.70") or "0.70"}
+    return {"review_provider_configuration": settings,
+            "review_provider_configuration_sha256": hashlib.sha256(json.dumps(
+                settings, sort_keys=True, separators=(",", ":")).encode()).hexdigest()}
+
+
+def _codex_review_environment() -> dict[str, str]:
+    # A review needs the local Codex login and OS/runtime paths, never exchange
+    # credentials or the parent bot's API keys. Do not load any .env here.
+    allowed = {"PATH", "PATHEXT", "SYSTEMROOT", "WINDIR", "COMSPEC", "TEMP", "TMP",
+               "USERPROFILE", "HOME", "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA",
+               "PROGRAMDATA", "PROGRAMFILES", "PROGRAMFILES(X86)", "CODEX_HOME",
+               "LANG", "LC_ALL", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR",
+               "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"}
+    return {name: value for name, value in os.environ.items() if name.upper() in allowed}
+
+
 def request_codex_decision(context: dict[str, Any]) -> dict[str, Any]:
-    configured_bin = os.getenv("CODEX_BIN", "").strip()
-    codex_bin = configured_bin or shutil.which("codex.exe") or shutil.which("codex")
+    settings = review_provider_configuration()
+    # Direct diagnostic calls must explicitly select the Codex provider too.
+    if settings["provider"] != "codex":
+        raise ValueError("request_codex_decision requires LLM_PROVIDER=codex")
+    codex_bin = settings["executable"]
     if not codex_bin:
         raise RuntimeError("Codex CLI was not found; set CODEX_BIN or install Codex CLI")
-    timeout = float(os.getenv("LLM_CODEX_TIMEOUT_SECONDS", "90") or 90)
-    if timeout <= 0 or timeout > 300:
-        raise ValueError("LLM_CODEX_TIMEOUT_SECONDS must be between 0 and 300")
+    timeout = settings["timeout_seconds"]
     prompt = (
         f"{SYSTEM_INSTRUCTIONS}\n\n"
         "Do not call tools, inspect files, browse, or use information outside the JSON below. "
@@ -473,6 +547,10 @@ def request_codex_decision(context: dict[str, Any]) -> dict[str, Any]:
             "never",
             "--config",
             'history.persistence="none"',
+            "--config",
+            'model_reasoning_effort=' + json.dumps(settings["reasoning_effort"]),
+            "--model",
+            settings["model"],
             "--output-schema",
             str(schema_path),
             "--output-last-message",
@@ -480,9 +558,6 @@ def request_codex_decision(context: dict[str, Any]) -> dict[str, Any]:
             "--cd",
             temporary,
         ]
-        model = os.getenv("LLM_CODEX_MODEL", "").strip()
-        if model:
-            command.extend(["--model", model])
         command.append("-")
         completed = subprocess.run(
             command,
@@ -491,6 +566,9 @@ def request_codex_decision(context: dict[str, Any]) -> dict[str, Any]:
             capture_output=True,
             timeout=timeout,
             check=False,
+            env=_codex_review_environment(),
+            encoding="utf-8",
+            errors="replace",
         )
         if completed.returncode != 0:
             detail = (completed.stderr or completed.stdout or "unknown Codex error").strip()
@@ -498,7 +576,8 @@ def request_codex_decision(context: dict[str, Any]) -> dict[str, Any]:
         if not output_path.exists():
             raise RuntimeError("Codex trade review did not write a final decision")
         decision = json.loads(output_path.read_text(encoding="utf-8"))
-    decision["model"] = model or "codex-default"
+    decision["model"] = settings["model"]
+    decision["reasoning_effort"] = settings["reasoning_effort"]
     decision["provider"] = "codex"
     decision["response_id"] = None
     decision["latency_ms"] = round((time.monotonic() - started) * 1000)
@@ -533,6 +612,7 @@ def _validated_decision(raw: Mapping[str, Any]) -> dict[str, Any]:
         "risk_flags": [str(item)[:120] for item in flags[:6]],
         "model": str(raw.get("model") or os.getenv("LLM_MODEL", "")),
         "provider": str(raw.get("provider") or os.getenv("LLM_PROVIDER", "codex")),
+        "reasoning_effort": raw.get("reasoning_effort"),
         "response_id": raw.get("response_id"),
         "latency_ms": raw.get("latency_ms"),
     }
@@ -639,9 +719,12 @@ def apply_llm_trade_gate(
     review_trigger = "new_target"
     context_audit: dict[str, Any] = {}
     try:
+        context_audit = review_provider_fingerprint()
         cache_seconds = _rejection_cache_seconds()
         age = _review_age_seconds(prior, checked_at)
         if (prior.get("review_execution_mode") != mode
+                or prior.get("review_provider_configuration_sha256") !=
+                context_audit["review_provider_configuration_sha256"]
                 or prior.get("review_historical_performance_required") is not
                 (not _authorized_paper_sampling(report, mode))):
             age = None
@@ -680,14 +763,14 @@ def apply_llm_trade_gate(
             current_leverage=current_leverage,
             mode=mode,
         )
-        context_audit = {
+        context_audit.update({
             "review_execution_mode": mode,
             "review_historical_performance_required": context["admission_policy"]["historical_performance_required"],
             "review_context_sha256": hashlib.sha256(json.dumps(
                 context, ensure_ascii=False, sort_keys=True, separators=(",", ":")
             ).encode("utf-8")).hexdigest(),
             "review_decision_clock": context["decision_clock"],
-        }
+        })
         provider = decision_provider or request_llm_decision
         decision = _validated_decision(provider(context))
         min_confidence = float(os.getenv("LLM_MIN_CONFIDENCE", "0.70") or 0.70)
