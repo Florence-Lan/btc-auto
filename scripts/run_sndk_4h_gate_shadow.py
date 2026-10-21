@@ -105,6 +105,8 @@ def prepare(root, spec, rules, fingerprint, inception_ms, require_existing=False
             if not state_path.is_file():
                 raise ValueError('Incomplete existing experiment; refusing to reset a missing ledger')
             state = paper.read_json(state_path)
+            if not isinstance(state, dict):
+                raise ValueError('Existing paper ledger invalid; refusing balance reset')
             if (state.get('mode') != 'simulation' or state.get('places_orders') is not False
                     or state.get('rule') != rules[arm] or state.get('symbol') != 'SNDKUSDT'
                     or state.get('initial_balance') != 1000
@@ -115,6 +117,8 @@ def prepare(root, spec, rules, fingerprint, inception_ms, require_existing=False
             if not performance_path.is_file():
                 raise ValueError('Missing existing performance history; refusing experiment reset')
             performance = paper.read_json(performance_path)
+            if not isinstance(performance, dict):
+                raise ValueError('Existing performance history invalid; refusing experiment reset')
             if performance.get('start_ms') != manifest['started_at_ms']:
                 raise ValueError('Existing performance history incompatible; refusing experiment reset')
         return manifest
@@ -151,15 +155,44 @@ def exchange_clock(venue):
     before = time.monotonic()
     payload = venue.get('time', {})
     after = time.monotonic()
-    timestamp = payload['serverTime']
-    if isinstance(timestamp, bool) or not isinstance(timestamp, int) or timestamp <= 0:
-        raise ValueError('Invalid public exchange clock')
-    if after - before > 5:
-        raise ValueError('Public clock roundtrip exceeded five seconds')
-    clock = lambda: timestamp + int((time.monotonic() - after) * 1000)
+    timestamp, received, roundtrip = paper.verified_public_clock(payload, before, after)
+    clock = lambda: timestamp + int((time.monotonic() - received) * 1000)
     return clock, {'source': 'public_exchange_time_with_monotonic_elapsed',
-                   'observed_at_ms': timestamp, 'roundtrip_ms': int((after - before) * 1000),
+                   'observed_at_ms': timestamp, 'roundtrip_ms': int(roundtrip * 1000),
                    'local_clock_offset_ms': timestamp - int(time.time() * 1000)}
+
+
+def start_experiment(root, spec, rules, fingerprint, venue, require_existing=False,
+                     prepare_experiment=None):
+    """Resume verified ledgers through clock outages; never invent inception time."""
+    prepare_experiment = prepare_experiment or prepare
+    # Validate financial history before handling any recoverable public-data
+    # failure. Missing/corrupt/incompatible ledgers remain fatal.
+    manifest = (prepare_experiment(root, spec, rules, fingerprint, None, True)
+                if require_existing or (root / 'manifest.json').exists() else None)
+    try:
+        clock, clock_info = exchange_clock(venue)
+    except (paper.requests.RequestException, OSError, paper.subprocess.SubprocessError,
+            ValueError, RuntimeError) as exc:
+        if isinstance(exc, RuntimeError):
+            message = str(exc)
+            prefix = 'Aster public time HTTP '
+            if not (message == 'Aster public cooldown active'
+                    or message.startswith(prefix) and message[len(prefix):].isdigit()):
+                raise
+        if manifest is None:
+            # New experiments still require a verified exchange inception.
+            raise
+        # Raw network messages may include credentials embedded in proxy URLs.
+        clock_info = {'source': 'unavailable', 'error': type(exc).__name__,
+                      'diagnostics': paper.safe_transport_error(exc)}
+    else:
+        paper.now_ms = clock
+    if manifest is None:
+        manifest = prepare_experiment(root, spec, rules, fingerprint, paper.now_ms())
+    # With no exchange clock, the normal tick blocks new risk, independently
+    # checks fresh marks for protection, and retries shared time next poll.
+    return manifest, clock_info
 
 
 class SharedPublicVenue:
@@ -397,8 +430,8 @@ def main():
         signal.signal(sig, lambda *_: stop.set())
     with exclusive_process_lock(root / 'runner.lock'):
         venue = SharedPublicVenue(paper.PublicAster())
-        paper.now_ms, clock_info = exchange_clock(venue)
-        manifest = prepare(root, spec, rules, fingerprint, paper.now_ms(), args.require_existing)
+        manifest, clock_info = start_experiment(
+            root, spec, rules, fingerprint, venue, args.require_existing)
         workers = {arm: paper.StockAccount(root / arm / 'state.json', venue, 'SNDKUSDT', rules[arm])
                    for arm in ARMS}
         accounts = {arm: {'status': 'starting', 'errors': {}} for arm in ARMS}

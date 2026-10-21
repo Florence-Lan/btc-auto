@@ -306,8 +306,9 @@ def main():
         signal.signal(sig, lambda *_: stop.set())
     with exclusive_process_lock(output / 'runner.lock'):
         venue = shared.SharedPublicVenue(paper.PublicAster())
-        paper.now_ms, clock = shared.exchange_clock(venue)
-        manifest = prepare(output, spec, rules, fingerprint, paper.now_ms(), args.require_existing)
+        manifest, clock = shared.start_experiment(
+            output, spec, rules, fingerprint, venue, args.require_existing,
+            prepare_experiment=prepare)
         workers = {symbol: {arm: MacroAccount(output / symbol / arm / 'state.json', venue, symbol, rules[symbol][arm])
                             for arm in ARMS} for symbol in SYMBOLS}
         accounts = {symbol: {arm: {'status': 'starting', 'errors': {}} for arm in ARMS} for symbol in SYMBOLS}

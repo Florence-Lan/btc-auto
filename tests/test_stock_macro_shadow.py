@@ -3,6 +3,7 @@ from copy import deepcopy
 from pathlib import Path
 import json
 import sys
+from unittest.mock import Mock
 
 import pytest
 
@@ -124,6 +125,85 @@ def test_restart_conserves_all_twelve_ledgers_and_rejects_fingerprint_drift(tmp_
     with pytest.raises(ValueError, match='incomplete'):
         shadow.prepare(tmp_path, spec, rules, fingerprint, inception, True)
     assert not path.exists()
+
+
+def test_existing_macro_bootstrap_survives_clock_outage_without_reset(tmp_path):
+    spec, rules, fingerprint = shadow.load_design()
+    inception = spec['effective_from_ms'] + 1
+    manifest = shadow.prepare(tmp_path, spec, rules, fingerprint, inception)
+    paths = [tmp_path / symbol / arm / 'state.json'
+             for symbol in shadow.SYMBOLS for arm in shadow.ARMS]
+    state = paper.read_json(paths[0])
+    state.update(wallet_balance=997., realized_pnl=-2., fees_paid=1., fill_count_total=2)
+    paper.write_json(paths[0], state)
+    frozen = {path: path.read_bytes() for path in paths}
+    venue = Mock()
+    venue.get.side_effect = paper.PublicTransportError('Both public clock transports unavailable', [])
+    resumed, clock = shadow.shared.start_experiment(tmp_path, spec, rules, fingerprint,
+        venue, require_existing=True, prepare_experiment=shadow.prepare)
+    assert resumed == manifest and clock['source'] == 'unavailable'
+    assert {path: path.read_bytes() for path in paths} == frozen
+    paths[-1].write_text('{', encoding='utf-8')
+    venue.reset_mock()
+    with pytest.raises(ValueError, match='history invalid'):
+        shadow.shared.start_experiment(tmp_path, spec, rules, fingerprint, venue,
+            require_existing=True, prepare_experiment=shadow.prepare)
+    venue.get.assert_not_called()
+
+
+def test_clock_outage_and_recovery_keep_macro_gate_shared_data_and_protection(tmp_path, monkeypatch):
+    source, _, clock = worker(tmp_path, monkeypatch, boundary=0)
+    venue = shadow.shared.SharedPublicVenue(source.venue)
+    accounts = {}
+    for arm in shadow.ARMS:
+        config = deepcopy(source.config)
+        if arm.startswith('baseline_'):
+            config.pop(shadow.macro.POLICY_KEY)
+        if arm.endswith('_double'):
+            for key in ('taker_fee_rate_assumption', 'adverse_slippage_fraction_assumption'):
+                config[key] *= 2
+        path = tmp_path / arm / 'state.json'
+        paper.write_json(path, paper.initial_stock('MUUSDT', 600 * 3_600_000 - 10_000, config))
+        accounts[arm] = shadow.MacroAccount(path, venue, 'MUUSDT', config)
+    held = accounts['candidate_normal']
+    state = paper.read_json(held.path)
+    state['position'] = {'entry': 100., 'qty': 1., 'direction': 1,
+        'entry_time': clock['now'] - 5000, 'signal_time': clock['now'] - 5000,
+        'initial_stop': 98., 'stop': 111., 'entry_fee': 0., 'margin': 10., 'funding': 0.}
+    state['position_history'] = [{'time_ms': clock['now'] - 5000, 'signed_qty': 1.}]
+    paper.write_json(held.path, state)
+    original = source.venue.get.side_effect
+    failed = {'clock': True}
+    def get(endpoint, params=None):
+        if endpoint == 'time' and failed['clock']:
+            raise RuntimeError('Both public clock transports unavailable')
+        return original(endpoint, params)
+    source.venue.get.side_effect = get
+    snapshots = {}
+    for arm, account in accounts.items():
+        step = account.step
+        def capture(responses, arm=arm, step=step):
+            snapshots[arm] = deepcopy(responses)
+            return step(responses)
+        account.step = capture
+    degraded, observation = shadow.shared.tick(accounts, venue)
+    assert observation['source'] == 'unavailable'
+    assert all(account['status'] == 'degraded' and 'clock' in account['errors']
+               for account in degraded.values())
+    assert all(snapshot == snapshots['baseline_normal'] for snapshot in snapshots.values())
+    assert paper.read_json(held.path)['fills'][-1]['reason'] == 'protective_stop'
+    assert degraded['candidate_double']['fill_count_total'] == 0
+    assert degraded['baseline_normal']['fill_count_total'] == 0
+    failed['clock'] = False
+    recovered, observation = shadow.shared.tick(accounts, venue)
+    assert observation['observed_at_ms'] == clock['now']
+    assert all(account['status'] == 'healthy' for account in recovered.values())
+    assert recovered['baseline_normal']['position_qty'] > 0
+    assert recovered['candidate_double']['position_qty'] == 0
+    assert recovered['candidate_double']['entry_blockers'] == ['stock_macro_event_blackout']
+    assert paper.read_json(accounts['candidate_double'].path)['stock_event_risk']['allowed'] is False
+    assert all(snapshot == snapshots['baseline_normal'] for snapshot in snapshots.values())
+    assert sum(call.args[0] == 'time' for call in source.venue.get.call_args_list) == 2
 
 
 def test_missing_current_context_replaces_prior_permission(tmp_path, monkeypatch):

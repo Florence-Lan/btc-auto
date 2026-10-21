@@ -72,6 +72,41 @@ def fresh(timestamp, reference, limit=60_000):
         raise ValueError('Stale or future market observation')
 
 
+def verified_public_clock(payload, started, received):
+    """Validate the successful network sample, never an earlier failed attempt.
+
+    Receipt timing is captured by the transport worker before a shared read is
+    returned. A joined caller must not make that observation younger. Venues
+    without transport metadata retain the original outer-call timing checks.
+    """
+    if not isinstance(payload, dict):
+        raise ValueError('Invalid public exchange clock')
+    timestamp = payload.get('serverTime')
+    if isinstance(timestamp, bool) or not isinstance(timestamp, int) or timestamp <= 0:
+        raise ValueError('Invalid public exchange clock')
+    timing = payload.get('_public_clock_timing')
+    if '_public_clock_timing' in payload:
+        if (not isinstance(timing, dict) or set(timing) != {
+                'started_monotonic', 'received_monotonic', 'transport'}
+                or timing['transport'] not in ('requests', 'curl')):
+            raise ValueError('Invalid public clock timing')
+        sample_started, sample_received = timing['started_monotonic'], timing['received_monotonic']
+    else:
+        sample_started, sample_received = started, received
+    values = (sample_started, sample_received, received)
+    if any(isinstance(v, bool) or not isinstance(v, (int, float))
+           or not math.isfinite(v) for v in values):
+        raise ValueError('Invalid public clock timing')
+    if not sample_started <= sample_received <= received:
+        raise ValueError('Invalid public clock timing')
+    roundtrip = sample_received - sample_started
+    if roundtrip > 5:
+        raise ValueError('Exchange clock roundtrip exceeded five seconds')
+    if received - sample_received > 15:
+        raise ValueError('Stale public exchange clock receipt')
+    return timestamp, sample_received, roundtrip
+
+
 def book_fill(book, signed_qty, step, slip=0.0002, participation=0.1):
     """IOC paper fill using <=10% of each visible level within a 50bps band."""
     levels = book['asks' if signed_qty > 0 else 'bids']
@@ -127,7 +162,21 @@ class PublicAster:
         if now_ms() < self.cooldown:
             raise RuntimeError('Aster public cooldown active')
         url = 'https://fapi.asterdex.com/fapi/v3/' + endpoint
+        def clock_payload(payload, started, transport):
+            if endpoint != 'time' or isinstance(payload, dict) and int(payload.get('code', 0)) < 0:
+                return payload
+            received = time.monotonic()
+            if not isinstance(payload, dict):
+                raise InvalidPublicResponse('Invalid public exchange clock')
+            observed = {**payload, '_public_clock_timing': {
+                'started_monotonic': started, 'received_monotonic': received, 'transport': transport}}
+            try:
+                verified_public_clock(observed, started, received)
+            except ValueError as exc:
+                raise InvalidPublicResponse(str(exc)) from None
+            return observed
         def request():
+            started = time.monotonic()
             response = requests.get(url, params=params, timeout=12)
             try:
                 # Read/decode on the guarded thread too: a trickling response must
@@ -140,11 +189,11 @@ class PublicAster:
                     return status, None
                 try:
                     payload = response.json()
-                    if payload is None:
-                        raise InvalidPublicResponse('Aster public response is null')
-                    return status, payload
                 except ValueError:
                     raise InvalidPublicResponse('Aster public response is not JSON') from None
+                if payload is None:
+                    raise InvalidPublicResponse('Aster public response is null')
+                return status, clock_payload(payload, started, 'requests')
             finally:
                 response.close()
         def curl_request():
@@ -152,6 +201,7 @@ class PublicAster:
             if not executable:
                 raise PublicCurlError('curl unavailable', category='transport_unavailable')
             query = '?' + urlencode(params) if params else ''
+            started = time.monotonic()
             result = subprocess.run([executable, '-q', '--silent', '--show-error', '--proto', '=https',
                                      '--connect-timeout', '5', '--max-time', '15',
                                      '--write-out', '\n%{http_code}', '--url', url + query],
@@ -169,11 +219,11 @@ class PublicAster:
                 return status, None
             try:
                 payload = json.loads(body)
-                if payload is None:
-                    raise InvalidPublicResponse('Aster curl public response is null')
-                return status, payload
             except ValueError:
                 raise InvalidPublicResponse('Aster curl public response is not JSON') from None
+            if payload is None:
+                raise InvalidPublicResponse('Aster curl public response is null')
+            return status, clock_payload(payload, started, 'curl')
 
         transports = ('curl', 'requests') if time.monotonic() < self._curl_preferred_until else ('requests', 'curl')
         failures = []
@@ -211,6 +261,8 @@ class PublicAster:
                 self._curl_preferred_until = time.monotonic() + 300
             self.last_public_transport = {'transport': transport, 'endpoint': endpoint,
                 'ok': True, 'failures': list(failures)}
+            if endpoint == 'time':
+                return {**payload, '_public_clock_timing': dict(payload['_public_clock_timing'])}
             return payload
 
 
@@ -310,9 +362,8 @@ class StockAccount:
                 payload = self.venue.get(endpoint, params)
                 if label == 'clock':
                     received = time.monotonic()
-                    if received - started > 5:
-                        raise ValueError('Exchange clock roundtrip exceeded five seconds')
-                    payload = {**payload, '_received_monotonic': received}
+                    _, sample_received, _ = verified_public_clock(payload, started, received)
+                    payload = {**payload, '_received_monotonic': sample_received}
                 return label, payload, None
             except Exception as exc:
                 return label, None, type(exc).__name__ + ': ' + str(exc)[:160]

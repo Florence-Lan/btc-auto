@@ -63,7 +63,7 @@ def test_aster_fallback_discovers_windows_curl_and_preserves_public_tls(monkeypa
     monkeypatch.setattr(runner.shutil, 'which', lambda name: executable if name == 'curl.exe' else None)
     transport = Mock(return_value=curl_response({'serverTime': 1000}))
     monkeypatch.setattr(runner.subprocess, 'run', transport)
-    assert runner.PublicAster().get('time') == {'serverTime': 1000}
+    assert runner.PublicAster().get('time')['serverTime'] == 1000
     command = transport.call_args.args[0]
     assert command[0] == executable
     assert command[1] == '-q'
@@ -136,7 +136,10 @@ def test_parallel_accounts_share_one_inflight_exchange_clock(monkeypatch):
     first.join(1)
     second.join(1)
     assert not first.is_alive() and not second.is_alive()
-    assert results['first'] == results['second'] == {'serverTime': 1000}
+    assert results['first'] == results['second']
+    assert results['first']['serverTime'] == 1000
+    assert results['first'] is not results['second']
+    assert results['first']['_public_clock_timing'] is not results['second']['_public_clock_timing']
     # Both normal polls share the read; no redundant transport or response close.
     assert primary.call_count == 1
     response.close.assert_called_once()
@@ -443,7 +446,7 @@ def test_aster_broken_response_uses_bounded_verified_fallback(monkeypatch, failu
     monkeypatch.setattr(runner.shutil, 'which', lambda name: 'curl.exe')
     fallback = Mock(return_value=curl_response({'serverTime': 1000}))
     monkeypatch.setattr(runner.subprocess, 'run', fallback)
-    assert runner.PublicAster().get('time') == {'serverTime': 1000}
+    assert runner.PublicAster().get('time')['serverTime'] == 1000
     primary.assert_called_once()
     fallback.assert_called_once()
     response.close.assert_called_once()
@@ -519,12 +522,12 @@ def test_aster_successful_curl_is_temporarily_preferred_then_requests_is_retried
     monkeypatch.setattr(runner.shutil, 'which', lambda name: 'curl.exe')
     monkeypatch.setattr(runner.subprocess, 'run', fallback)
     venue = runner.PublicAster()
-    assert venue.get('time') == {'serverTime': 1000}
+    assert venue.get('time')['serverTime'] == 1000
     monotonic['now'] += 1
-    assert venue.get('time') == {'serverTime': 1000}
+    assert venue.get('time')['serverTime'] == 1000
     assert primary.call_count == 1 and fallback.call_count == 2
     monotonic['now'] += 301
-    assert venue.get('time') == {'serverTime': 2000}
+    assert venue.get('time')['serverTime'] == 2000
     assert primary.call_count == 2
     assert venue.last_public_transport['transport'] == 'requests'
 
@@ -539,8 +542,8 @@ def test_aster_preferred_curl_failure_can_recover_via_requests(monkeypatch):
     monkeypatch.setattr(runner.shutil, 'which', lambda name: 'curl.exe')
     monkeypatch.setattr(runner.subprocess, 'run', fallback)
     venue = runner.PublicAster()
-    assert venue.get('time') == {'serverTime': 1000}
-    assert venue.get('time') == {'serverTime': 2000}
+    assert venue.get('time')['serverTime'] == 1000
+    assert venue.get('time')['serverTime'] == 2000
     assert venue._curl_preferred_until == 0
-    assert venue.get('time') == {'serverTime': 2000}
+    assert venue.get('time')['serverTime'] == 2000
     assert primary.call_count == 3 and fallback.call_count == 2

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "experiment_id": "stock_macro_shadow_20261020",
+  "mode": "SIMULATION",
+  "places_orders": false,
+  "symbols": [
+    "MUUSDT",
+    "SNDKUSDT",
+    "SKHYNIXUSDT"
+  ],
+  "baseline_profile": "config/stock_event_guarded_20261020.json",
+  "output_dir": "data/paper_trading/stock_macro_shadow_20261020",
+  "initial_balance_usdt_each": 1000,
+  "cost_multipliers": {
+    "normal": 1,
+    "double": 2
+  },
+  "candidate_only_added_rule": "stock_macro_event_risk_policy",
+  "effective_from_ms": 1792506017385,
+  "review_minimum_elapsed_days": 14,
+  "review_minimum_closed_positions_each": 10,
+  "historical_warmup_counts_as_forward_performance": false,
+  "automatic_strategy_promotion": false
+}

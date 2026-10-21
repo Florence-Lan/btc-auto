@@ -70,6 +70,31 @@ def test_require_existing_and_partial_bootstrap_never_create_or_reset(tmp_path):
     assert old.read_text() == '{"wallet_balance":987}'
 
 
+def test_exchange_clock_uses_successful_transport_receipt_after_slow_failed_attempt(monkeypatch):
+    monotonic = iter((10., 30., 31.))
+    monkeypatch.setattr(shadow.time, 'monotonic', lambda: next(monotonic))
+    venue = Mock()
+    venue.get.return_value = {'serverTime': 100_000, '_public_clock_timing': {
+        'started_monotonic': 28., 'received_monotonic': 29., 'transport': 'curl'}}
+    clock, info = shadow.exchange_clock(venue)
+    assert info['observed_at_ms'] == 100_000 and info['roundtrip_ms'] == 1000
+    assert clock() == 102_000
+
+
+@pytest.mark.parametrize('payload,outer_receipt,reason', [
+    ({'serverTime': 100_000}, 16., 'roundtrip exceeded five seconds'),
+    ({'serverTime': 100_000, '_public_clock_timing': {
+        'started_monotonic': 10., 'received_monotonic': 11., 'transport': 'curl'}},
+     27., 'Stale public exchange clock receipt')])
+def test_exchange_clock_rejects_slow_or_stale_receipt(monkeypatch, payload, outer_receipt, reason):
+    monotonic = iter((10., outer_receipt))
+    monkeypatch.setattr(shadow.time, 'monotonic', lambda: next(monotonic))
+    venue = Mock()
+    venue.get.return_value = payload
+    with pytest.raises(ValueError, match=reason):
+        shadow.exchange_clock(venue)
+
+
 def fixture(tmp_path, monkeypatch, *, before_inception=False):
     boundary = 600 * shadow.HOUR
     stamp = boundary + 60_000
@@ -205,6 +230,87 @@ def test_data_failure_blocks_new_entries_but_retains_protective_management(tmp_p
     assert shadow.paper.read_json(worker.path)['fills'][0]['reason'] == 'protective_stop'
     assert all(a['status'] == 'degraded' for a in accounts.values())
     assert accounts['candidate_double']['fill_count_total'] == 0
+
+
+def test_restart_clock_outage_preserves_ledgers_protects_and_recovers_next_tick(tmp_path, monkeypatch):
+    workers, venue, raw, manifest, stamp, _ = fixture(tmp_path, monkeypatch)
+    worker = workers['candidate_normal']
+    state = shadow.paper.read_json(worker.path)
+    state['position'] = {'entry': 120., 'qty': 1., 'direction': 1, 'entry_time': stamp - 1,
+        'signal_time': stamp - 1, 'stop': 118., 'initial_stop': 118., 'entry_fee': 0.,
+        'margin': 12., 'funding': 0., 'atr': 1.}
+    state['position_history'] = [{'time_ms': stamp - 1, 'signed_qty': 1.}]
+    shadow.paper.write_json(worker.path, state)
+    before = {arm: account.path.read_bytes() for arm, account in workers.items()}
+    original_get, original_clock = raw.get.side_effect, shadow.paper.now_ms
+    unavailable = {'clock': True}
+    def get(endpoint, params=None):
+        if endpoint == 'time' and unavailable['clock']:
+            raise shadow.paper.PublicTransportError('Both public clock transports unavailable', [])
+        return original_get(endpoint, params)
+    raw.get.side_effect = get
+    resumed, clock = shadow.start_experiment(tmp_path, manifest['design'], manifest['rules'],
+        manifest['fingerprint'], venue, require_existing=True)
+    assert resumed == manifest and clock['source'] == 'unavailable'
+    assert clock['error'] == 'PublicTransportError'
+    assert shadow.paper.now_ms is original_clock
+    assert {arm: account.path.read_bytes() for arm, account in workers.items()} == before
+
+    snapshots = {}
+    for arm, account in workers.items():
+        step = account.step
+        def capture(responses, arm=arm, step=step):
+            snapshots[arm] = deepcopy(responses)
+            return step(responses)
+        account.step = capture
+    degraded, clock = shadow.tick(workers, venue)
+    assert clock['source'] == 'unavailable'
+    assert all(account['status'] == 'degraded' and 'clock' in account['errors']
+               for account in degraded.values())
+    assert all(snapshot == snapshots['baseline_normal'] for snapshot in snapshots.values())
+    assert degraded['candidate_normal']['position_qty'] == 0
+    assert shadow.paper.read_json(worker.path)['fills'][-1]['reason'] == 'protective_stop'
+    assert degraded['candidate_double']['fill_count_total'] == 0
+
+    unavailable['clock'] = False
+    recovered, clock = shadow.tick(workers, venue)
+    assert clock['observed_at_ms'] == stamp
+    assert all(account['status'] == 'healthy' for account in recovered.values())
+    assert recovered['candidate_double']['position_qty'] > 0
+    # One shared failed startup request, one failed tick, one recovered tick.
+    assert sum(call.args[0] == 'time' for call in raw.get.call_args_list) == 3
+
+
+def test_startup_clock_failure_cannot_create_new_inception_or_hide_corrupt_ledger(tmp_path):
+    spec, rules, frozen = shadow.load_design()
+    venue = Mock()
+    venue.get.side_effect = shadow.paper.PublicTransportError('Public clock unavailable', [])
+    with pytest.raises(shadow.paper.PublicTransportError, match='Public clock unavailable'):
+        shadow.start_experiment(tmp_path, spec, rules, frozen, venue)
+    assert list(tmp_path.iterdir()) == []
+
+    shadow.prepare(tmp_path, spec, rules, frozen, 1)
+    path = tmp_path / 'candidate_normal/state.json'
+    path.write_text('{', encoding='utf-8')
+    venue.reset_mock()
+    with pytest.raises(ValueError, match='ledger invalid'):
+        shadow.start_experiment(tmp_path, spec, rules, frozen, venue, require_existing=True)
+    venue.get.assert_not_called()
+    assert path.read_text(encoding='utf-8') == '{'
+
+
+def test_restart_redacts_clock_errors_and_propagates_unexpected_faults(tmp_path):
+    spec, rules, frozen = shadow.load_design()
+    shadow.prepare(tmp_path, spec, rules, frozen, 1)
+    venue = Mock()
+    venue.get.side_effect = shadow.paper.requests.ConnectionError('https://user:secret@proxy.invalid')
+    _, clock = shadow.start_experiment(tmp_path, spec, rules, frozen, venue, require_existing=True)
+    assert clock['error'] == 'ConnectionError'
+    assert clock['diagnostics']['category'] == 'connection'
+    assert 'secret' not in json.dumps(clock) and 'proxy.invalid' not in json.dumps(clock)
+    venue.get.side_effect = RuntimeError('Unexpected strategy configuration failure')
+    with pytest.raises(RuntimeError, match='strategy configuration failure'):
+        shadow.start_experiment(tmp_path, spec, rules, frozen, venue, require_existing=True)
 
 
 def test_shared_funding_fallback_is_cached_and_returns_independent_values():
