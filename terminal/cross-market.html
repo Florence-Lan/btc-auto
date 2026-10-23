@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="跨市场观察、真实数据日期和独立风险准入对照">
+  <title>跨市场风险观察 · BTC AUTO</title>
+  <link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./cross-market.css">
+</head>
+<body>
+  <header class="topbar"><a class="brand home-link" href="./parallel.html"><span class="brand-mark">₿</span><span><strong>BTC AUTO</strong><small>跨市场风险观察</small></span></a><span class="mode-badge">独立观察</span></header>
+  <main class="cross-workspace">
+    <section class="cross-heading"><div><small>宏观与组合风险</small><h1>观察事实，再评估新规则</h1><p>国际事件、能源、纳指期货、日元及债券日期集中查看。主账户继续按原规则运行。</p></div><a href="./parallel.html">返回账户 →</a></section>
+    <p id="load-error" class="cross-error" role="alert" hidden></p>
+    <section class="cross-cards" aria-label="观察概况">
+      <article class="panel"><span>服务心跳</span><strong id="service-state">等待数据</strong><small id="heartbeat">—</small></article>
+      <article class="panel"><span>前瞻观察起点</span><strong id="inception">—</strong><small>起点之前的信号不计入样本</small></article>
+      <article class="panel"><span>新机会／有效原准入</span><strong id="sample-count">—</strong><small>原账户状态观察，不是成交许可</small></article>
+      <article class="panel"><span>存储股联合名义敞口</span><strong id="exposure">—</strong><small id="exposure-detail">等待账户状态</small></article>
+    </section>
+    <section class="panel cross-panel"><h2>真实观察日期与抓取状态</h2><p>日频债券保留日期口径；抓取成功不会使旧观察变新。期货固定具名合约，报价可能延迟，到期前需要另行审核。冲击比较目标回看 30 分钟，参考容差最长至 40 分钟。</p><div class="cross-scroll"><table><thead><tr><th>指标／合约</th><th>数值</th><th>实际观察时间</th><th>首次接收</th><th>数据时效</th><th>本次抓取</th></tr></thead><tbody id="observations"><tr><td colspan="6">等待首次采集</td></tr></tbody></table></div></section>
+    <section class="cross-grid">
+      <article class="panel cross-panel"><h2>国际事件</h2><p id="event-state">等待日历核验</p><p id="event-verification" class="cross-muted"></p><div class="cross-scroll"><table><thead><tr><th>事件</th><th>时间／区间（北京时间）</th><th>确认状态</th></tr></thead><tbody id="events"></tbody></table></div></article>
+      <article class="panel cross-panel"><h2>前瞻准入对照</h2><p>只对观察起点后、原规则报告可准入的机会统计一次。没有模拟成交、成本或收益，过滤次数不代表盈利改善。</p><div class="cross-scroll"><table><thead><tr><th>方案</th><th>有效机会</th><th>观察通过</th><th>观察阻止</th></tr></thead><tbody id="counts"></tbody></table></div><p class="cross-muted">数据缺失、历史预热与实际风险阻止须分开解释。当前原因见下表。</p></article>
+    </section>
+    <section class="panel cross-panel"><h2>当前四账户观察</h2><div class="cross-scroll"><table><thead><tr><th>账户</th><th>方案</th><th>观察结果</th><th>原因</th></tr></thead><tbody id="decisions"></tbody></table></div></section>
+    <footer class="cross-footer">新规则仅在独立观察中比较，不能操作账户。日元、能源和科技波动可能来自同一事件；债券和链上缺失资料不会被编造成确定方向。</footer>
+  </main>
+  <script type="module" src="./cross-market.js"></script>
+</body>
+</html>

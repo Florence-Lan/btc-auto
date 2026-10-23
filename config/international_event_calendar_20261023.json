@@ -1,0 +1,305 @@
+{
+  "schema_version": 1,
+  "calendar_id": "international_events_candidate_20261023_v1",
+  "first_seen_at_ms": 1792687117000,
+  "available_at_ms": 1792687117000,
+  "verified_at_ms": 1792717607000,
+  "candidate_only": true,
+  "places_orders": false,
+  "automatic_strategy_promotion": false,
+  "coverage_start_ms": 1792687117000,
+  "coverage_end_ms": 1793458800000,
+  "valid_until_ms": 1792804007000,
+  "coverage_scope": "Named Japan CPI, BoJ decision/conference and ECB decision/conference through October 2026 only; not an exhaustive global calendar.",
+  "review_due_reason": "Re-read current official pages within 24 hours of verification. Never renew verification or extend coverage from an old notice or green service heartbeat.",
+  "default_policy": {
+    "pre_event_minutes": 30,
+    "post_event_minutes": 90,
+    "max_verification_age_hours": 24
+  },
+  "required_sources": [
+    "japan_cpi",
+    "boj_calendar",
+    "ecb_calendar"
+  ],
+  "source_verifications": {
+    "japan_cpi": {
+      "first_seen_at_ms": 1792687117000,
+      "available_at_ms": 1792687117000,
+      "verified_at_ms": 1792717607000,
+      "source_urls": [
+        "https://www.stat.go.jp/english/data/cpi/1582.htm",
+        "https://www.e-stat.go.jp/release-calendar/statistics/00200573"
+      ],
+      "source_published_date": null,
+      "content_last_updated_date": "2026-01-23",
+      "publication_note": "Statistical schedule displays last update 2026-01-23; e-Stat supplies 08:30 JST for both releases. Page update is not the actual release.",
+      "ok": true,
+      "fetch_ok": true,
+      "checked_at_ms": 1792717607000,
+      "last_success_at_ms": 1792717607000,
+      "verification_method": "official_pages_read_in_this_review",
+      "valid_until_ms": 1792804007000,
+      "coverage_end_ms": 1793458800000
+    },
+    "boj_calendar": {
+      "first_seen_at_ms": 1792687117000,
+      "available_at_ms": 1792687117000,
+      "verified_at_ms": 1792717607000,
+      "source_urls": [
+        "https://www.boj.or.jp/about/calendar/index.htm",
+        "https://www.boj.or.jp/en/mopo/mpmsche_minu/m_ref/mref250731a.pdf"
+      ],
+      "source_published_date": null,
+      "content_last_updated_date": "2026-10-16",
+      "publication_note": "Live official calendar reconfirmed; annual MPM dates PDF was published 2025-07-31. Decision time remains undecided.",
+      "ok": true,
+      "fetch_ok": true,
+      "checked_at_ms": 1792717607000,
+      "last_success_at_ms": 1792717607000,
+      "verification_method": "official_pages_read_in_this_review",
+      "valid_until_ms": 1792804007000,
+      "coverage_end_ms": 1793458800000
+    },
+    "ecb_calendar": {
+      "first_seen_at_ms": 1792687117000,
+      "available_at_ms": 1792687117000,
+      "verified_at_ms": 1792717607000,
+      "source_urls": [
+        "https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html",
+        "https://www.ecb.europa.eu/press/govcdec/mopo/html/index.en.html",
+        "https://www.ecb.europa.eu/press/press_conference/html/index.en.html"
+      ],
+      "source_published_date": null,
+      "content_last_updated_date": null,
+      "publication_note": "Live meeting calendar and the standing 14:15/14:45 CET release conventions jointly establish scheduled times; pages do not display publication dates.",
+      "ok": true,
+      "fetch_ok": true,
+      "checked_at_ms": 1792717607000,
+      "last_success_at_ms": 1792717607000,
+      "verification_method": "official_pages_read_in_this_review",
+      "valid_until_ms": 1792804007000,
+      "coverage_end_ms": 1793458800000
+    }
+  },
+  "events": [
+    {
+      "first_seen_at_ms": 1792687117000,
+      "available_at_ms": 1792687117000,
+      "verified_at_ms": 1792717607000,
+      "event_id": "jp_national_cpi_202609_release_20261023",
+      "headline": "Japan national CPI, September 2026",
+      "kind": "scheduled_macro",
+      "source_ids": [
+        "japan_cpi"
+      ],
+      "source_urls": [
+        "https://www.stat.go.jp/english/data/cpi/1582.htm",
+        "https://www.e-stat.go.jp/release-calendar/statistics/00200573"
+      ],
+      "source_published_date": null,
+      "scheduled_at_ms": 1792711800000,
+      "scheduled_at_local": "2026-10-23T08:30:00+09:00",
+      "timezone": "Asia/Tokyo",
+      "time_basis": "official_exact_time",
+      "actual_at_ms": null,
+      "actual_observed_at_ms": null,
+      "block_new_risk": true,
+      "uncertainty": "Scheduled publication only. Actual release and numeric results have not been observed by this candidate."
+    },
+    {
+      "first_seen_at_ms": 1792687117000,
+      "available_at_ms": 1792687117000,
+      "verified_at_ms": 1792717607000,
+      "event_id": "jp_tokyo_cpi_202610_preliminary_20261030",
+      "headline": "Tokyo Ku-area CPI, October 2026 preliminary",
+      "kind": "scheduled_macro",
+      "source_ids": [
+        "japan_cpi"
+      ],
+      "source_urls": [
+        "https://www.stat.go.jp/english/data/cpi/1582.htm",
+        "https://www.e-stat.go.jp/release-calendar/statistics/00200573"
+      ],
+      "source_published_date": null,
+      "scheduled_at_ms": 1793316600000,
+      "scheduled_at_local": "2026-10-30T08:30:00+09:00",
+      "timezone": "Asia/Tokyo",
+      "time_basis": "official_exact_time",
+      "actual_at_ms": null,
+      "actual_observed_at_ms": null,
+      "block_new_risk": true,
+      "uncertainty": "Scheduled publication only. Tokyo preliminary is not national CPI; no actual or forecast values are imputed."
+    },
+    {
+      "first_seen_at_ms": 1792687117000,
+      "available_at_ms": 1792687117000,
+      "verified_at_ms": 1792717607000,
+      "event_id": "boj_policy_decision_20261030_unknown_time",
+      "headline": "BoJ October 29-30 MPM decision; exact time undecided",
+      "kind": "scheduled_macro",
+      "source_ids": [
+        "boj_calendar"
+      ],
+      "source_urls": [
+        "https://www.boj.or.jp/about/calendar/index.htm",
+        "https://www.boj.or.jp/en/mopo/mpmsche_minu/m_ref/mref250731a.pdf"
+      ],
+      "source_published_date": null,
+      "scheduled_at_ms": null,
+      "timezone": "Asia/Tokyo",
+      "time_basis": "conservative_full_decision_day",
+      "meeting_dates_local": [
+        "2026-10-29",
+        "2026-10-30"
+      ],
+      "bounded_start_ms": 1793286000000,
+      "bounded_end_ms": 1793372400000,
+      "bounded_start_local": "2026-10-30T00:00:00+09:00",
+      "bounded_end_local": "2026-10-31T00:00:00+09:00",
+      "actual_at_ms": null,
+      "actual_observed_at_ms": null,
+      "block_new_risk": true,
+      "window_assumption": "Candidate assumption: block the entire officially dated decision day, padded by the default 30 minutes before and 90 minutes after its bounds. This is not an official release time or a claim that the whole two-day meeting is closed to new risk.",
+      "uncertainty": "Official BoJ calendar says undecided for decision and Bank's View release. No noon, meeting-end, or actual publication timestamp is fabricated."
+    },
+    {
+      "first_seen_at_ms": 1792687117000,
+      "available_at_ms": 1792687117000,
+      "verified_at_ms": 1792717607000,
+      "event_id": "boj_governor_conference_20261030",
+      "headline": "BoJ governor scheduled press conference",
+      "kind": "scheduled_macro",
+      "source_ids": [
+        "boj_calendar"
+      ],
+      "source_urls": [
+        "https://www.boj.or.jp/about/calendar/index.htm",
+        "https://www.boj.or.jp/en/mopo/mpmsche_minu/m_ref/mref250731a.pdf"
+      ],
+      "source_published_date": null,
+      "scheduled_at_ms": 1793341800000,
+      "scheduled_at_local": "2026-10-30T15:30:00+09:00",
+      "timezone": "Asia/Tokyo",
+      "time_basis": "official_exact_time",
+      "actual_at_ms": null,
+      "actual_observed_at_ms": null,
+      "block_new_risk": true,
+      "uncertainty": "Live press conference is scheduled for 15:30 JST on October 30. Its transcript is scheduled on November 2; transcript publication is not the conference start or decision time."
+    },
+    {
+      "first_seen_at_ms": 1792687117000,
+      "available_at_ms": 1792687117000,
+      "verified_at_ms": 1792717607000,
+      "event_id": "ecb_policy_decision_20261029",
+      "headline": "ECB scheduled monetary policy decision",
+      "kind": "scheduled_macro",
+      "source_ids": [
+        "ecb_calendar"
+      ],
+      "source_urls": [
+        "https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html",
+        "https://www.ecb.europa.eu/press/govcdec/mopo/html/index.en.html",
+        "https://www.ecb.europa.eu/press/press_conference/html/index.en.html"
+      ],
+      "source_published_date": null,
+      "scheduled_at_ms": 1793279700000,
+      "scheduled_at_local": "2026-10-29T14:15:00+01:00",
+      "timezone": "Europe/Berlin",
+      "time_basis": "official_exact_time",
+      "actual_at_ms": null,
+      "actual_observed_at_ms": null,
+      "block_new_risk": true,
+      "uncertainty": "Date from meeting calendar, time from standing official decision convention. Europe/Berlin is CET (UTC+1) after October 25 DST end; scheduled is not actual."
+    },
+    {
+      "first_seen_at_ms": 1792687117000,
+      "available_at_ms": 1792687117000,
+      "verified_at_ms": 1792717607000,
+      "event_id": "ecb_press_conference_20261029",
+      "headline": "ECB scheduled monetary policy press conference",
+      "kind": "scheduled_macro",
+      "source_ids": [
+        "ecb_calendar"
+      ],
+      "source_urls": [
+        "https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html",
+        "https://www.ecb.europa.eu/press/govcdec/mopo/html/index.en.html",
+        "https://www.ecb.europa.eu/press/press_conference/html/index.en.html"
+      ],
+      "source_published_date": null,
+      "scheduled_at_ms": 1793281500000,
+      "scheduled_at_local": "2026-10-29T14:45:00+01:00",
+      "timezone": "Europe/Berlin",
+      "time_basis": "official_exact_time",
+      "actual_at_ms": null,
+      "actual_observed_at_ms": null,
+      "block_new_risk": true,
+      "uncertainty": "Date from meeting calendar, time from standing official press-conference convention. CET UTC+1 means 21:45 Beijing; actual start/end remain unobserved."
+    }
+  ],
+  "company_reviews": {
+    "SKHYNIXUSDT": {
+      "first_seen_at_ms": 1792687117000,
+      "available_at_ms": 1792687117000,
+      "verified_at_ms": 1792717607000,
+      "source_urls": [
+        "https://news.skhynix.com/en/q3-2026-earnings-conference-call-invitation/",
+        "https://news.skhynix.com/en/category/ir/"
+      ],
+      "source_published_date": "2026-10-21",
+      "status": "newer_official_invitation_reconfirmed_same_call_date",
+      "call_scheduled_at_ms": 1793145600000,
+      "call_scheduled_at_local": "2026-10-28T09:00:00+09:00",
+      "timezone": "Asia/Seoul",
+      "first_release_time_ms": null,
+      "first_release_time_status": "unknown_before_0900_seoul_on_20261028",
+      "first_release_before_ms": 1793145600000,
+      "call_end_time_ms": null,
+      "call_end_time_status": "unknown",
+      "actual_release_observed": false,
+      "valid_until_ms": 1792804007000,
+      "existing_company_calendar_coverage_extended": false,
+      "note": "The October 21 official notice still schedules the call on October 28 and explicitly says the press release will precede 09:00 that day. No postponement was found in the latest official IR listing. Exact first release and call end remain unknown. Diagnostic only: this does not alter the existing earnings gate or extend its coverage from the October 14 notice."
+    }
+  },
+  "existing_calendar_references": [
+    {
+      "scope": "Fed/BEA",
+      "path": "data/snapshots/public_context_latest.json",
+      "integration": "Keep the existing causal collector/gate. This candidate does not copy or recalculate its history."
+    },
+    {
+      "scope": "company_earnings",
+      "path": "config/stock_event_calendar_20261020.json",
+      "integration": "Retain the existing company gate. The review above is diagnostic and does not rewrite that calendar."
+    }
+  ],
+  "limitations": [
+    "This version is pinned, not an automatic collector; it fails closed for new risk when verification ages out.",
+    "All first-seen values are from this review, never backdated to an official page's old publication date.",
+    "Unscheduled geopolitical developments, all-world event completeness and actual announcement results are not covered.",
+    "The 30/90-minute schedule window is a candidate assumption; an elapsed window is not proof a delayed release occurred.",
+    "No active profile, process, signal rule, position, ledger or historical decision is changed."
+  ],
+  "verification_history": [
+    {
+      "verified_at_ms": 1792687117000,
+      "source_ids": [
+        "japan_cpi",
+        "boj_calendar",
+        "ecb_calendar"
+      ],
+      "note": "Initial official page review. Preserve first-seen; later verification is not available to earlier decisions."
+    },
+    {
+      "verified_at_ms": 1792717607000,
+      "source_ids": [
+        "japan_cpi",
+        "boj_calendar",
+        "ecb_calendar"
+      ],
+      "note": "Live official schedules and standing time conventions re-read on the morning of October 23. The national CPI actual result was separately checked for reporting only; no numeric actual, forecast, or actual release timestamp enters this schedule candidate. The archived initial first-seen times and absolute coverage horizon remain unchanged."
+    }
+  ]
+}

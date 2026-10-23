@@ -1,5 +1,13 @@
 # BTC Auto
 
+October 23 risk-observation update: a separate read-only service now collects
+named energy/Nasdaq futures, timely USD/JPY and official dated bond observations,
+maintains a supplemental Japan/ECB calendar, and compares prospective admission
+hypotheses and memory-stock exposure. Original trading parameters and ledgers
+are preserved. This stage does not simulate returns or promote a new strategy.
+See [scope, activation and verification](docs/cross_market_risk_observer_20261023.md)
+and `http://127.0.0.1:8766/terminal/cross-market.html`.
+
 October 7 latest-strategy switch: the default four-account plan now selects
 the hourly aligned SNDK candidate, with the latest BTC/MU/SKHYNIX rules retained.
 Existing account migration preserves cash, fills and inventory. Startup with

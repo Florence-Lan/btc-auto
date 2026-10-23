@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "experiment_id": "cross_market_admission_observer_20261023",
+  "mode": "OBSERVATION_ONLY",
+  "places_orders": false,
+  "no_pnl_simulated": true,
+  "automatic_strategy_promotion": false,
+  "output_dir": "data/cross_market_observer",
+  "poll_seconds": 30,
+  "collect_seconds": 300,
+  "collector_deadline_seconds": 15,
+  "calendar_refresh_enabled": true,
+  "source_max_age_ms": 120000,
+  "status_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/status.json",
+  "accounts": {
+    "btc": {
+      "state_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/btc/state.json"
+    },
+    "mu": {
+      "state_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/mu/state.json"
+    },
+    "sndk": {
+      "state_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/sndk/state.json"
+    },
+    "skhynix": {
+      "state_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/skhynix/state.json"
+    }
+  },
+  "btc_report_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/btc_signals_entry_timing_20261011/report.json",
+  "observation_config": "config/cross_market_observation_20261023.json",
+  "international_calendar": "config/international_event_calendar_20261023.json",
+  "event_policy": {
+    "pre_event_minutes": 30,
+    "post_event_minutes": 90,
+    "max_verification_age_hours": 24
+  },
+  "market_policy": {
+    "required_features": ["nq_dec_2026", "brent_usd_per_barrel", "usdjpy"],
+    "lookback_minutes": 30,
+    "reference_tolerance_minutes": 10,
+    "maximum_quote_age_minutes": 20,
+    "maximum_quote_skew_minutes": 15,
+    "oil_rise_pct": 3.0,
+    "nq_decline_pct": -1.5,
+    "yen_appreciation_pct": 0.75,
+    "nq_absolute_move_pct": 3.0
+  },
+  "portfolio_policy": {
+    "stock_accounts": ["mu", "sndk", "skhynix"],
+    "maximum_state_age_seconds": 180,
+    "maximum_same_direction_positions": 1,
+    "same_direction_stop_risk_fraction_of_largest_account": 0.0025
+  },
+  "research_declaration": {
+    "objective": "Validate timely causal observations and compare prospective admission hypotheses before testing any return effect.",
+    "market_stress_hypothesis": "Target 30-minute changes, allowing references up to 40 minutes old: Brent >= +3% and NQ <= -1.5%, or yen appreciation >= 0.75% and NQ <= -1.5%, or NQ absolute move >= 3% blocks the observed new-risk candidate in either direction. Current and reference quote sets each require <=15-minute cross-market skew.",
+    "sector_budget_hypothesis": "At most one existing same-direction memory-stock position; joint current-equity-to-stop risk plus one original per-account plan is capped at the largest stock account equity times 0.25%.",
+    "thresholds_are": "Fixed prospective research hypotheses, not fitted thresholds or loss guarantees.",
+    "daily_bonds": "Diagnostics only; no unvalidated directional weights.",
+    "no_counterfactual_holdings": true,
+    "no_cost_or_return_comparison": true,
+    "post_inception_opportunities_only": true,
+    "first_reported_eligible_observation_per_opportunity": true,
+    "baseline_is_reported_not_fill_permit": true,
+    "calendar_scope": "Supplemental Japan CPI, BoJ and ECB. Original Fed/BEA and company protections remain in the original services.",
+    "minimum_review_days": 14,
+    "return_validation_requires_new_separate_normal_and_double_cost_experiment": true
+  }
+}

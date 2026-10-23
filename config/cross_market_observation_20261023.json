@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "mode": "OBSERVATION_ONLY",
+  "places_orders": false,
+  "collection_timeout_seconds": 12,
+  "notes": [
+    "Independent public-data sidecar only. No portfolio, ledger, signal, leverage or execution setting is modified.",
+    "Yahoo futures have explicit December 2026 symbols; no continuous futures and no automatic roll. A conservative contract-review cutoff is not a claimed expiration date.",
+    "Yahoo regularMarketTime is the provider quote observation time. Reception delay is visible in freshness.age_ms; no claim of real-time exchange entitlement is made.",
+    "provider_previous_close is only a same-instrument provider reference, never a common 30-minute return across markets.",
+    "Official bond feeds expose dates, not actual observation/publication times. They remain date-only diagnostics and cannot satisfy intraday risk admission.",
+    "France/Germany/Italy daily yields are explicitly missing until a reliable public feed and its units are independently verified. No euro-area curve or monthly series is silently substituted.",
+    "Daily sources have independent six-hour polling clocks. HTTP 403/429 are not bypassed; at least one hour of backoff applies."
+  ],
+  "sources": [
+    {
+      "id": "yahoo_wti_dec_2026",
+      "parser": "yahoo_chart",
+      "provider": "Yahoo Finance public chart (NYMEX quote)",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/CLZ26.NYM?interval=1m&range=1d",
+      "expected_symbol": "CLZ26.NYM",
+      "expected_type": "FUTURE",
+      "expected_currency": "USD",
+      "timezone": "America/New_York",
+      "poll_seconds": 60,
+      "timeout_seconds": 7,
+      "contract_review_cutoff_utc": "2026-11-15T00:00:00Z",
+      "instrument": {
+        "symbol": "CLZ26.NYM",
+        "name": "NYMEX WTI Crude Oil December 2026 futures",
+        "contract_month": "2026-12",
+        "exchange": "NYMEX",
+        "currency": "USD",
+        "continuous_contract": false,
+        "automatic_roll": false
+      },
+      "fields": {
+        "wti_usd_per_barrel": {"unit": "USD/barrel", "max_age_seconds": 1200}
+      }
+    },
+    {
+      "id": "yahoo_brent_dec_2026",
+      "parser": "yahoo_chart",
+      "provider": "Yahoo Finance public chart (NYMEX quote)",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/BZZ26.NYM?interval=1m&range=1d",
+      "expected_symbol": "BZZ26.NYM",
+      "expected_type": "FUTURE",
+      "expected_currency": "USD",
+      "timezone": "America/New_York",
+      "poll_seconds": 60,
+      "timeout_seconds": 7,
+      "contract_review_cutoff_utc": "2026-10-28T00:00:00Z",
+      "instrument": {
+        "symbol": "BZZ26.NYM",
+        "name": "NYMEX Brent Crude Oil Last Day Financial December 2026 futures",
+        "contract_month": "2026-12",
+        "exchange": "NYMEX",
+        "currency": "USD",
+        "proxy_caveat": "NYMEX financially settled Brent futures; not ICE spot or an ICE execution quote",
+        "continuous_contract": false,
+        "automatic_roll": false
+      },
+      "fields": {
+        "brent_usd_per_barrel": {"unit": "USD/barrel", "max_age_seconds": 1200, "required_intraday": true}
+      }
+    },
+    {
+      "id": "yahoo_nq_dec_2026",
+      "parser": "yahoo_chart",
+      "provider": "Yahoo Finance public chart (CME quote)",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/NQZ26.CME?interval=1m&range=1d",
+      "expected_symbol": "NQZ26.CME",
+      "expected_type": "FUTURE",
+      "expected_currency": "USD",
+      "timezone": "America/New_York",
+      "poll_seconds": 60,
+      "timeout_seconds": 7,
+      "contract_review_cutoff_utc": "2026-12-11T00:00:00Z",
+      "instrument": {
+        "symbol": "NQZ26.CME",
+        "name": "CME E-mini Nasdaq-100 December 2026 futures",
+        "contract_month": "2026-12",
+        "expiration_date": "2026-12-18",
+        "exchange": "CME",
+        "currency": "USD",
+        "continuous_contract": false,
+        "automatic_roll": false
+      },
+      "fields": {
+        "nq_dec_2026": {"unit": "index_points", "max_age_seconds": 1200, "required_intraday": true}
+      }
+    },
+    {
+      "id": "yahoo_usdjpy",
+      "parser": "yahoo_chart",
+      "provider": "Yahoo Finance public chart (indicative FX)",
+      "url": "https://query1.finance.yahoo.com/v8/finance/chart/JPY=X?interval=1m&range=1d",
+      "expected_symbol": "JPY=X",
+      "expected_type": "CURRENCY",
+      "expected_currency": "JPY",
+      "timezone": "Europe/London",
+      "poll_seconds": 60,
+      "timeout_seconds": 7,
+      "instrument": {
+        "symbol": "JPY=X",
+        "name": "USD/JPY indicative foreign exchange rate",
+        "base_currency": "USD",
+        "quote_currency": "JPY",
+        "orientation": "Japanese yen per one US dollar"
+      },
+      "fields": {
+        "usdjpy": {"unit": "JPY/USD", "max_age_seconds": 1200, "required_intraday": true}
+      }
+    },
+    {
+      "id": "us_treasury_nominal_daily",
+      "parser": "dated_csv",
+      "provider": "U.S. Department of the Treasury daily par yield curve",
+      "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/2026/all?type=daily_treasury_yield_curve&field_tdr_date_value=2026&page&_format=csv",
+      "timezone": "America/New_York",
+      "date_column": "Date",
+      "date_format": "%m/%d/%Y",
+      "poll_seconds": 21600,
+      "timeout_seconds": 7,
+      "instrument": {"country": "US", "measure": "daily Treasury nominal par yield curve", "frequency": "daily", "unit": "percent per annum"},
+      "fields": {
+        "us_2y_pct": {"unit": "percent", "column": "2 Yr", "max_age_days": 4},
+        "us_10y_pct": {"unit": "percent", "column": "10 Yr", "max_age_days": 4}
+      }
+    },
+    {
+      "id": "us_treasury_real_daily",
+      "parser": "dated_csv",
+      "provider": "U.S. Department of the Treasury daily real par yield curve",
+      "url": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/2026/all?type=daily_treasury_real_yield_curve&field_tdr_date_value=2026&page&_format=csv",
+      "timezone": "America/New_York",
+      "date_column": "Date",
+      "date_format": "%m/%d/%Y",
+      "poll_seconds": 21600,
+      "timeout_seconds": 7,
+      "instrument": {"country": "US", "measure": "daily Treasury real par yield curve (TIPS-derived)", "frequency": "daily", "unit": "percent per annum"},
+      "fields": {
+        "us_10y_real_pct": {"unit": "percent", "column": "10 YR", "max_age_days": 4}
+      }
+    },
+    {
+      "id": "mof_japan_daily",
+      "parser": "dated_csv",
+      "provider": "Japan Ministry of Finance JGB constant-maturity interest rates",
+      "url": "https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/jgbcme.csv",
+      "timezone": "Asia/Tokyo",
+      "date_column": "Date",
+      "date_format": "%Y/%m/%d",
+      "poll_seconds": 21600,
+      "timeout_seconds": 7,
+      "instrument": {"country": "JP", "measure": "JGB constant-maturity yield curve", "frequency": "daily", "unit": "percent per annum"},
+      "fields": {
+        "jp_2y_pct": {"unit": "percent", "column": "2Y", "max_age_days": 4},
+        "jp_10y_pct": {"unit": "percent", "column": "10Y", "max_age_days": 4},
+        "jp_30y_pct": {"unit": "percent", "column": "30Y", "max_age_days": 4}
+      }
+    },
+    {
+      "id": "boe_uk_daily",
+      "parser": "dated_csv",
+      "provider": "Bank of England IUDMNPY (attribution: Bank of England)",
+      "url": "https://www.bankofengland.co.uk/boeapps/database/_iadb-fromshowcolumns.asp?csv.x=yes&Datefrom=01/Oct/2026&Dateto=now&SeriesCodes=IUDMNPY&CSVF=TN&UsingCodes=Y&VPD=Y&VFD=N",
+      "timezone": "Europe/London",
+      "date_column": "DATE",
+      "date_format": "%d %b %Y",
+      "poll_seconds": 21600,
+      "timeout_seconds": 7,
+      "instrument": {"country": "GB", "series": "IUDMNPY", "measure": "fitted British government securities 10-year nominal par yield", "frequency": "daily", "unit": "percent per annum"},
+      "fields": {
+        "uk_10y_pct": {"unit": "percent", "column": "IUDMNPY", "max_age_days": 4}
+      }
+    },
+    {
+      "id": "europe_unverified_daily",
+      "parser": "unavailable",
+      "provider": "No verified public daily country-specific source configured",
+      "reason": "daily_country_specific_source_not_verified_no_monthly_or_area_curve_substitution",
+      "timezone": "Europe/Brussels",
+      "poll_seconds": 21600,
+      "timeout_seconds": 7,
+      "instrument": {"measure": "country-specific 10-year sovereign yields", "frequency": "daily", "required_source_verification": true},
+      "fields": {
+        "de_10y_pct": {"unit": "percent", "max_age_days": 4},
+        "fr_10y_pct": {"unit": "percent", "max_age_days": 4},
+        "it_10y_pct": {"unit": "percent", "max_age_days": 4}
+      }
+    }
+  ],
+  "derived_spreads": {
+    "fr_de_10y_spread_bp": {"left": "fr_10y_pct", "right": "de_10y_pct", "max_age_days": 4},
+    "it_de_10y_spread_bp": {"left": "it_10y_pct", "right": "de_10y_pct", "max_age_days": 4}
+  }
+}
