@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>存储股退出规则 · 独立模拟对照</title>
+  <link rel="stylesheet" href="./exit-response.css">
+</head>
+<body>
+  <header class="topbar"><a href="./stocks.html">← 股票账户</a><span class="badge">SIMULATION · 独立实验</span></header>
+  <main>
+    <div class="intro"><p class="eyebrow">1 小时策略 · 前瞻退出对照</p><h1>突破失效退出与浮盈回吐保护</h1><p>MU、SNDK、SK Hynix 各自对比原规则、突破失效退出、浮盈回吐保护与组合退出。沿用当前 1 小时入场规则、原风控与模拟撮合；只接受实验启用后的新信号。</p></div>
+    <p class="notice">这是新起点的独立研究账户，每账户本金 1,000 USDT，未合入原主账户。新规则尚未证明盈利改善，达到复核门槛也不会自动替换主策略。</p>
+    <div class="toolbar"><fieldset><legend>成本口径</legend><label><input type="radio" name="cost" value="normal" checked> 正常成本</label><label><input type="radio" name="cost" value="double"> 双倍成本</label></fieldset><p id="service-state" role="status">读取状态…</p></div>
+    <p id="load-error" class="error" role="alert" hidden></p>
+    <section class="summary" aria-label="实验概况">
+      <article><h2>本口径合计权益</h2><strong id="total-equity">—</strong><p id="capital-note">12 个独立账户，本金共 12,000 USDT</p></article>
+      <article><h2>实验起点 · 北京时间</h2><strong id="inception">—</strong><p id="heartbeat">—</p></article>
+      <article><h2>首次复核进度</h2><strong id="review-state">—</strong><p id="review-detail">至少 14 天、各账户至少 10 笔完整平仓；每只股票、每种成本、每个候选规则还需至少 10 组已完成的提前退出配对跟踪</p></article>
+    </section>
+    <section class="results" aria-labelledby="results-title"><div class="section-head"><h2 id="results-title">三只股票 · 四种退出规则</h2><p id="cost-note">正常成本：计入手续费、盘口价差、滑点及资金费。</p></div>
+      <div class="table-wrap"><table><thead><tr><th>股票 / 规则</th><th>权益 USDT</th><th>已平仓净收益</th><th>完整平仓</th><th>采样最大回撤</th><th>费用 / 资金费</th><th>持仓数量</th><th>相对原规则</th><th>配对跟踪</th><th>当前状态</th></tr></thead><tbody id="accounts"></tbody></table></div>
+      <p class="footnote">已平仓净收益按完整持仓归组，扣除对应手续费与资金费；部分平仓不冒充完整样本。权益含未平仓浮动盈亏。回撤取决于观察采样，不能代表逐笔成交之间的全部波动。</p>
+    </section>
+    <section class="method"><h2>固定退出规则</h2><p>突破失效退出：突破失效须经连续 2 根 1 小时收盘确认。浮盈回吐保护：浮盈达到 1R 后启动，从最佳有利价格回吐 0.5R 时触发退出；R 为实际入场价到初始止损价的距离。组合规则同时启用两项保护。保留原硬止损，不自动反手。</p><h2>如何读这份对照</h2><p>双倍成本将手续费和不利滑点假设分别加倍，资金费仍按发布值计入。各账户独立计账；不同退出会改变冷却和后续入场，权益差不等于同一笔交易的退出贡献。</p><p>配对只描述可匹配的同源入场；提前退出后的跟踪分为已完成和仍截尾。首次复核还要求每只股票、每种成本、每个候选规则至少 10 组已完成的提前退出配对跟踪；截尾样本不计入这道门槛，也不应当作盈利改善。数据缺失、未来时间或过期心跳时，本页清空当前金额，避免把旧结果当作实时状态。</p><p id="fingerprint" class="fingerprint">源码指纹待读取</p></section>
+  </main>
+  <script type="module" src="./exit-response.js"></script>
+</body>
+</html>

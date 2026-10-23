@@ -8,6 +8,13 @@ are preserved. This stage does not simulate returns or promote a new strategy.
 See [scope, activation and verification](docs/cross_market_risk_observer_20261023.md)
 and `http://127.0.0.1:8766/terminal/cross-market.html`.
 
+October 23 hourly exit-response research adds independent normal/double-cost
+paper accounts for the existing stock entry rules. Fixed candidates compare
+two-close breakout invalidation, a 1R/0.5R closed-hour profit giveback, and their
+combination. Original accounts remain the reference. See
+[the protocol and verification](docs/stock_exit_response_20261023.md) and
+`http://127.0.0.1:8766/terminal/exit-response.html`.
+
 October 7 latest-strategy switch: the default four-account plan now selects
 the hourly aligned SNDK candidate, with the latest BTC/MU/SKHYNIX rules retained.
 Existing account migration preserves cash, fills and inventory. Startup with
