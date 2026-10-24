@@ -353,7 +353,12 @@ class SimulationAccount:
             if not pending or pending.get("status") == "data_unavailable":
                 pending = btc_pullback_entry.build_pending(
                     target, market.get("hourly", []), policy, now_ms)
-            if pending.get("status") not in btc_pullback_entry.TERMINAL_STATUSES:
+            # Expiry is independent of market data. The runner deliberately
+            # omits this feed outside the entry window; advance_pending still
+            # validates the frozen record before terminating/consuming it.
+            expiry = pending.get("expires_at_ms")
+            expired = type(expiry) is int and now_ms >= expiry
+            if pending.get("status") not in btc_pullback_entry.TERMINAL_STATUSES and not expired:
                 cutoff = market.get("asof_ms")
                 if (market.get("complete") is not True or isinstance(cutoff, bool)
                         or not isinstance(cutoff, int) or cutoff > now_ms):

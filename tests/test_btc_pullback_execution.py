@@ -186,3 +186,151 @@ def test_review_can_expire_original_window_without_creating_a_new_entry(tmp_path
                           execution_clock=lambda: now)
     assert result['fill'] is None and result['btc_pullback_entry']['status'] == 'expired'
     assert bot.load()['position_qty'] == 0
+
+
+def saved_pending(status, side='long'):
+    """Create valid frozen states through the pure engine, without a paper fill."""
+    policy = copy.deepcopy(entry.DEFAULT_POLICY)
+    pending = entry.build_pending(desired(side), [] if status == 'data_unavailable' else hourly(),
+                                  policy, ORIGIN + 1000)
+    if status in ('waiting_confirmation', 'ready'):
+        pending, _ = entry.advance_pending(pending, desired(side),
+            [five(side=side, kind='touch' if status == 'waiting_confirmation' else 'rejection')],
+            1003 if side == 'long' else 997, ORIGIN + entry.FIVE_MINUTES, 1, policy)
+    assert pending['status'] == status
+    return pending
+
+
+def unavailable_report(kind, now):
+    result = report(now=now)
+    if kind == 'missing':
+        result.pop('btc_pullback_market_data')
+    elif kind == 'not_mapping':
+        result['btc_pullback_market_data'] = ['not a snapshot']
+    elif kind == 'incomplete':
+        result['btc_pullback_market_data'] = {'complete': False, 'asof_ms': now}
+    elif kind == 'future':
+        result['btc_pullback_market_data'] = {'complete': True, 'asof_ms': now + 1}
+    elif kind == 'bad_cutoff':
+        result['btc_pullback_market_data'] = {'complete': True, 'asof_ms': True}
+    elif kind == 'bad_bars':
+        result['btc_pullback_market_data'] = {
+            'complete': True, 'asof_ms': now, 'hourly': ['invalid'], 'five_minute': ['invalid']}
+    else:
+        raise AssertionError(kind)
+    return result
+
+
+@pytest.mark.parametrize('status', ['waiting_retrace', 'waiting_confirmation', 'ready', 'data_unavailable'])
+@pytest.mark.parametrize('market_kind', ['missing', 'not_mapping', 'incomplete', 'future', 'bad_cutoff', 'bad_bars'])
+@pytest.mark.parametrize('offset', [0, 1])
+def test_original_expiry_wins_over_missing_or_bad_market(tmp_path, status, market_kind, offset):
+    bot = account(tmp_path)
+    pending = saved_pending(status)
+    state = bot.load(); state['btc_pullback_pending'] = copy.deepcopy(pending); bot._save(state)
+    now = pending['expires_at_ms'] + offset
+    result = bot.reconcile(desired(), 1003, report=unavailable_report(market_kind, now), now_ms=now)
+    after = bot.load()
+    assert result['fill'] is None and result['btc_pullback_entry']['status'] == 'expired'
+    assert result['btc_pullback_entry']['allowed'] is False
+    assert result['btc_pullback_entry']['reasons'] == ['btc_pullback_origin_expired']
+    assert after['btc_pullback_pending']['status'] == 'expired'
+    assert after['btc_pullback_pending']['expires_at_ms'] == pending['expires_at_ms']
+    assert after['btc_pullback_consumed_sources'].count(pending['source_key']) == 1
+    assert after['wallet_balance'] == 1000 and after['position_qty'] == 0
+    assert after['fill_count_total'] == 0 and after['fees_paid'] == 0
+
+
+@pytest.mark.parametrize('status', ['waiting_retrace', 'waiting_confirmation', 'ready'])
+@pytest.mark.parametrize('market_kind', ['missing', 'future', 'bad_cutoff', 'bad_bars'])
+def test_one_ms_before_expiry_missing_data_stays_blocked_and_unconsumed(tmp_path, status, market_kind):
+    bot = account(tmp_path)
+    pending = saved_pending(status)
+    state = bot.load(); state['btc_pullback_pending'] = copy.deepcopy(pending); bot._save(state)
+    now = pending['expires_at_ms'] - 1
+    result = bot.reconcile(desired(), 1003, report=unavailable_report(market_kind, now), now_ms=now)
+    after = bot.load()
+    assert result['fill'] is None and result['btc_pullback_entry']['allowed'] is False
+    assert result['btc_pullback_entry']['status'] == 'data_unavailable'
+    assert after['btc_pullback_pending'] == pending
+    assert pending['source_key'] not in after.get('btc_pullback_consumed_sources', [])
+    assert after['fill_count_total'] == 0 and after['wallet_balance'] == 1000
+
+
+def test_expiry_persists_across_restart_and_never_consumes_same_source_twice(tmp_path):
+    bot = account(tmp_path)
+    pending = saved_pending('ready')
+    state = bot.load(); state['btc_pullback_pending'] = pending; bot._save(state)
+    at = pending['expires_at_ms']
+    bot.reconcile(desired(), 1003, report=unavailable_report('missing', at), now_ms=at)
+    restarted = execution.SimulationAccount(bot.path, allow_llm=False)
+    for now in [at + 1, at + entry.FIVE_MINUTES]:
+        result = restarted.reconcile(desired(), 1003, report=unavailable_report('missing', now), now_ms=now)
+        assert result['fill'] is None and result['btc_pullback_entry']['status'] == 'expired'
+    after = restarted.load()
+    assert after['btc_pullback_consumed_sources'] == [pending['source_key']]
+    assert after['btc_pullback_pending']['expires_at_ms'] == at
+    assert after['position_qty'] == 0 and after['fill_count_total'] == 0
+
+
+@pytest.mark.parametrize('new_side', ['long', 'short'])
+def test_old_expired_wait_cannot_consume_or_expire_new_source(tmp_path, new_side):
+    bot = account(tmp_path)
+    pending = saved_pending('ready')
+    state = bot.load(); state['btc_pullback_pending'] = pending; bot._save(state)
+    next_origin = ORIGIN + entry.HOUR
+    fresh = desired(new_side, origin_signal_time_ms=next_origin, position_id='next-origin',
+                    signal_time_ms=next_origin)
+    # Replace the old ready source while new-source history is temporarily absent.
+    first_at = next_origin + 1000
+    first = bot.reconcile(fresh, 1000, report=unavailable_report('missing', first_at), now_ms=first_at)
+    waiting = bot.load()['btc_pullback_pending']
+    assert first['fill'] is None and first['btc_pullback_entry']['status'] == 'data_unavailable'
+    assert waiting['source_key'] != pending['source_key']
+    assert waiting['expires_at_ms'] == next_origin + entry.HOUR
+    assert bot.load()['btc_pullback_consumed_sources'] == [pending['source_key']]
+    # Its own valid post-origin touch/rejection can still enter after restart.
+    restarted = execution.SimulationAccount(bot.path, allow_llm=False)
+    at = next_origin + entry.FIVE_MINUTES
+    good = report([five(side=new_side)], at)
+    for row in good['btc_pullback_market_data']['hourly'] + good['btc_pullback_market_data']['five_minute']:
+        row[0] += entry.HOUR; row[7] += entry.HOUR
+    entered = restarted.reconcile(fresh, 1003 if new_side == 'long' else 997, report=good, now_ms=at)
+    assert entered['fill'] is not None and entered['btc_pullback_entry']['status'] == 'filled'
+    after = restarted.load()
+    assert after['btc_pullback_pending']['expires_at_ms'] == next_origin + entry.HOUR
+    assert after['btc_pullback_consumed_sources'].count(pending['source_key']) == 1
+    assert after['btc_pullback_consumed_sources'].count(waiting['source_key']) == 1
+
+
+@pytest.mark.parametrize('exit_kind', ['flat', 'reversal_reduction', 'account_hard_stop'])
+def test_expired_pending_with_missing_market_preserves_protective_exits(tmp_path, exit_kind):
+    bot = account(tmp_path)
+    unguarded = report(); unguarded['shadow_profile'].pop('btc_pullback_entry_policy')
+    assert bot.reconcile(desired('short'), 1000, report=unguarded, now_ms=ORIGIN)['fill']
+    pending = saved_pending('ready', 'long')
+    state = bot.load(); state['btc_pullback_pending'] = pending
+    if exit_kind == 'account_hard_stop':
+        state['max_drawdown_pct'] = 16
+    bot._save(state)
+    at = pending['expires_at_ms']
+    wanted = desired(target_leverage=0) if exit_kind == 'flat' else desired('long')
+    result = bot.reconcile(wanted, 1000, report=unavailable_report('missing', at), now_ms=at)
+    assert result['fill'] is not None
+    assert result['fill']['side'] == 'BUY'
+    assert bot.load()['position_qty'] == 0  # No overdue long entry during a reversal.
+    assert bot.load()['fill_count_total'] == 2
+    if exit_kind == 'account_hard_stop':
+        assert result['fill']['reason'] == 'account_hard_stop'
+
+
+def test_expiry_guard_does_not_skip_frozen_metadata_validation(tmp_path):
+    bot = account(tmp_path)
+    pending = saved_pending('ready')
+    pending['expires_at_ms'] -= 1  # A forged earlier expiry cannot hide invalid metadata.
+    state = bot.load(); state['btc_pullback_pending'] = pending; bot._save(state)
+    now = pending['expires_at_ms']
+    result = bot.reconcile(desired(), 1003, report=unavailable_report('missing', now), now_ms=now)
+    assert result['fill'] is None and result['btc_pullback_entry']['status'] == 'invalid_source'
+    assert 'btc_pullback_pending_expiry_invalid' in result['btc_pullback_entry']['reasons']
+    assert bot.load()['position_qty'] == 0
