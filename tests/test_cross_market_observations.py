@@ -30,6 +30,11 @@ def quote_source():
 
 
 def config_for(*sources):
+    # These historical transport fixtures predate the maintained reference
+    # calendar; session causality is exercised separately by integration tests.
+    sources = copy.deepcopy(sources)
+    for source in sources:
+        source.pop("session_calendar", None)
     return {"schema_version": 1, "mode": "OBSERVATION_ONLY",
             "collection_timeout_seconds": 1, "sources": [
                 {**s, "timeout_seconds": .5} for s in sources]}
@@ -59,7 +64,8 @@ def test_default_config_is_isolated_explicit_and_has_all_requested_keys():
     assert keys == {"wti_usd_per_barrel", "brent_usd_per_barrel", "nq_dec_2026", "usdjpy",
                     "us_2y_pct", "us_10y_pct", "us_10y_real_pct", "jp_2y_pct", "jp_10y_pct",
                     "jp_30y_pct", "de_10y_pct", "fr_10y_pct", "it_10y_pct", "uk_10y_pct",
-                    "fr_de_10y_spread_bp", "it_de_10y_spread_bp"}
+                    "fr_de_10y_spread_bp", "it_de_10y_spread_bp", "es_10y_pct", "be_10y_pct",
+                    "es_de_10y_spread_bp", "be_de_10y_spread_bp"}
     assert config["places_orders"] is False
     futures = [s for s in config["sources"] if s.get("expected_type") == "FUTURE"]
     assert all(s["instrument"]["automatic_roll"] is False for s in futures)
@@ -278,7 +284,8 @@ def test_spread_is_basis_points_same_date_and_cannot_refresh_unchanged_inputs():
 
 def test_missing_europe_is_explicit_and_does_not_invent_zero_spreads():
     conf = co.load_config()
-    missing = next(s for s in conf["sources"] if s["parser"] == "unavailable")
+    missing = copy.deepcopy(next(s for s in conf["sources"] if s["parser"] == "europe_bond_brief"))
+    missing.update(parser="unavailable", reason="daily_country_specific_source_not_verified")
     conf = {**config_for(missing), "derived_spreads": conf["derived_spreads"]}
     snapshot = co.collect_observations(conf, now_ms=NOW,
                                        fetcher=lambda s, t: pytest.fail("unavailable source must not fetch"))

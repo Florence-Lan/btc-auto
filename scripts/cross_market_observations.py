@@ -29,9 +29,15 @@ import requests
 try:
     from public_request_deadline import PublicRequestDeadline
     from public_transport import safe_transport_error
+    from market_sessions import session_status
+    from europe_bond_observations import (EuropeBondError, discover_europe_bond_briefs,
+                                          parse_europe_bond_brief)
 except ModuleNotFoundError:  # Support importing as scripts.cross_market_observations.
     from scripts.public_request_deadline import PublicRequestDeadline
     from scripts.public_transport import safe_transport_error
+    from scripts.market_sessions import session_status
+    from scripts.europe_bond_observations import (EuropeBondError, discover_europe_bond_briefs,
+                                                  parse_europe_bond_brief)
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = ROOT / "config/cross_market_observation_20261023.json"
@@ -130,7 +136,7 @@ def validate_config(config: dict) -> None:
         if sid in ids or not re.fullmatch(r"[a-z0-9_]+", sid):
             raise ValueError("Unique safe source ids required")
         ids.add(sid)
-        if source.get("parser") not in {"yahoo_chart", "dated_csv", "unavailable"}:
+        if source.get("parser") not in {"yahoo_chart", "dated_csv", "europe_bond_brief", "unavailable"}:
             raise ValueError("Unsupported public observer parser")
         if source.get("parser") != "unavailable":
             _public_url(source["url"])
@@ -156,6 +162,9 @@ def validate_config(config: dict) -> None:
                 if not cutoff or not source.get("instrument", {}).get("contract_month"):
                     raise ValueError("Named futures require contract month and review cutoff")
                 parse_timestamp_ms(cutoff)
+        if source.get("parser") == "europe_bond_brief":
+            if source.get("timezone") != "UTC" or not 1 <= source.get("maximum_index_pages", 2) <= 3:
+                raise ValueError("Bounded UTC daily euro brief required")
 
 
 def fetch_public(source: dict, timeout_seconds: float) -> bytes:
@@ -212,10 +221,12 @@ def parse_yahoo_chart(payload: Any, source: dict, received_at_ms: int) -> dict:
     if not isinstance(result, list) or len(result) != 1:
         raise ObservationError("missing_quote_result")
     meta = result[0].get("meta", {})
-    if (meta.get("symbol") != source["expected_symbol"]
-            or meta.get("instrumentType") != source["expected_type"]
-            or meta.get("currency") != source["expected_currency"]):
-        raise ObservationError("instrument_identity_mismatch")
+    mismatches = [field for field, expected in (
+        ("symbol", "expected_symbol"), ("instrumentType", "expected_type"),
+        ("currency", "expected_currency")) if meta.get(field) != source[expected]]
+    if mismatches:
+        # Fixed field names only; never echo arbitrary provider text.
+        raise ObservationError("instrument_identity_mismatch:" + ",".join(mismatches))
     tz = meta.get("exchangeTimezoneName")
     _zone(tz)
     raw_time = meta.get("regularMarketTime")
@@ -296,7 +307,7 @@ def parse_dated_csv(payload: Any, source: dict, received_at_ms: int) -> dict:
 
 def _identity(row: dict) -> tuple:
     return tuple(json.dumps(row.get(key), sort_keys=True) for key in (
-        "source_config_id", "instrument", "value", "observed_at_ms", "observed_date", "precision"))
+        "source_config_id", "instrument", "value", "observed_at_ms", "observed_date", "precision", "snapshot_id"))
 
 
 def _base_row(source: dict, key: str) -> dict:
@@ -324,7 +335,7 @@ def freshness_at(row: dict, at_ms: int, spec: dict) -> dict:
         result["status"] = "not_yet_available"
         return result
     observed = row.get("observed_at_ms")
-    if row.get("precision") == "timestamp" and isinstance(observed, int):
+    if row.get("precision") == "timestamp" and isinstance(observed, int) and row.get("frequency") != "daily":
         age = at_ms - observed
         result["age_ms"] = age
         if observed > first:
@@ -334,7 +345,7 @@ def freshness_at(row: dict, at_ms: int, spec: dict) -> dict:
         else:
             result["status"] = "fresh" if age <= result["max_age_ms"] else "stale"
             result["eligible_intraday"] = result["status"] == "fresh"
-    elif row.get("precision") == "date":
+    elif row.get("precision") == "date" or row.get("frequency") == "daily":
         try:
             obs_date = date.fromisoformat(row["observed_date"])
             today = datetime.fromtimestamp(at_ms / 1000, _zone(row["observation_timezone"])).date()
@@ -343,6 +354,11 @@ def freshness_at(row: dict, at_ms: int, spec: dict) -> dict:
             return result
         age_days = (today - obs_date).days
         result["age_days"] = age_days
+        if isinstance(observed, int):
+            result["age_ms"] = at_ms - observed
+            if observed > first:
+                result["status"] = "observation_after_first_receipt"
+                return result
         if age_days < 0:
             result["status"] = "future_observation_date"
         else:
@@ -370,21 +386,56 @@ def _stamp_row(candidate: dict, old: dict | None, received: int) -> dict:
     return candidate
 
 
+def _europe_fetch(source: dict, fetcher: Callable, now_fn: Callable, timeout: float) -> dict:
+    """At most three real archive pages plus one article, under ONE deadline."""
+    url = source["url"]
+    visited = []
+    end = time.monotonic() + timeout
+    def get(actual_url):
+        remaining = end - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("europe_collection_deadline")
+        return fetcher({**source, "url": actual_url}, remaining)
+    for _ in range(source.get("maximum_index_pages", 2)):
+        payload = get(url)
+        index = discover_europe_bond_briefs(payload, index_url=url, asof_ms=now_fn())
+        visited.append({"url": url, "body_sha256": index["index_body_sha256"]})
+        if index["candidates"]:
+            article = index["candidates"][0]["url"]
+            payload = get(article)
+            received = now_fn()
+            result = parse_europe_bond_brief(payload, source_url=article,
+                received_at_ms=received, asof_ms=received,
+                max_age_days=min(spec.get("max_age_days", 4) for spec in source["fields"].values()))
+            for row in result["observations"].values():
+                row["provenance"]["discovery_indexes"] = copy.deepcopy(visited)
+            return result["observations"]
+        if not index["next_page_url"]:
+            break
+        url = index["next_page_url"]
+    raise ObservationError("europe_daily_brief_not_found_in_bounded_archive")
+
+
 def _source_fetch(source: dict, fetcher: Callable, now_fn: Callable) -> tuple:
     timeout = float(source.get("timeout_seconds", 7))
     with _DEADLINE_LOCK:
         deadline = _DEADLINES.setdefault(timeout, PublicRequestDeadline(timeout, max_pending=16))
     started = time.monotonic()
     try:
-        payload = deadline.run(("cross_market", source["id"], source["url"]),
-                               lambda: fetcher(source, timeout))
-        received = now_fn()
-        parser = parse_yahoo_chart if source["parser"] == "yahoo_chart" else parse_dated_csv
-        parsed = parser(payload, source, received)
+        if source["parser"] == "europe_bond_brief":
+            parsed = deadline.run(("cross_market", source["id"], source["url"]),
+                                  lambda: _europe_fetch(source, fetcher, now_fn, timeout))
+            received = now_fn()
+        else:
+            payload = deadline.run(("cross_market", source["id"], source["url"]),
+                                   lambda: fetcher(source, timeout))
+            received = now_fn()
+            parser = parse_yahoo_chart if source["parser"] == "yahoo_chart" else parse_dated_csv
+            parsed = parser(payload, source, received)
         return parsed, received, int((time.monotonic() - started) * 1000), None
     except Exception as exc:
         error = safe_transport_error(exc)
-        if isinstance(exc, ObservationError):
+        if isinstance(exc, (ObservationError, EuropeBondError)):
             error["reason"] = str(exc)  # Only our closed, nonsecret error vocabulary.
         if isinstance(exc, PublicHttpError):
             error.update(http_status=exc.status, retry_after_seconds=exc.retry_after_seconds)
@@ -405,12 +456,24 @@ def _derive_spread(key: str, definition: dict, observations: dict, old: dict | N
            "component_available_at_ms": [left.get("available_at_ms"), right.get("available_at_ms")]}
     good = all(r.get("value") is not None and r.get("unit") == "percent"
                and r.get("freshness", {}).get("eligible_daily") for r in (left, right))
-    if (good and left.get("precision") == right.get("precision") == "date"
+    same_snapshot = (bool(left.get("snapshot_id"))
+                     and left.get("snapshot_id") == right.get("snapshot_id")
+                     and left.get("source_id") == right.get("source_id")
+                     and left.get("source_url") == right.get("source_url")
+                     and left.get("observed_at_ms") == right.get("observed_at_ms")
+                     and left.get("frequency") == right.get("frequency") == "daily")
+    compatible_precision = (left.get("precision") == right.get("precision") == "date"
+                            if not definition.get("same_snapshot_required") else same_snapshot)
+    if (good and compatible_precision
             and left.get("observed_date") == right.get("observed_date")
             and left.get("observation_timezone") == right.get("observation_timezone")):
         row.update(value=round(100 * (left["value"] - right["value"]), 10),
                    observed_date=left["observed_date"], precision="date",
                    time_basis="same_source_calendar_date_derived_spread")
+        if definition.get("same_snapshot_required"):
+            row.update(snapshot_id=left["snapshot_id"], source_url=left["source_url"],
+                       frequency="daily", time_basis="same_daily_brief_GMT_snapshot_derived_spread",
+                       component_observed_at_ms=left["observed_at_ms"])
         _stamp_row(row, old, at_ms)
         row["available_at_ms"] = max(row["available_at_ms"], *row["component_available_at_ms"])
     else:
@@ -512,9 +575,25 @@ def collect_observations(config: dict, previous: dict | None = None,
             row = observations[key]
             row["fetch"] = copy.deepcopy(state)
             row["freshness"] = freshness_at(row, completed_at, spec)
+            if "session_calendar" in source:
+                row["market_session"] = session_status(source["session_calendar"], completed_at)
+                phase = row["market_session"]["phase"]
+                if phase != "open":
+                    row["freshness"].update(quote_status=row["freshness"]["status"],
+                        status={"closed": "market_closed", "maintenance": "market_maintenance"}.get(phase, "session_unknown"),
+                        eligible_intraday=False)
+            cutoff = row.get("contract_review_cutoff_at_ms")
+            if cutoff is not None:
+                row["contract_review"] = {"status": "review_due" if completed_at >= cutoff else
+                    "review_soon" if cutoff - completed_at <= 7 * 86_400_000 else "reviewed",
+                    "next_review_at_ms": cutoff, "automatic_roll": False,
+                    "review": copy.deepcopy(source.get("contract_review", {}))}
             if source.get("contract_review_cutoff_utc") and completed_at >= parse_timestamp_ms(source["contract_review_cutoff_utc"]):
                 row["freshness"].update(status="contract_review_due", eligible_intraday=False)
+            if state.get("error", {}).get("reason", "").startswith("instrument_identity_mismatch"):
+                row["freshness"].update(status="instrument_identity_mismatch", eligible_intraday=False)
             row["eligible_intraday"] = row["freshness"]["eligible_intraday"]
+            row["eligible_daily"] = row["freshness"]["eligible_daily"]
             if state.get("status") == "missing":
                 row["missing_reason"] = state.get("reason")
             if spec.get("required_intraday") and not row["freshness"]["eligible_intraday"]:

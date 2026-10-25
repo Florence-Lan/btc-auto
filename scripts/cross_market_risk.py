@@ -59,7 +59,12 @@ def _point(observation, asof_ms):
     available = _stamp(observation.get('available_at_ms'))
     if not observed <= first_seen <= available <= asof_ms:
         raise ValueError('observation_not_causally_available')
-    if observation.get('precision') == 'date' or observation.get('eligible_intraday') is False:
+    session = observation.get('market_session')
+    if isinstance(session, Mapping) and session.get('phase') != 'open':
+        raise ValueError({'closed': 'market_closed', 'maintenance': 'market_maintenance'}.get(
+            session.get('phase'), 'session_unknown'))
+    if (observation.get('precision') == 'date' or observation.get('frequency') == 'daily'
+            or observation.get('eligible_intraday') is False):
         raise ValueError('intraday_observation_required')
     cutoff = observation.get('contract_review_cutoff_at_ms')
     if cutoff is not None and asof_ms >= _stamp(cutoff):

@@ -160,3 +160,224 @@ test('an endpoint mode mismatch also clears earlier observed passes',async t=>{
   assert.equal(page.observations.children.length,0);
   assert.match(page['load-error'].textContent,/模式不匹配/);
 });
+
+test('Spain and Belgium yields and German spreads have readable names and correct units',t=>{
+  const page=environment(t),value=fixtures();
+  value.snapshot.observations=Object.fromEntries([
+    ['es_10y_pct',3.25,'percent'],['be_10y_pct',3.5,'percent'],
+    ['es_de_10y_spread_bp',55,'bp'],['be_de_10y_spread_bp',80,'bp']
+  ].map(([key,price,unit])=>[key,{value:price,unit,precision:'date',observed_date:'2026-10-22',
+    first_seen_at_ms:NOW,freshness:{status:'date_only'},fetch:{status:'ok'}}]));
+  render(value.status,value.snapshot,value.calendar);
+  const displayed=page.observations.children.map(row=>row.children.slice(0,2).map(cell=>cell.textContent));
+  assert.deepEqual(displayed,[['西班牙国债 10 年','3.25%'],['比利时国债 10 年','3.5%'],
+    ['西班牙／德国利差','55 bp'],['比利时／德国利差','80 bp']]);
+});
+
+for(const [primary,phase,label] of [
+  ['market_closed','closed','参考时段休市'],
+  ['market_maintenance','maintenance','参考维护时段'],
+  ['session_unknown','unknown','参考时段未知']
+])test(`${primary} remains separate from stale quote age and a failed fetch`,t=>{
+  const page=environment(t),value=fixtures(),row=value.snapshot.observations.nq_dec_2026;
+  row.observed_at_ms=NOW-2*86400000;
+  row.freshness={status:primary,quote_status:'fresh',max_age_ms:20*60000};
+  row.market_session={phase,basis:'scheduled_exchange_reference',next_open_at_ms:NOW+3600000,
+    reason_code:'session_reference_schedule',is_actual_market_status:false};
+  row.fetch={status:'error',error:{category:'timeout',error_type:'ReadTimeout'}};
+  render(value.status,value.snapshot,value.calendar);
+  const cells=page.observations.children[0].children,displayed=cells[4].textContent;
+  assert.ok(displayed.startsWith(label));
+  assert.match(displayed,/报价：已过期/);
+  assert.match(displayed,/依据：公开交易时段参考/);
+  assert.match(displayed,/下次参考开市 10\/23.*10:30:00（北京时间）/);
+  assert.match(displayed,/参考时段，非交易所实时状态/);
+  assert.match(cells[5].textContent,/抓取失败.*timeout.*ReadTimeout/);
+  assert.doesNotMatch(displayed,/抓取失败|ReadTimeout/);
+});
+
+test('advancing the browser clock cannot infer an open market from an old closed snapshot',t=>{
+  const page=environment(t),value=fixtures(),row=value.snapshot.observations.nq_dec_2026;
+  row.freshness={status:'market_closed',quote_status:'fresh',max_age_ms:20*60000};
+  row.market_session={phase:'closed',basis:'scheduled_exchange_reference',next_open_at_ms:NOW+60000};
+  Date.now=()=>NOW+3600000;
+  render(value.status,value.snapshot,value.calendar);
+  const displayed=page.observations.children[0].children[4].textContent;
+  assert.ok(displayed.startsWith('参考时段休市；报价：已过期'));
+  assert.match(displayed,/服务心跳无效/);
+  assert.doesNotMatch(displayed,/参考交易时段内/);
+});
+
+test('future quote clocks stay invalid without replacing the reference closed label',t=>{
+  const page=environment(t),value=fixtures(),row=value.snapshot.observations.nq_dec_2026;
+  row.observed_at_ms=NOW+60000;
+  row.freshness={status:'market_closed',quote_status:'fresh',max_age_ms:20*60000};
+  row.market_session={phase:'closed',next_open_at_ms:null};
+  render(value.status,value.snapshot,value.calendar);
+  const displayed=page.observations.children[0].children[4].textContent;
+  assert.ok(displayed.startsWith('参考时段休市；报价：未来时间无效'));
+  assert.match(displayed,/下次参考开市未确认/);
+});
+
+test('an open broker reference remains explicitly indicative and cannot make a stale quote fresh',t=>{
+  const page=environment(t),value=fixtures(),row=value.snapshot.observations.nq_dec_2026;
+  row.observed_at_ms=NOW-3600000;
+  row.freshness={status:'fresh',max_age_ms:20*60000};
+  row.market_session={phase:'open',basis:'indicative_broker_reference',next_open_at_ms:null};
+  render(value.status,value.snapshot,value.calendar);
+  const displayed=page.observations.children[0].children[4].textContent;
+  assert.ok(displayed.startsWith('已过期'));
+  assert.match(displayed,/参考交易时段内/);
+  assert.match(displayed,/经纪商指示时段参考/);
+  assert.match(displayed,/非交易所实时状态/);
+});
+
+test('unknown reference coverage explains why no next-open time is available',t=>{
+  const page=environment(t),value=fixtures(),row=value.snapshot.observations.nq_dec_2026;
+  row.freshness={status:'session_unknown',quote_status:'stale'};
+  row.market_session={phase:'unknown',basis:'scheduled_exchange_reference',next_open_at_ms:null,
+    reason_code:'session_outside_validity',next_open_reason_code:'session_next_open_date_unreviewed'};
+  render(value.status,value.snapshot,value.calendar);
+  const displayed=page.observations.children[0].children[4].textContent;
+  assert.match(displayed,/已超出参考覆盖期/);
+  assert.match(displayed,/下次参考开市日期尚未核验/);
+  assert.match(displayed,/下次参考开市未确认/);
+});
+
+test('contract review warnings retain the closed-session and quote labels independently',t=>{
+  const page=environment(t),value=fixtures(),row=value.snapshot.observations.nq_dec_2026;
+  row.freshness={status:'market_closed',quote_status:'stale'};
+  row.market_session={phase:'closed',basis:'scheduled_exchange_reference',next_open_at_ms:NOW+3600000};
+  row.contract_review={status:'review_soon',next_review_at_ms:NOW+600000,automatic_roll:false};
+  render(value.status,value.snapshot,value.calendar);
+  let displayed=page.observations.children[0].children[4].textContent;
+  assert.ok(displayed.startsWith('参考时段休市；报价：已过期'));
+  assert.match(displayed,/合约临近审查时间/);
+  assert.match(displayed,/审查时间 10\/23.*09:40:00（北京时间）/);
+  assert.match(displayed,/不自动换月/);
+  Date.now=()=>NOW+600001;
+  render(value.status,value.snapshot,value.calendar);
+  displayed=page.observations.children[0].children[4].textContent;
+  assert.ok(displayed.startsWith('参考时段休市；报价：已过期'));
+  assert.match(displayed,/合约待审核/);
+  assert.doesNotMatch(displayed,/合约临近审查时间/);
+});
+
+test('collector contract_review_due retains the session reference and reviewed contracts show their review',t=>{
+  const page=environment(t),value=fixtures(),row=value.snapshot.observations.nq_dec_2026;
+  row.freshness={status:'contract_review_due',quote_status:'stale'};
+  row.market_session={phase:'closed',next_open_at_ms:null};
+  row.contract_review={status:'review_due',next_review_at_ms:NOW-60000,automatic_roll:false};
+  render(value.status,value.snapshot,value.calendar);
+  let displayed=page.observations.children[0].children[4].textContent;
+  assert.match(displayed,/合约待审核/);
+  assert.match(displayed,/参考时段休市/);
+  assert.match(displayed,/不自动换月/);
+  row.freshness={status:'fresh'};delete row.market_session;
+  row.contract_review={status:'reviewed',next_review_at_ms:NOW+10*86400000,automatic_roll:false};
+  render(value.status,value.snapshot,value.calendar);
+  displayed=page.observations.children[0].children[4].textContent;
+  assert.match(displayed,/合约已核对/);
+  assert.doesNotMatch(displayed,/合约待审核/);
+});
+
+test('legacy contract cutoffs remain visible while ordinary timestamp age is recalculated',t=>{
+  const page=environment(t),value=fixtures(),row=value.snapshot.observations.nq_dec_2026;
+  row.observed_at_ms=NOW-3600000;
+  row.freshness={status:'fresh',max_age_ms:20*60000};
+  row.contract_review_cutoff_at_ms=NOW-60000;
+  row.instrument={automatic_roll:false};
+  render(value.status,value.snapshot,value.calendar);
+  const displayed=page.observations.children[0].children[4].textContent;
+  assert.match(displayed,/已过期/);
+  assert.match(displayed,/合约待审核/);
+  assert.match(displayed,/不自动换月/);
+});
+
+test('reference metadata and fetch errors remain bounded text rather than executable DOM',t=>{
+  const page=environment(t),value=fixtures(),row=value.snapshot.observations.nq_dec_2026;
+  const attack='<img src=x onerror="alert(1)">';
+  row.freshness={status:'session_unknown',quote_status:'missing'};
+  row.market_session={phase:'unknown',basis:attack,reason_code:attack,next_open_at_ms:attack};
+  row.contract_review={status:attack,next_review_at_ms:attack,automatic_roll:false};
+  row.fetch={status:'error',error:attack+'a'.repeat(300)};
+  render(value.status,value.snapshot,value.calendar);
+  const cells=page.observations.children[0].children;
+  assert.ok(cells[4].textContent.includes(attack));
+  assert.match(cells[4].textContent,/下次参考开市未确认/);
+  assert.ok(cells[5].textContent.includes(attack));
+  assert.ok(cells[5].textContent.length<=246);
+  assert.equal(cells[4].children.length,0);
+  assert.equal(cells[5].children.length,0);
+});
+
+function dailyBond(value) {
+  const row=value.snapshot.observations.nq_dec_2026;
+  Object.assign(row,{frequency:'daily',precision:'timestamp',observation_timezone:'UTC',
+    observed_date:'2026-10-19',observed_at_ms:Date.parse('2026-10-19T15:05:00Z'),
+    first_seen_at_ms:NOW-60000,available_at_ms:NOW-60000,
+    freshness:{status:'daily_current',max_age_ms:1200000,max_age_days:4,age_days:4,eligible_intraday:false}});
+  value.snapshot.observations={es_10y_pct:row};
+  return row;
+}
+
+test('daily bond GMT timestamps use calendar-day freshness rather than the intraday TTL',t=>{
+  const page=environment(t),value=fixtures();dailyBond(value);
+  render(value.status,value.snapshot,value.calendar);
+  const cells=page.observations.children[0].children,displayed=cells[4].textContent;
+  assert.match(cells[2].textContent,/10\/19.*23:05:00/);
+  assert.match(displayed,/日频有效／不是盘中/);
+  assert.match(displayed,/距观察 4 天；非盘中报价/);
+  assert.doesNotMatch(displayed,/已过期|有效观察|分钟/);
+});
+
+test('daily expiry advances at the UTC date boundary, including the max-age day itself',t=>{
+  const page=environment(t),value=fixtures();dailyBond(value);
+  Date.now=()=>Date.parse('2026-10-23T23:59:59Z');
+  render(value.status,value.snapshot,value.calendar);
+  assert.match(page.observations.children[0].children[4].textContent,/日频有效.*距观察 4 天/);
+  Date.now=()=>Date.parse('2026-10-24T00:00:00Z');
+  render(value.status,value.snapshot,value.calendar);
+  const displayed=page.observations.children[0].children[4].textContent;
+  assert.match(displayed,/已过期.*距观察 5 天；非盘中报价/);
+  assert.doesNotMatch(displayed,/日频有效/);
+});
+
+for(const clock of ['first_seen_at_ms','available_at_ms','observed_at_ms'])test(`daily observations reject a future ${clock} even inside the day limit`,t=>{
+  const page=environment(t),value=fixtures(),row=dailyBond(value);
+  row[clock]=NOW+1;
+  render(value.status,value.snapshot,value.calendar);
+  const displayed=page.observations.children[0].children[4].textContent;
+  assert.match(displayed,/未来时间无效/);
+  assert.doesNotMatch(displayed,/日频有效/);
+});
+
+test('a future daily source date is invalid even when its timestamp is old',t=>{
+  const page=environment(t),value=fixtures(),row=dailyBond(value);
+  row.observed_date='2026-10-24';
+  render(value.status,value.snapshot,value.calendar);
+  const displayed=page.observations.children[0].children[4].textContent;
+  assert.match(displayed,/未来时间无效/);
+  assert.doesNotMatch(displayed,/日频有效/);
+});
+
+test('daily labeling never upgrades an existing stale quote or presents an intraday valid quote',t=>{
+  const page=environment(t),value=fixtures(),row=dailyBond(value);
+  row.freshness.status='stale';
+  render(value.status,value.snapshot,value.calendar);
+  assert.match(page.observations.children[0].children[4].textContent,/已过期.*非盘中报价/);
+  row.freshness.status='fresh';
+  render(value.status,value.snapshot,value.calendar);
+  const displayed=page.observations.children[0].children[4].textContent;
+  assert.match(displayed,/日频有效／不是盘中/);
+  assert.doesNotMatch(displayed,/有效观察/);
+});
+
+test('invalid daily dates cannot be displayed as currently valid',t=>{
+  const page=environment(t),value=fixtures(),row=dailyBond(value);
+  row.observed_date='2026-02-30';
+  render(value.status,value.snapshot,value.calendar);
+  const displayed=page.observations.children[0].children[4].textContent;
+  assert.match(displayed,/观察日期无效.*非盘中报价/);
+  assert.doesNotMatch(displayed,/日频有效/);
+});

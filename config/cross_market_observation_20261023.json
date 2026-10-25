@@ -9,8 +9,11 @@
     "Yahoo regularMarketTime is the provider quote observation time. Reception delay is visible in freshness.age_ms; no claim of real-time exchange entitlement is made.",
     "provider_previous_close is only a same-instrument provider reference, never a common 30-minute return across markets.",
     "Official bond feeds expose dates, not actual observation/publication times. They remain date-only diagnostics and cannot satisfy intraday risk admission.",
-    "France/Germany/Italy daily yields are explicitly missing until a reliable public feed and its units are independently verified. No euro-area curve or monthly series is silently substituted.",
-    "Daily sources have independent six-hour polling clocks. HTTP 403/429 are not bypassed; at least one hour of backoff applies."
+    "Euro yields use one public Radiocor daily benchmark brief with explicit GMT observation time. These are provider generic benchmarks, not executable prices; all derived euro spreads require the same report snapshot.",
+    "Daily sources have independent six-hour polling clocks. HTTP 403/429 are not bypassed; at least one hour of backoff applies.",
+    "Session labels are finite reference diagnostics only; closed, maintenance or unknown sessions cannot admit intraday observations. They never renew quote age.",
+    "Session reference expires November 2 New York midnight; expired or unreviewed dates become unknown until independently maintained.",
+    "Daily observations remain ineligible for intraday use even when their source gives an explicit GMT observation minute."
   ],
   "sources": [
     {
@@ -35,7 +38,44 @@
         "automatic_roll": false
       },
       "fields": {
-        "wti_usd_per_barrel": {"unit": "USD/barrel", "max_age_seconds": 1200}
+        "wti_usd_per_barrel": {
+          "unit": "USD/barrel",
+          "max_age_seconds": 1200
+        }
+      },
+      "session_calendar": {
+        "schema_version": 1,
+        "timezone": "America/New_York",
+        "source_published_date": null,
+        "first_seen_at_ms": 1792936777518,
+        "verified_at_ms": 1792936777518,
+        "valid_from_ms": 1792936777518,
+        "valid_until_ms": 1793595600000,
+        "reviewed_local_dates": [
+          "2026-10-24",
+          "2026-10-25",
+          "2026-10-26",
+          "2026-10-27",
+          "2026-10-28",
+          "2026-10-29",
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01"
+        ],
+        "holiday_exclusions": [],
+        "session_id": "yahoo_wti_dec_2026",
+        "schedule_kind": "cme_nymex_23x5",
+        "basis": "scheduled_exchange_reference",
+        "source_urls": [
+          "https://www.cmegroup.com/trading-hours.html",
+          "https://www.cmegroup.com/notices/ser/2024/05/SER-9366.pdf"
+        ],
+        "review_scope": "Bounded standard Globex reference plus 2026 holiday list review; unscheduled or product-specific halts unknown."
+      },
+      "contract_review": {
+        "verified_at_ms": 1792936777518,
+        "automatic_roll": false,
+        "policy": "Conservative review cutoff preserved; it is not an expiration timestamp. No splice or automatic roll of named contract histories."
       }
     },
     {
@@ -61,7 +101,50 @@
         "automatic_roll": false
       },
       "fields": {
-        "brent_usd_per_barrel": {"unit": "USD/barrel", "max_age_seconds": 1200, "required_intraday": true}
+        "brent_usd_per_barrel": {
+          "unit": "USD/barrel",
+          "max_age_seconds": 1200,
+          "required_intraday": true
+        }
+      },
+      "session_calendar": {
+        "schema_version": 1,
+        "timezone": "America/New_York",
+        "source_published_date": null,
+        "first_seen_at_ms": 1792936777518,
+        "verified_at_ms": 1792936777518,
+        "valid_from_ms": 1792936777518,
+        "valid_until_ms": 1793595600000,
+        "reviewed_local_dates": [
+          "2026-10-24",
+          "2026-10-25",
+          "2026-10-26",
+          "2026-10-27",
+          "2026-10-28",
+          "2026-10-29",
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01"
+        ],
+        "holiday_exclusions": [],
+        "session_id": "yahoo_brent_dec_2026",
+        "schedule_kind": "cme_nymex_23x5",
+        "basis": "scheduled_exchange_reference",
+        "source_urls": [
+          "https://www.cmegroup.com/trading-hours.html",
+          "https://www.cmegroup.com/notices/ser/2024/05/SER-9366.pdf"
+        ],
+        "review_scope": "Bounded standard Globex reference plus 2026 holiday list review; unscheduled or product-specific halts unknown."
+      },
+      "contract_review": {
+        "verified_at_ms": 1792936777518,
+        "automatic_roll": false,
+        "policy": "Conservative review cutoff preserved; it is not an expiration timestamp. No splice or automatic roll of named contract histories.",
+        "source_urls": [
+          "https://www.cmegroup.com/rulebook/NYMEX/6/698.pdf",
+          "https://www.ice.com/products/219"
+        ],
+        "rule": "CME chapter 698: last London business day of second month preceding contract month; New Year exception applies. December contract review remains October 28 UTC, before normal month-end termination."
       }
     },
     {
@@ -87,7 +170,45 @@
         "automatic_roll": false
       },
       "fields": {
-        "nq_dec_2026": {"unit": "index_points", "max_age_seconds": 1200, "required_intraday": true}
+        "nq_dec_2026": {
+          "unit": "index_points",
+          "max_age_seconds": 1200,
+          "required_intraday": true
+        }
+      },
+      "session_calendar": {
+        "schema_version": 1,
+        "timezone": "America/New_York",
+        "source_published_date": null,
+        "first_seen_at_ms": 1792936777518,
+        "verified_at_ms": 1792936777518,
+        "valid_from_ms": 1792936777518,
+        "valid_until_ms": 1793595600000,
+        "reviewed_local_dates": [
+          "2026-10-24",
+          "2026-10-25",
+          "2026-10-26",
+          "2026-10-27",
+          "2026-10-28",
+          "2026-10-29",
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01"
+        ],
+        "holiday_exclusions": [],
+        "session_id": "yahoo_nq_dec_2026",
+        "schedule_kind": "cme_nymex_23x5",
+        "basis": "scheduled_exchange_reference",
+        "source_urls": [
+          "https://www.cmegroup.com/trading-hours.html",
+          "https://www.cmegroup.com/notices/ser/2024/05/SER-9366.pdf"
+        ],
+        "review_scope": "Bounded standard Globex reference plus 2026 holiday list review; unscheduled or product-specific halts unknown."
+      },
+      "contract_review": {
+        "verified_at_ms": 1792936777518,
+        "automatic_roll": false,
+        "policy": "Conservative review cutoff preserved; it is not an expiration timestamp. No splice or automatic roll of named contract histories."
       }
     },
     {
@@ -109,7 +230,40 @@
         "orientation": "Japanese yen per one US dollar"
       },
       "fields": {
-        "usdjpy": {"unit": "JPY/USD", "max_age_seconds": 1200, "required_intraday": true}
+        "usdjpy": {
+          "unit": "JPY/USD",
+          "max_age_seconds": 1200,
+          "required_intraday": true
+        }
+      },
+      "session_calendar": {
+        "schema_version": 1,
+        "timezone": "America/New_York",
+        "source_published_date": null,
+        "first_seen_at_ms": 1792936777518,
+        "verified_at_ms": 1792936777518,
+        "valid_from_ms": 1792936777518,
+        "valid_until_ms": 1793595600000,
+        "reviewed_local_dates": [
+          "2026-10-24",
+          "2026-10-25",
+          "2026-10-26",
+          "2026-10-27",
+          "2026-10-28",
+          "2026-10-29",
+          "2026-10-30",
+          "2026-10-31",
+          "2026-11-01"
+        ],
+        "holiday_exclusions": [],
+        "session_id": "yahoo_usdjpy",
+        "schedule_kind": "oanda_fx_reference",
+        "basis": "indicative_broker_reference",
+        "source_urls": [
+          "https://www.oanda.com/us-en/trading/hours-of-operation/",
+          "https://www.oanda.com/us-en/trading/holiday-trading-hours/"
+        ],
+        "review_scope": "Bounded standard-session reference. No announced holiday exception found in this window; no actual venue status or quote-freshness assertion. OTC reference may differ by venue."
       }
     },
     {
@@ -122,10 +276,23 @@
       "date_format": "%m/%d/%Y",
       "poll_seconds": 21600,
       "timeout_seconds": 7,
-      "instrument": {"country": "US", "measure": "daily Treasury nominal par yield curve", "frequency": "daily", "unit": "percent per annum"},
+      "instrument": {
+        "country": "US",
+        "measure": "daily Treasury nominal par yield curve",
+        "frequency": "daily",
+        "unit": "percent per annum"
+      },
       "fields": {
-        "us_2y_pct": {"unit": "percent", "column": "2 Yr", "max_age_days": 4},
-        "us_10y_pct": {"unit": "percent", "column": "10 Yr", "max_age_days": 4}
+        "us_2y_pct": {
+          "unit": "percent",
+          "column": "2 Yr",
+          "max_age_days": 4
+        },
+        "us_10y_pct": {
+          "unit": "percent",
+          "column": "10 Yr",
+          "max_age_days": 4
+        }
       }
     },
     {
@@ -138,9 +305,18 @@
       "date_format": "%m/%d/%Y",
       "poll_seconds": 21600,
       "timeout_seconds": 7,
-      "instrument": {"country": "US", "measure": "daily Treasury real par yield curve (TIPS-derived)", "frequency": "daily", "unit": "percent per annum"},
+      "instrument": {
+        "country": "US",
+        "measure": "daily Treasury real par yield curve (TIPS-derived)",
+        "frequency": "daily",
+        "unit": "percent per annum"
+      },
       "fields": {
-        "us_10y_real_pct": {"unit": "percent", "column": "10 YR", "max_age_days": 4}
+        "us_10y_real_pct": {
+          "unit": "percent",
+          "column": "10 YR",
+          "max_age_days": 4
+        }
       }
     },
     {
@@ -153,11 +329,28 @@
       "date_format": "%Y/%m/%d",
       "poll_seconds": 21600,
       "timeout_seconds": 7,
-      "instrument": {"country": "JP", "measure": "JGB constant-maturity yield curve", "frequency": "daily", "unit": "percent per annum"},
+      "instrument": {
+        "country": "JP",
+        "measure": "JGB constant-maturity yield curve",
+        "frequency": "daily",
+        "unit": "percent per annum"
+      },
       "fields": {
-        "jp_2y_pct": {"unit": "percent", "column": "2Y", "max_age_days": 4},
-        "jp_10y_pct": {"unit": "percent", "column": "10Y", "max_age_days": 4},
-        "jp_30y_pct": {"unit": "percent", "column": "30Y", "max_age_days": 4}
+        "jp_2y_pct": {
+          "unit": "percent",
+          "column": "2Y",
+          "max_age_days": 4
+        },
+        "jp_10y_pct": {
+          "unit": "percent",
+          "column": "10Y",
+          "max_age_days": 4
+        },
+        "jp_30y_pct": {
+          "unit": "percent",
+          "column": "30Y",
+          "max_age_days": 4
+        }
       }
     },
     {
@@ -170,29 +363,90 @@
       "date_format": "%d %b %Y",
       "poll_seconds": 21600,
       "timeout_seconds": 7,
-      "instrument": {"country": "GB", "series": "IUDMNPY", "measure": "fitted British government securities 10-year nominal par yield", "frequency": "daily", "unit": "percent per annum"},
+      "instrument": {
+        "country": "GB",
+        "series": "IUDMNPY",
+        "measure": "fitted British government securities 10-year nominal par yield",
+        "frequency": "daily",
+        "unit": "percent per annum"
+      },
       "fields": {
-        "uk_10y_pct": {"unit": "percent", "column": "IUDMNPY", "max_age_days": 4}
+        "uk_10y_pct": {
+          "unit": "percent",
+          "column": "IUDMNPY",
+          "max_age_days": 4
+        }
       }
     },
     {
-      "id": "europe_unverified_daily",
-      "parser": "unavailable",
-      "provider": "No verified public daily country-specific source configured",
-      "reason": "daily_country_specific_source_not_verified_no_monthly_or_area_curve_substitution",
-      "timezone": "Europe/Brussels",
+      "id": "radiocor_europe_daily",
+      "parser": "europe_bond_brief",
+      "provider": "Il Sole 24 Ore Radiocor / Borsa Italiana",
+      "url": "https://www.borsaitaliana.it/borsa/notizie/archivi/radiocor.html?lang=en",
+      "timezone": "UTC",
       "poll_seconds": 21600,
       "timeout_seconds": 7,
-      "instrument": {"measure": "country-specific 10-year sovereign yields", "frequency": "daily", "required_source_verification": true},
+      "maximum_index_pages": 2,
+      "instrument": {
+        "measure": "provider generic country-specific 10-year sovereign benchmark yields",
+        "frequency": "daily",
+        "tradable_quote": false
+      },
       "fields": {
-        "de_10y_pct": {"unit": "percent", "max_age_days": 4},
-        "fr_10y_pct": {"unit": "percent", "max_age_days": 4},
-        "it_10y_pct": {"unit": "percent", "max_age_days": 4}
+        "de_10y_pct": {
+          "unit": "percent",
+          "max_age_days": 4
+        },
+        "fr_10y_pct": {
+          "unit": "percent",
+          "max_age_days": 4
+        },
+        "it_10y_pct": {
+          "unit": "percent",
+          "max_age_days": 4
+        },
+        "es_10y_pct": {
+          "unit": "percent",
+          "max_age_days": 4
+        },
+        "be_10y_pct": {
+          "unit": "percent",
+          "max_age_days": 4
+        }
+      },
+      "source_verification": {
+        "verified_at_ms": 1792936777518,
+        "same_report_required": true,
+        "published_at_ms": null,
+        "publication_timezone": "unspecified_by_source",
+        "quote_time_basis": "explicit GMT observation minute; daily brief only"
       }
     }
   ],
   "derived_spreads": {
-    "fr_de_10y_spread_bp": {"left": "fr_10y_pct", "right": "de_10y_pct", "max_age_days": 4},
-    "it_de_10y_spread_bp": {"left": "it_10y_pct", "right": "de_10y_pct", "max_age_days": 4}
+    "fr_de_10y_spread_bp": {
+      "left": "fr_10y_pct",
+      "right": "de_10y_pct",
+      "max_age_days": 4,
+      "same_snapshot_required": true
+    },
+    "it_de_10y_spread_bp": {
+      "left": "it_10y_pct",
+      "right": "de_10y_pct",
+      "max_age_days": 4,
+      "same_snapshot_required": true
+    },
+    "es_de_10y_spread_bp": {
+      "left": "es_10y_pct",
+      "right": "de_10y_pct",
+      "max_age_days": 4,
+      "same_snapshot_required": true
+    },
+    "be_de_10y_spread_bp": {
+      "left": "be_10y_pct",
+      "right": "de_10y_pct",
+      "max_age_days": 4,
+      "same_snapshot_required": true
+    }
   }
 }

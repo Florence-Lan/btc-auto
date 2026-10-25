@@ -159,7 +159,11 @@ def test_shipped_calendar_timezone_mapping_and_full_lifecycle_horizon():
     cfg = {risk.POLICY_KEY: {**risk.POLICY, 'calendar_path': 'config/stock_event_calendar_20261020.json',
                             'effective_from_ms': raw['available_at_ms']}}
     for symbol in raw['symbol_reviews']:
-        assert risk.evaluate(cfg, symbol, raw['available_at_ms'], root=root)['allowed']
+        assert risk.evaluate(cfg, symbol, raw['verified_at_ms'], root=root)['allowed']
+        if raw['verified_at_ms'] > raw['available_at_ms']:
+            original_time = risk.evaluate(cfg, symbol, raw['available_at_ms'], root=root)
+            assert not original_time['allowed']
+            assert original_time['reasons'] == ['stock_event_calendar_not_yet_available']
 
 
 def test_official_verifier_rejects_different_notice_instead_of_retiming_event():
