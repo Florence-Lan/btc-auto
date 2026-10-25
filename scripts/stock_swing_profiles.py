@@ -7,6 +7,7 @@ an execution client. Existing breakout behavior remains the default.
 from __future__ import annotations
 
 import math
+from dataclasses import asdict
 from typing import Any, Mapping, Sequence
 
 import stock_swing_signals as baseline
@@ -41,18 +42,37 @@ def signal_at(candles, indicators, index, config=None):
 
 
 def signal_with_diagnostics(candles, indicators, index, config=None):
-    """Shared paper/replay admission with explicit closed-4h rejection evidence."""
+    """Preserve candidate stages without changing shared paper/replay admission.
+
+    Confirmation may describe blocked context even when no raw candidate exists;
+    only ``confirmation_rejected_candidate`` attributes a rejection to that gate.
+    Signal snapshots are detached JSON dictionaries, not executable permissions.
+    """
     config = config or {}
     quality.validate(config)
     swing_confirmation.validate(config)
     signal = raw_signal_at(candles, indicators, index, config)
     confirmation = swing_confirmation.evaluate(candles, index, config,
                                               signal.direction if signal else None)
-    diagnostics = {'swing_confirmation': confirmation}
+    candidate = asdict(signal) if signal else None
+    diagnostics = {'swing_confirmation': confirmation,
+        'signal_before_confirmation': candidate,
+        'signal_after_confirmation': dict(candidate) if candidate and confirmation['allowed'] else None,
+        'signal_after_quality': None, 'entry_quality': None,
+        'admission': {'stage': 'no_raw_signal' if signal is None else 'admitted',
+            'reasons': ['no_raw_signal'] if signal is None else [],
+            'confirmation_rejected_candidate': bool(signal and not confirmation['allowed'])}}
     if not confirmation['allowed']:
+        if signal:
+            diagnostics['admission'].update(stage='confirmation_rejected', reasons=list(confirmation['reasons']))
         return None, diagnostics
-    if signal and not quality.evaluate(candles, indicators, index, config, signal.direction)['allowed']:
-        return None, diagnostics
+    if signal:
+        outcome = quality.evaluate(candles, indicators, index, config, signal.direction)
+        diagnostics['entry_quality'] = outcome
+        if not outcome['allowed']:
+            diagnostics['admission'].update(stage='quality_rejected', reasons=list(outcome['reasons']))
+            return None, diagnostics
+        diagnostics['signal_after_quality'] = dict(candidate)
     return signal, diagnostics
 
 

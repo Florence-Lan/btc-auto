@@ -136,7 +136,16 @@ def test_parallel_accounts_share_one_inflight_exchange_clock(monkeypatch):
     first.join(1)
     second.join(1)
     assert not first.is_alive() and not second.is_alive()
-    assert results['first'] == results['second']
+    # The network observation is identical; each joined caller has its own
+    # waiting duration, which must not become the source's network duration.
+    assert {k:v for k,v in results['first'].items() if k != '_public_clock_attempts'} == {
+        k:v for k,v in results['second'].items() if k != '_public_clock_attempts'}
+    first_attempt = results['first']['_public_clock_attempts'][0]
+    second_attempt = results['second']['_public_clock_attempts'][0]
+    assert first_attempt['network_elapsed_ms'] == second_attempt['network_elapsed_ms']
+    assert first_attempt['elapsed_scope'] == second_attempt['elapsed_scope'] == 'caller_wait'
+    assert first_attempt['elapsed_ms'] >= 0 and second_attempt['elapsed_ms'] >= 0
+    assert results['first']['_public_clock_attempts'] is not results['second']['_public_clock_attempts']
     assert results['first']['serverTime'] == 1000
     assert results['first'] is not results['second']
     assert results['first']['_public_clock_timing'] is not results['second']['_public_clock_timing']

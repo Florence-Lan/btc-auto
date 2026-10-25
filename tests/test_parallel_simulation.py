@@ -141,7 +141,7 @@ def test_source_before_common_start_is_only_warmup(tmp_path, monkeypatch):
     original = account.venue.get.side_effect
     account.venue.get.side_effect = lambda e,p=None: [] if e == 'fundingRate' else original(e,p)
     signal_method = Mock(side_effect=AssertionError('Pre-start signal must not be evaluated'))
-    monkeypatch.setattr(runner.stock_swing_profiles, 'signal_at', signal_method)
+    monkeypatch.setattr(runner.stock_swing_profiles, 'raw_signal_at', signal_method)
     result = account.step()
     assert result['wallet_balance'] == 1000
     signal_method.assert_not_called()
@@ -186,8 +186,15 @@ def fast_stock_fixture(tmp_path, monkeypatch):
         raise AssertionError(endpoint)
     venue = Mock()
     venue.get.side_effect = get
+    original_raw = runner.stock_swing_profiles.raw_signal_at
     observed = Mock(return_value=runner.signals.Signal(1, 1, 100, 1, boundary - interval))
-    monkeypatch.setattr(runner.stock_swing_profiles, 'signal_at', observed)
+    def fixture_signal(candles, indicators, index, config):
+        # The original fake wrapper was bypassed by the real 1h/4h pipeline.
+        # Helpers reusing this execution fixture must retain that real path.
+        if config.get('signal_timeframe') == '1h' and config.get('swing_confirmation_policy') is not None:
+            return original_raw(candles, indicators, index, config)
+        return observed(candles, indicators, index, config)
+    monkeypatch.setattr(runner.stock_swing_profiles, 'raw_signal_at', fixture_signal)
     return runner.StockAccount(path, venue, 'MUUSDT', cfg), path, clock, observed
 
 

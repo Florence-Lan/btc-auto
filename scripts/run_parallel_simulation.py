@@ -72,6 +72,24 @@ def fresh(timestamp, reference, limit=60_000):
         raise ValueError('Stale or future market observation')
 
 
+class PublicClockValidationError(ValueError):
+    """Fixed diagnostic reason; the established clock admission stays unchanged."""
+    def __init__(self, message, reason_code):
+        super().__init__(message)
+        self.reason_code = reason_code
+
+
+def public_response_code(payload):
+    """Keep valid API error handling, route malformed codes through fallback."""
+    if not isinstance(payload, dict):
+        return 0
+    try:
+        return int(payload.get('code', 0))
+    except (TypeError, ValueError, OverflowError):
+        raise InvalidPublicResponse('Invalid public API response code',
+                                    reason_code='api_code_invalid') from None
+
+
 def verified_public_clock(payload, started, received):
     """Validate the successful network sample, never an earlier failed attempt.
 
@@ -80,31 +98,42 @@ def verified_public_clock(payload, started, received):
     without transport metadata retain the original outer-call timing checks.
     """
     if not isinstance(payload, dict):
-        raise ValueError('Invalid public exchange clock')
+        raise PublicClockValidationError('Invalid public exchange clock', 'clock_payload_invalid')
     timestamp = payload.get('serverTime')
     if isinstance(timestamp, bool) or not isinstance(timestamp, int) or timestamp <= 0:
-        raise ValueError('Invalid public exchange clock')
+        raise PublicClockValidationError('Invalid public exchange clock', 'clock_timestamp_invalid')
     timing = payload.get('_public_clock_timing')
     if '_public_clock_timing' in payload:
         if (not isinstance(timing, dict) or set(timing) != {
                 'started_monotonic', 'received_monotonic', 'transport'}
                 or timing['transport'] not in ('requests', 'curl')):
-            raise ValueError('Invalid public clock timing')
+            raise PublicClockValidationError('Invalid public clock timing', 'clock_timing_invalid')
         sample_started, sample_received = timing['started_monotonic'], timing['received_monotonic']
     else:
         sample_started, sample_received = started, received
     values = (sample_started, sample_received, received)
     if any(isinstance(v, bool) or not isinstance(v, (int, float))
            or not math.isfinite(v) for v in values):
-        raise ValueError('Invalid public clock timing')
+        raise PublicClockValidationError('Invalid public clock timing', 'clock_timing_invalid')
     if not sample_started <= sample_received <= received:
-        raise ValueError('Invalid public clock timing')
+        raise PublicClockValidationError('Invalid public clock timing', 'clock_timing_invalid')
     roundtrip = sample_received - sample_started
     if roundtrip > 5:
-        raise ValueError('Exchange clock roundtrip exceeded five seconds')
+        raise PublicClockValidationError('Exchange clock roundtrip exceeded five seconds',
+                                         'clock_roundtrip_exceeded')
     if received - sample_received > 15:
-        raise ValueError('Stale public exchange clock receipt')
+        raise PublicClockValidationError('Stale public exchange clock receipt', 'clock_receipt_stale')
     return timestamp, sample_received, roundtrip
+
+
+def stock_signal_observation(diagnostics, raw_signal, research_rejection):
+    """Add signal-only evidence; this never grants execution admission."""
+    return {**diagnostics, 'schema_version': 1, 'decision_scope': 'signal_candidate_only',
+            'legacy_raw_signal_stage': 'after_confirmation_and_quality_before_research_policy',
+            'research_policy': {'evaluated': raw_signal is not None, 'rejection': research_rejection},
+            'signal_after_research_policy': None if research_rejection else raw_signal,
+            'final_stage': 'research_policy_rejected' if research_rejection
+                           else diagnostics['admission']['stage']}
 
 
 def book_fill(book, signed_qty, step, slip=0.0002, participation=0.1):
@@ -163,22 +192,26 @@ class PublicAster:
             raise RuntimeError('Aster public cooldown active')
         url = 'https://fapi.asterdex.com/fapi/v3/' + endpoint
         def clock_payload(payload, started, transport):
-            if endpoint != 'time' or isinstance(payload, dict) and int(payload.get('code', 0)) < 0:
+            code = public_response_code(payload)
+            if endpoint != 'time' or code < 0:
                 return payload
             received = time.monotonic()
             if not isinstance(payload, dict):
-                raise InvalidPublicResponse('Invalid public exchange clock')
+                raise InvalidPublicResponse('Invalid public exchange clock',
+                                            reason_code='clock_payload_invalid')
             observed = {**payload, '_public_clock_timing': {
                 'started_monotonic': started, 'received_monotonic': received, 'transport': transport}}
             try:
                 verified_public_clock(observed, started, received)
-            except ValueError as exc:
-                raise InvalidPublicResponse(str(exc)) from None
+            except PublicClockValidationError as exc:
+                raise InvalidPublicResponse('Invalid public exchange clock',
+                                            reason_code=exc.reason_code) from None
             return observed
         def request():
             started = time.monotonic()
-            response = requests.get(url, params=params, timeout=12)
+            response = None
             try:
+                response = requests.get(url, params=params, timeout=12)
                 # Read/decode on the guarded thread too: a trickling response must
                 # not occupy an account worker past the wall-clock deadline.
                 status = response.status_code
@@ -190,46 +223,60 @@ class PublicAster:
                 try:
                     payload = response.json()
                 except ValueError:
-                    raise InvalidPublicResponse('Aster public response is not JSON') from None
+                    raise InvalidPublicResponse('Aster public response is not JSON',
+                                                reason_code='response_not_json') from None
                 if payload is None:
-                    raise InvalidPublicResponse('Aster public response is null')
+                    raise InvalidPublicResponse('Aster public response is null', reason_code='response_null')
                 return status, clock_payload(payload, started, 'requests')
+            except (requests.RequestException, OSError, ValueError) as exc:
+                exc.elapsed_ms = max(0., (time.monotonic() - started) * 1000)
+                exc.elapsed_scope = 'network'
+                raise
             finally:
-                response.close()
+                if response is not None:
+                    response.close()
         def curl_request():
             executable = shutil.which('curl.exe') or shutil.which('curl')
             if not executable:
                 raise PublicCurlError('curl unavailable', category='transport_unavailable')
             query = '?' + urlencode(params) if params else ''
             started = time.monotonic()
-            result = subprocess.run([executable, '-q', '--silent', '--show-error', '--proto', '=https',
-                                     '--connect-timeout', '5', '--max-time', '15',
-                                     '--write-out', '\n%{http_code}', '--url', url + query],
-                                    capture_output=True, text=True, encoding='utf-8', timeout=18,
-                                    env=public_curl_environment(),
-                                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
-            if result.returncode:
-                raise PublicCurlError('curl public read failed', curl_exit_code=result.returncode)
-            body, _, status = result.stdout.rpartition('\n')
-            status = int(status)
-            if status in (418, 429):
-                with self.lock:
-                    self.cooldown = now_ms() + 120_000
-            if status != 200:
-                return status, None
             try:
-                payload = json.loads(body)
-            except ValueError:
-                raise InvalidPublicResponse('Aster curl public response is not JSON') from None
-            if payload is None:
-                raise InvalidPublicResponse('Aster curl public response is null')
-            return status, clock_payload(payload, started, 'curl')
+                result = subprocess.run([executable, '-q', '--silent', '--show-error', '--proto', '=https',
+                                         '--connect-timeout', '5', '--max-time', '15',
+                                         '--write-out', '\n%{http_code}', '--url', url + query],
+                                        capture_output=True, text=True, encoding='utf-8', timeout=18,
+                                        env=public_curl_environment(),
+                                        creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+                if result.returncode:
+                    raise PublicCurlError('curl public read failed', curl_exit_code=result.returncode)
+                body, _, status = result.stdout.rpartition('\n')
+                status = int(status)
+                if status in (418, 429):
+                    with self.lock:
+                        self.cooldown = now_ms() + 120_000
+                if status != 200:
+                    return status, None
+                try:
+                    payload = json.loads(body)
+                except ValueError:
+                    raise InvalidPublicResponse('Aster curl public response is not JSON',
+                                                reason_code='response_not_json') from None
+                if payload is None:
+                    raise InvalidPublicResponse('Aster curl public response is null', reason_code='response_null')
+                return status, clock_payload(payload, started, 'curl')
+            except (requests.RequestException, OSError, subprocess.SubprocessError, ValueError) as exc:
+                exc.elapsed_ms = max(0., (time.monotonic() - started) * 1000)
+                exc.elapsed_scope = 'network'
+                raise
 
         transports = ('curl', 'requests') if time.monotonic() < self._curl_preferred_until else ('requests', 'curl')
         failures = []
+        attempts = []
         for index, transport in enumerate(transports):
             if now_ms() < self.cooldown:
                 raise RuntimeError('Aster public cooldown active') from None
+            attempt_started = time.monotonic()
             try:
                 if transport == 'requests':
                     request_params = params or {}
@@ -239,9 +286,16 @@ class PublicAster:
                 else:
                     status, payload = curl_request()
             except (requests.RequestException, OSError, subprocess.SubprocessError, ValueError) as exc:
-                failures.append({'transport': transport, **safe_transport_error(exc)})
+                failure = {'transport': transport, **safe_transport_error(exc)}
+                # Joined reads can wait less than the originating network call.
+                # A deadline/budget rejection has only caller-wait timing.
+                if 'elapsed_ms' not in failure:
+                    failure.update(elapsed_ms=max(0., (time.monotonic() - attempt_started) * 1000),
+                                   elapsed_scope='caller_wait')
+                failures.append(failure)
+                attempts.append({**failure, 'ok': False})
                 self.last_public_transport = {'transport': transport, 'endpoint': endpoint,
-                    'ok': False, 'failures': list(failures)}
+                    'ok': False, 'failures': list(failures), 'attempts': list(attempts)}
                 if transport == 'curl':
                     self._curl_preferred_until = 0.0
                 if now_ms() < self.cooldown:
@@ -255,14 +309,23 @@ class PublicAster:
             if status in (418, 429):
                 with self.lock:
                     self.cooldown = now_ms() + 120_000
-            if status != 200 or isinstance(payload, dict) and int(payload.get('code', 0)) < 0:
+            if status != 200 or public_response_code(payload) < 0:
                 raise RuntimeError(f'Aster public {endpoint} HTTP {status}') from None
             if transport == 'curl':
                 self._curl_preferred_until = time.monotonic() + 300
-            self.last_public_transport = {'transport': transport, 'endpoint': endpoint,
-                'ok': True, 'failures': list(failures)}
+            observation = {'transport': transport, 'ok': True,
+                'elapsed_ms': max(0., (time.monotonic() - attempt_started) * 1000),
+                'elapsed_scope': 'caller_wait'}
             if endpoint == 'time':
-                return {**payload, '_public_clock_timing': dict(payload['_public_clock_timing'])}
+                timing = payload['_public_clock_timing']
+                observation.update(network_elapsed_ms=(timing['received_monotonic']
+                                                       - timing['started_monotonic']) * 1000)
+            attempts.append(observation)
+            self.last_public_transport = {'transport': transport, 'endpoint': endpoint,
+                'ok': True, 'failures': list(failures), 'attempts': list(attempts)}
+            if endpoint == 'time':
+                return {**payload, '_public_clock_timing': dict(payload['_public_clock_timing']),
+                        '_public_clock_attempts': [dict(item) for item in attempts]}
             return payload
 
 
@@ -366,7 +429,11 @@ class StockAccount:
                     payload = {**payload, '_received_monotonic': sample_received}
                 return label, payload, None
             except Exception as exc:
-                return label, None, type(exc).__name__ + ': ' + str(exc)[:160]
+                # Aggregated transport errors contain only fixed labels, safe
+                # enums and numbers. Keep both attempts instead of truncating
+                # the fallback reason/timing out of the persisted observation.
+                limit = 1024 if isinstance(exc, PublicTransportError) else 160
+                return label, None, type(exc).__name__ + ': ' + str(exc)[:limit]
         requests_to_make = [('clock', 'time', {}), ('mark', 'premiumIndex', {'symbol': self.symbol}),
                             ('book', 'depth', {'symbol': self.symbol, 'limit': 100}),
                             ('funding', 'fundingRate', {'symbol': self.symbol,
@@ -749,16 +816,15 @@ class StockAccount:
                     and state['last_signal_time_ms'] != boundary):
                 bars = [arithmetic.candle(row) for row in self.signal_bars]
                 indicators = signals.compute_indicators(bars, cfg)
-                if cfg.get('swing_confirmation_policy') is not None:
-                    sig, diagnostics = stock_swing_profiles.signal_with_diagnostics(
-                        bars, indicators, len(bars) - 1, cfg)
-                    confirmation = diagnostics['swing_confirmation']
-                else:
-                    sig = stock_swing_profiles.signal_at(bars, indicators, len(bars) - 1, cfg)
-                    confirmation = {'enabled': False, 'allowed': True, 'reasons': []}
+                # signal_at is the [0] wrapper of this same pipeline. Retain
+                # its pre-filter evidence without computing a second signal.
+                sig, diagnostics = stock_swing_profiles.signal_with_diagnostics(
+                    bars, indicators, len(bars) - 1, cfg)
+                confirmation = diagnostics['swing_confirmation']
                 state['swing_confirmation'] = confirmation if confirmation['enabled'] else None
                 rejected = entry_policy.rejection(cfg, self.symbol, timestamp, sig.direction) if sig else None
                 raw_signal = asdict(sig) if sig else None
+                state['signal_diagnostics'] = stock_signal_observation(diagnostics, raw_signal, rejected)
                 if rejected:
                     sig = None
                 state['last_signal_time_ms'] = boundary
@@ -787,6 +853,7 @@ class StockAccount:
                 journal(self.path.with_name('signals.jsonl'), {'time_utc': arithmetic.iso(timestamp),
                     'signal_timeframe': self.signal_timeframe, 'boundary_ms': boundary,
                     'pending_signal': pending, 'raw_signal': raw_signal, 'rejection': rejected,
+                    'signal_diagnostics': state['signal_diagnostics'],
                     'rule_candidate_id': cfg.get('candidate_id'),
                     'stock_entry_timing': state.get('stock_entry_timing'),
                     'swing_confirmation': state['swing_confirmation']})

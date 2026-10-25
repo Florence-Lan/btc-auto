@@ -29,7 +29,7 @@ def test_stock_adapter_is_causal_and_uses_current_partial_exit(tmp_path, monkeyp
                     {'filterType': 'MIN_NOTIONAL', 'notional': '5'}]},
         'funding': [{'fundingTime': start - step, 'fundingRate': '0', 'markPrice': '100'},
                     {'fundingTime': start + 2 * step, 'fundingRate': '.001', 'markPrice': '100'}]}
-    monkeypatch.setattr(replay.paper.stock_swing_profiles, 'signal_at',
+    monkeypatch.setattr(replay.paper.stock_swing_profiles, 'raw_signal_at',
         lambda candles, indicators, index, config: replay.paper.signals.Signal(1, 1, 100, 1, start - step)
         if candles[-1].time_ms == start - step else None)
     original_step = replay.paper.StockAccount.step

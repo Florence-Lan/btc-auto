@@ -243,7 +243,10 @@ def test_original_expiry_wins_over_missing_or_bad_market(tmp_path, status, marke
 
 @pytest.mark.parametrize('status', ['waiting_retrace', 'waiting_confirmation', 'ready'])
 @pytest.mark.parametrize('market_kind', ['missing', 'future', 'bad_cutoff', 'bad_bars'])
-def test_one_ms_before_expiry_missing_data_stays_blocked_and_unconsumed(tmp_path, status, market_kind):
+def test_one_ms_before_expiry_missing_data_stays_blocked_and_unconsumed(tmp_path, monkeypatch, status, market_kind):
+    # This boundary test observes exactly expiry-1ms. Real reconciliation work
+    # may legitimately cross expiry; separate latency tests cover that case.
+    monkeypatch.setattr(execution.time, 'monotonic', lambda: 100.)
     bot = account(tmp_path)
     pending = saved_pending(status)
     state = bot.load(); state['btc_pullback_pending'] = copy.deepcopy(pending); bot._save(state)
