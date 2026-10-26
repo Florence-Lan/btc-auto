@@ -11,6 +11,7 @@ import argparse
 import copy
 import csv
 from datetime import date, datetime, timezone
+from email.utils import parsedate_to_datetime
 import hashlib
 import io
 import json
@@ -28,13 +29,13 @@ import requests
 
 try:
     from public_request_deadline import PublicRequestDeadline
-    from public_transport import safe_transport_error
+    from public_transport import PublicTransportError, safe_transport_error
     from market_sessions import session_status
     from europe_bond_observations import (EuropeBondError, discover_europe_bond_briefs,
                                           parse_europe_bond_brief)
 except ModuleNotFoundError:  # Support importing as scripts.cross_market_observations.
     from scripts.public_request_deadline import PublicRequestDeadline
-    from scripts.public_transport import safe_transport_error
+    from scripts.public_transport import PublicTransportError, safe_transport_error
     from scripts.market_sessions import session_status
     from scripts.europe_bond_observations import (EuropeBondError, discover_europe_bond_briefs,
                                                   parse_europe_bond_brief)
@@ -131,7 +132,18 @@ def validate_config(config: dict) -> None:
     budget = _finite(config.get("collection_timeout_seconds", 12))
     if not 0 < budget <= 30:
         raise ValueError("Collection deadline must be at most 30 seconds")
+    if "retry_policy" in config:
+        policy = config["retry_policy"]
+        if (not isinstance(policy, dict) or set(policy) != {
+                "initial_delay_seconds", "maximum_delay_seconds", "backoff_multiplier"}
+                or any(type(value) is not int for value in policy.values())
+                or not 30 <= policy["initial_delay_seconds"] <= 900
+                or not policy["initial_delay_seconds"] <= policy["maximum_delay_seconds"] <= 3600
+                or not 2 <= policy["backoff_multiplier"] <= 4):
+            raise ValueError("Invalid optional observer retry policy")
     for source in sources:
+        if "retry_policy" in source:
+            raise ValueError("Observer retry policy is top-level only")
         sid = source["id"]
         if sid in ids or not re.fullmatch(r"[a-z0-9_]+", sid):
             raise ValueError("Unique safe source ids required")
@@ -167,6 +179,22 @@ def validate_config(config: dict) -> None:
                 raise ValueError("Bounded UTC daily euro brief required")
 
 
+def _retry_after_seconds(value: Any, at_ms: int) -> int | None:
+    """HTTP delta-seconds or explicitly zoned HTTP-date, never raw header text."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    if re.fullmatch(r"[0-9]{1,12}", value):
+        return int(value)
+    try:
+        when = parsedate_to_datetime(value)
+        if when.tzinfo is None or when.utcoffset() is None:
+            return None
+        return max(0, math.ceil((when.timestamp() * 1000 - at_ms) / 1000))
+    except (ValueError, TypeError, OverflowError, OSError):
+        return None
+
+
 def fetch_public(source: dict, timeout_seconds: float) -> bytes:
     """One bounded public request, no credential use, retry, or denial bypass.
 
@@ -189,7 +217,7 @@ def fetch_public(source: dict, timeout_seconds: float) -> bytes:
                 continue
             if response.status_code != 200:
                 retry = response.headers.get("Retry-After", "")
-                raise PublicHttpError(response.status_code, int(retry) if retry.isdigit() else None)
+                raise PublicHttpError(response.status_code, _retry_after_seconds(retry, _clock_ms()))
             body, size = [], 0
             for chunk in response.iter_content(64 * 1024):
                 size += len(chunk)
@@ -416,7 +444,48 @@ def _europe_fetch(source: dict, fetcher: Callable, now_fn: Callable, timeout: fl
     raise ObservationError("europe_daily_brief_not_found_in_bounded_archive")
 
 
-def _source_fetch(source: dict, fetcher: Callable, now_fn: Callable) -> tuple:
+_RETRYABLE_TRANSPORT_CATEGORIES = frozenset({
+    "timeout", "connection", "dns", "incomplete_response", "receive", "empty_response"})
+
+
+def _failure_interval(source: dict, state: dict, error: dict, policy: dict | None) -> int:
+    """Schedule another collection, never retry inside the current request budget."""
+    interval = int(source.get("poll_seconds", 60) * 1000)
+    if policy is not None:
+        def increment(key):
+            prior = state.get(key, 0)
+            prior = prior if type(prior) is int and 0 <= prior <= 2**31 - 1 else 0
+            return min(prior + 1, 2**31 - 1)
+        state["consecutive_failures"] = increment("consecutive_failures")
+        retryable = (error.get("retryable_transport", error.get("category") in _RETRYABLE_TRANSPORT_CATEGORIES)
+                     is True and "http_status" not in error)
+        state["consecutive_retryable_failures"] = increment("consecutive_retryable_failures") if retryable else 0
+        state["retry_schedule_reason"] = "normal_poll_after_nonretryable_failure"
+        if retryable:
+            delay = policy["initial_delay_seconds"]
+            # Validated maximum/base <=120 and multiplier >=2: saturation takes
+            # at most seven doublings. Corrupt/huge counters cannot grow a pow.
+            for _ in range(min(state["consecutive_retryable_failures"] - 1, 16)):
+                delay = min(policy["maximum_delay_seconds"], delay * policy["backoff_multiplier"])
+            interval = delay * 1000
+            state["retry_schedule_reason"] = "transient_transport_exponential_backoff"
+    if error.get("http_status") in {403, 429}:
+        retry = error.get("retry_after_seconds")
+        retry = retry if type(retry) is int and retry >= 0 else 0
+        # Keep the legacy one-day clamp without an opt-in policy. Opted-in
+        # scheduling never shortens a valid server Retry-After, even >one day.
+        if policy is None:
+            retry = min(retry, 86400)
+        interval = max(interval, 3_600_000, retry * 1000)
+        if policy is not None:
+            state["retry_schedule_reason"] = "http_denial_cooldown"
+    if policy is not None:
+        state["retry_delay_ms"] = interval
+    return interval
+
+
+def _source_fetch(source: dict, fetcher: Callable, now_fn: Callable,
+                  retry_policy: dict | None = None) -> tuple:
     timeout = float(source.get("timeout_seconds", 7))
     with _DEADLINE_LOCK:
         deadline = _DEADLINES.setdefault(timeout, PublicRequestDeadline(timeout, max_pending=16))
@@ -439,6 +508,15 @@ def _source_fetch(source: dict, fetcher: Callable, now_fn: Callable) -> tuple:
             error["reason"] = str(exc)  # Only our closed, nonsecret error vocabulary.
         if isinstance(exc, PublicHttpError):
             error.update(http_status=exc.status, retry_after_seconds=exc.retry_after_seconds)
+        if retry_policy is not None:
+            retryable = error.get("category") in _RETRYABLE_TRANSPORT_CATEGORIES
+            # The normal fetcher uses requests directly. An injected aggregate
+            # transport must not hide a nonrecoverable validation/TLS failure.
+            if isinstance(exc, PublicTransportError) and exc.failures:
+                retryable = all(isinstance(item, dict) and item.get("category")
+                                in _RETRYABLE_TRANSPORT_CATEGORIES for item in exc.failures)
+            error["retryable_transport"] = bool(retryable and not isinstance(
+                exc, (ObservationError, EuropeBondError, PublicHttpError)))
         return {}, now_fn(), int((time.monotonic() - started) * 1000), error
 
 
@@ -497,6 +575,7 @@ def collect_observations(config: dict, previous: dict | None = None,
     started_at = now_fn()
     old_rows = previous.get("observations", {})
     old_sources = previous.get("sources", {})
+    retry_policy = config.get("retry_policy")
     sources, observations, pending = {}, {}, {}
     responses: queue.Queue = queue.Queue()
     end = time.monotonic() + float(config.get("collection_timeout_seconds", 12))
@@ -520,7 +599,8 @@ def collect_observations(config: dict, previous: dict | None = None,
         # A clock rollback must not turn observations received in the future
         # into available history, nor cause a retry storm.
         if state.get("last_attempt_at_ms", 0) > started_at:
-            state.update(status="clock_rollback", next_due_at_ms=state["last_attempt_at_ms"])
+            state.update(status="clock_rollback", next_due_at_ms=max(
+                state.get("next_due_at_ms") or 0, state["last_attempt_at_ms"]))
             continue
         if state.get("next_due_at_ms", 0) > started_at:
             state["status"] = "cached"
@@ -529,7 +609,7 @@ def collect_observations(config: dict, previous: dict | None = None,
         pending[sid] = source
 
         def work(s=source):
-            responses.put((s["id"], _source_fetch(s, fetcher, now_fn)))
+            responses.put((s["id"], _source_fetch(s, fetcher, now_fn, retry_policy)))
 
         threading.Thread(target=work, name=f"cross-market-{sid}", daemon=True).start()
     while pending and time.monotonic() < end:
@@ -543,11 +623,12 @@ def collect_observations(config: dict, previous: dict | None = None,
         interval = int(source.get("poll_seconds", 60) * 1000)
         if error:
             state.update(status="error", error=error)
-            if error.get("http_status") in {403, 429}:
-                interval = max(interval, 3_600_000,
-                               min(int(error.get("retry_after_seconds") or 0), 86400) * 1000)
+            interval = _failure_interval(source, state, error, retry_policy)
         else:
             state.update(status="ok", last_success_at_ms=received)
+            if retry_policy is not None:
+                state.update(consecutive_failures=0, consecutive_retryable_failures=0,
+                             retry_delay_ms=interval, retry_schedule_reason="normal_poll_after_success")
             state.pop("error", None)
             state["observations_returned"] = len(parsed)
             for key in source["fields"]:
@@ -565,8 +646,11 @@ def collect_observations(config: dict, previous: dict | None = None,
                     observations[key]["missing_reason"] = "latest_source_row_missing_field"
         state["next_due_at_ms"] = received + interval
     for sid, source in pending.items():
-        sources[sid].update(status="deadline_exceeded", error={"category": "timeout"},
-                            next_due_at_ms=started_at + int(source.get("poll_seconds", 60) * 1000))
+        error = {"category": "timeout"}
+        interval = _failure_interval(source, sources[sid], error, retry_policy)
+        failed_at = now_fn() if retry_policy is not None else started_at
+        sources[sid].update(status="deadline_exceeded", error=error,
+                            next_due_at_ms=failed_at + interval)
     completed_at = now_fn()
     required_missing = []
     for source in config["sources"]:

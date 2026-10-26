@@ -10,7 +10,9 @@ import subprocess
 import tempfile
 import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from decimal import Decimal, InvalidOperation, ROUND_DOWN
 from pathlib import Path
 from typing import Any
@@ -20,6 +22,8 @@ import requests
 from dotenv import load_dotenv
 
 from public_request_deadline import PublicRequestDeadline
+from process_lock import exclusive_process_lock
+from public_read_telemetry import record_event
 from public_transport import (InvalidPublicResponse, PublicCurlError, PublicTransportError,
                               public_curl_environment, safe_transport_error)
 
@@ -29,10 +33,13 @@ load_dotenv(ROOT / ".env")
 
 MAINNET_FUTURES_URL = "https://fapi.binance.com"
 COOLDOWN_PATH = ROOT / "data/runtime/binance_api_cooldown.json"
+PUBLIC_READ_TELEMETRY_PATH = ROOT / "data/runtime/binance_public_reads.json"
 RULES_CACHE_PATH = ROOT / "data/runtime/binance_symbol_rules.json"
 RULES_CACHE_TTL_SECONDS = 6 * 3600
 PUBLIC_TRANSPORT_PREFERENCE_SECONDS = 300
 _COOLDOWN_WRITE_LOCK = threading.Lock()
+_COOLDOWN_MEMORY_LOCK = threading.Lock()
+_COOLDOWN_FLOORS: dict[tuple[str, str], int] = {}
 PUBLIC_PATHS = {
     "/fapi/v1/ping", "/fapi/v1/time", "/fapi/v1/exchangeInfo",
     "/fapi/v1/premiumIndex", "/fapi/v1/klines", "/fapi/v1/fundingRate",
@@ -68,6 +75,28 @@ class BinanceApiError(RuntimeError):
         self.retry_at_ms = retry_at_ms
 
 
+@contextmanager
+def _cooldown_update_lock(path: Path, *, retry_at_ms: int | None = None):
+    """Bounded cross-process serialization; contention never permits a GET."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    end = time.monotonic() + 1.0
+    while True:
+        lock = exclusive_process_lock(path)
+        try:
+            lock.__enter__()
+            break
+        except OSError:
+            if time.monotonic() >= end:
+                raise BinanceApiError("Binance cooldown update lock unavailable; public read rejected",
+                                      status=418, retry_at_ms=max(retry_at_ms or 0,
+                                          int(time.time() * 1000) + 60_000)) from None
+            time.sleep(.01)
+    try:
+        yield
+    finally:
+        lock.__exit__(None, None, None)
+
+
 class BinanceTerminalClient:
     """Binance USD-M client with public market data and guarded live execution."""
 
@@ -87,6 +116,9 @@ class BinanceTerminalClient:
         self.last_public_transport: dict[str, Any] = {}
         self._curl_preferred_until = 0.0
         self._public_request_deadline = PublicRequestDeadline()
+        # Enabled by the owned simulation launcher, not by default in tests or
+        # unrelated consumers. No response, price or decision-clock cache.
+        self._public_diagnostics = env_flag("BINANCE_PUBLIC_DIAGNOSTICS")
 
     @property
     def configured(self) -> bool:
@@ -101,13 +133,30 @@ class BinanceTerminalClient:
         return env_flag("LIVE_TRADING_ENABLED")
 
     def cooldown_until_ms(self) -> int:
+        now_ms = int(time.time() * 1000)
+        key = (str(COOLDOWN_PATH.resolve()), self.base_url)
+        with _COOLDOWN_MEMORY_LOCK:
+            remembered = _COOLDOWN_FLOORS.get(key, 0)
+            if remembered <= now_ms:
+                _COOLDOWN_FLOORS.pop(key, None)
+                remembered = 0
         if not COOLDOWN_PATH.exists():
-            return 0
+            return remembered
         payload = json.loads(COOLDOWN_PATH.read_text(encoding="utf-8"))
         if payload.get("base_url") != self.base_url:
-            return 0
-        until = int(payload.get("retry_at_ms") or 0)
-        return until if until > int(time.time() * 1000) else 0
+            return remembered
+        until = max(remembered, int(payload.get("retry_at_ms") or 0))
+        return until if until > now_ms else 0
+
+    def _remember_cooldown(self, until: int) -> int:
+        # A known HTTP ban cannot be forgotten if publication/locking fails.
+        # This floor covers every client in this process; the locked file
+        # propagates it to other processes when storage is available.
+        key = (str(COOLDOWN_PATH.resolve()), self.base_url)
+        with _COOLDOWN_MEMORY_LOCK:
+            until = max(until, _COOLDOWN_FLOORS.get(key, 0))
+            _COOLDOWN_FLOORS[key] = until
+        return until
 
     def record_cooldown(self, message: str, retry_after: str | None = None) -> int:
         now_ms = int(time.time() * 1000)
@@ -116,12 +165,20 @@ class BinanceTerminalClient:
         if retry_after:
             try:
                 until = max(until, now_ms + int(float(retry_after) * 1000) + 5000)
-            except ValueError:
-                pass
+            except (ValueError, OverflowError):
+                try:
+                    parsed = parsedate_to_datetime(retry_after)
+                    if parsed.tzinfo is not None:
+                        until = max(until, int(parsed.timestamp() * 1000) + 5000)
+                except (TypeError, ValueError, OverflowError):
+                    pass
         # Public deadline workers may decode a late ban concurrently with other
         # clients. Serialize the read/merge/write and use a unique temp file.
-        with _COOLDOWN_WRITE_LOCK:
+        until = self._remember_cooldown(max(until, now_ms + 5000))
+        with _COOLDOWN_WRITE_LOCK, _cooldown_update_lock(
+                COOLDOWN_PATH.with_name(COOLDOWN_PATH.name + ".lock"), retry_at_ms=until):
             until = max(until, self.cooldown_until_ms(), now_ms + 5000)
+            until = self._remember_cooldown(until)
             payload = {"base_url": self.base_url, "retry_at_ms": until,
                        "reason": "Binance HTTP rate limit; requests suspended"}
             COOLDOWN_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -137,6 +194,31 @@ class BinanceTerminalClient:
                 if temporary is not None:
                     temporary.unlink(missing_ok=True)
             return until
+
+    def _public_event(self, endpoint: str, transport: str, event: str,
+                      response: requests.Response | None = None) -> None:
+        if not getattr(self, "_public_diagnostics", False):
+            return
+        status = weight = None
+        if response is not None:
+            status = response.status_code
+            headers = response.headers
+            if isinstance(headers, dict) or isinstance(headers, requests.structures.CaseInsensitiveDict):
+                weight = headers.get("X-MBX-USED-WEIGHT-1M")
+        try:
+            record_event(PUBLIC_READ_TELEMETRY_PATH, endpoint=endpoint, transport=transport,
+                         event=event, at_ms=int(time.time() * 1000),
+                         http_status=status, used_weight_1m=weight)
+        except Exception:
+            # Diagnostics must never change timing validation or execution.
+            pass
+
+    def _guard_public_read(self, endpoint: str) -> None:
+        try:
+            self._check_public_cooldown()
+        except BinanceApiError:
+            self._public_event(endpoint, "none", "cooldown_blocked")
+            raise
 
     def _decode_response(self, response: requests.Response) -> Any:
         try:
@@ -189,14 +271,19 @@ class BinanceTerminalClient:
                 "--url", url,
             ]
             try:
+                self._guard_public_read(path)
+                self._public_event(path, "curl", "network_start")
                 result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8",
                                         errors="replace", timeout=17, check=False,
                                         env=public_curl_environment())
             except subprocess.TimeoutExpired:
+                self._public_event(path, "curl", "transport_error")
                 raise PublicCurlError("Public fallback exceeded its total deadline", category="timeout") from None
             except OSError:
+                self._public_event(path, "curl", "transport_error")
                 raise PublicCurlError("Public fallback transport could not start", category="process") from None
             if result.returncode:
+                self._public_event(path, "curl", "transport_error")
                 # Do not propagate tool output: it can contain local proxy details.
                 raise PublicCurlError(f"Public fallback transport failed (curl {result.returncode})",
                                       curl_exit_code=result.returncode)
@@ -229,7 +316,7 @@ class BinanceTerminalClient:
         failures: list[dict[str, Any]] = []
         for index, transport in enumerate(transports):
             # A transport retry must respect a ban recorded by another worker.
-            self._check_public_cooldown()
+            self._guard_public_read(path)
             self.last_public_transport = {
                 "transport": transport, "endpoint": path,
                 "observed_at_ms": int(time.time() * 1000), "ok": False,
@@ -241,13 +328,23 @@ class BinanceTerminalClient:
                 if transport == "curl":
                     response = self._curl_public_get(path, params)
                     try:
+                        self._public_event(path, "curl", "response", response)
                         payload = self._decode_response(response)
                     finally:
                         response.close()
                 else:
                     def fetch():
-                        response = self.session.get(f"{self.base_url}{path}", params=params, timeout=15)
+                        # A queued worker rechecks the persistent ban at actual
+                        # dispatch; a later transport never bypasses it.
+                        self._guard_public_read(path)
+                        self._public_event(path, "requests", "network_start")
                         try:
+                            response = self.session.get(f"{self.base_url}{path}", params=params, timeout=15)
+                        except requests.RequestException:
+                            self._public_event(path, "requests", "transport_error")
+                            raise
+                        try:
+                            self._public_event(path, "requests", "response", response)
                             # Decode in the worker so even a late 418/429 records
                             # the shared ban, while its stale data is discarded.
                             return self._decode_response(response)

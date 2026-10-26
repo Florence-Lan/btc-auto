@@ -381,3 +381,67 @@ test('invalid daily dates cannot be displayed as currently valid',t=>{
   assert.match(displayed,/观察日期无效.*非盘中报价/);
   assert.doesNotMatch(displayed,/日频有效/);
 });
+
+test('a Brent roll replaces the displayed contract identity alongside its price and source link',t=>{
+  const page=environment(t),value=fixtures();
+  const row={...value.snapshot.observations.nq_dec_2026,value:115.2,unit:'USD/barrel',
+    source_url:'https://query1.finance.yahoo.com/v8/finance/chart/BZZ26.NYM',
+    instrument:{contract_month:'2026-12',symbol:'BZZ26.NYM',automatic_roll:false}};
+  value.snapshot.observations={brent_usd_per_barrel:row};
+  render(value.status,value.snapshot,value.calendar);
+  assert.equal(page.observations.children[0].children[0].textContent,'Brent 具名期货 2026-12（BZZ26.NYM）');
+  row.value=110.36;
+  row.instrument={contract_month:'2027-01',symbol:'BZF27.NYM',automatic_roll:false};
+  row.source_url='https://query2.finance.yahoo.com/v8/finance/chart/BZF27.NYM';
+  render(value.status,value.snapshot,value.calendar);
+  const cells=page.observations.children[0].children,link=cells[0].children[0];
+  assert.equal(cells.length,6);
+  assert.equal(link.textContent,'Brent 具名期货 2027-01（BZF27.NYM）');
+  assert.equal(cells[1].textContent,'110.36');
+  assert.equal(link.href,row.source_url);
+  assert.match(link.rel,/noopener/);assert.match(link.rel,/noreferrer/);
+  assert.doesNotMatch(page.observations.textContent,/BZZ26|2026-12/);
+});
+
+test('Nasdaq and WTI contract labels use row metadata rather than a hardcoded delivery month',t=>{
+  const page=environment(t),value=fixtures(),base=value.snapshot.observations.nq_dec_2026;
+  value.snapshot.observations={
+    nq_dec_2026:{...base,instrument:{contract_month:'2026-12',symbol:'NQZ26.CME'}},
+    wti_usd_per_barrel:{...base,instrument:{contract_month:'2027-02',symbol:'CLG27.NYM'}}
+  };
+  render(value.status,value.snapshot,value.calendar);
+  assert.equal(page.observations.children[0].children[0].textContent,'纳指期货 2026-12（NQZ26.CME）');
+  assert.equal(page.observations.children[1].children[0].textContent,'WTI 具名期货 2027-02（CLG27.NYM）');
+  assert.doesNotMatch(page.observations.textContent,/NQ Dec26/);
+});
+
+test('absent or malformed named-contract metadata falls back safely to the generic label',t=>{
+  const page=environment(t),value=fixtures();
+  const row=value.snapshot.observations.nq_dec_2026;
+  for(const instrument of [undefined,null,{},'NQZ26.CME',
+    {contract_month:'2026-13',symbol:'NQZ26.CME'},
+    {contract_month:'2026-12',symbol:'NQ=F'},
+    {contract_month:'2026-12',symbol:'<img src=x onerror="alert(1)">'},
+    {contract_month:'2026-12',symbol:'A'.repeat(100)}]){
+    row.instrument=instrument;
+    render(value.status,value.snapshot,value.calendar);
+    const title=page.observations.children[0].children[0];
+    assert.equal(title.textContent,'纳指期货');
+    assert.equal(title.children[0].tagName,'a');
+  }
+  row.instrument={contract_month:'2026-12',symbol:'NQZ26.CME'};
+  row.source_url='javascript:alert(1)';
+  render(value.status,value.snapshot,value.calendar);
+  const title=page.observations.children[0].children[0];
+  assert.equal(title.textContent,'纳指期货 2026-12（NQZ26.CME）');
+  assert.equal(title.children.length,0);
+});
+
+test('contract-like metadata on a currency or daily bond does not rename other observation types',t=>{
+  const page=environment(t),value=fixtures(),base=value.snapshot.observations.nq_dec_2026;
+  const instrument={contract_month:'2027-01',symbol:'BZF27.NYM'};
+  value.snapshot.observations={usdjpy:{...base,instrument},de_10y_pct:{...base,instrument}};
+  render(value.status,value.snapshot,value.calendar);
+  assert.equal(page.observations.children[0].children[0].textContent,'USD/JPY');
+  assert.equal(page.observations.children[1].children[0].textContent,'德国国债 10 年');
+});

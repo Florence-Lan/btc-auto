@@ -1,5 +1,5 @@
 export const arms = {baseline:'原规则状态',event_only:'国际事件',market_only:'跨市场冲击',sector_budget:'同业预算',combined:'组合候选'};
-const names = {nq_dec_2026:'纳指期货 NQ Dec26',wti_usd_per_barrel:'WTI 具名期货',brent_usd_per_barrel:'Brent 具名期货',usdjpy:'USD/JPY',us_2y_pct:'美国国债 2 年',us_10y_pct:'美国国债 10 年',us_10y_real_pct:'美国实际利率 10 年',jp_2y_pct:'日本国债 2 年',jp_10y_pct:'日本国债 10 年',jp_30y_pct:'日本国债 30 年',de_10y_pct:'德国国债 10 年',fr_10y_pct:'法国国债 10 年',it_10y_pct:'意大利国债 10 年',es_10y_pct:'西班牙国债 10 年',be_10y_pct:'比利时国债 10 年',uk_10y_pct:'英国国债 10 年',fr_de_10y_spread_bp:'法德利差',it_de_10y_spread_bp:'意德利差',es_de_10y_spread_bp:'西班牙／德国利差',be_de_10y_spread_bp:'比利时／德国利差'};
+const names = {nq_dec_2026:'纳指期货',wti_usd_per_barrel:'WTI 具名期货',brent_usd_per_barrel:'Brent 具名期货',usdjpy:'USD/JPY',us_2y_pct:'美国国债 2 年',us_10y_pct:'美国国债 10 年',us_10y_real_pct:'美国实际利率 10 年',jp_2y_pct:'日本国债 2 年',jp_10y_pct:'日本国债 10 年',jp_30y_pct:'日本国债 30 年',de_10y_pct:'德国国债 10 年',fr_10y_pct:'法国国债 10 年',it_10y_pct:'意大利国债 10 年',es_10y_pct:'西班牙国债 10 年',be_10y_pct:'比利时国债 10 年',uk_10y_pct:'英国国债 10 年',fr_de_10y_spread_bp:'法德利差',it_de_10y_spread_bp:'意德利差',es_de_10y_spread_bp:'西班牙／德国利差',be_de_10y_spread_bp:'比利时／德国利差'};
 const reasons = {baseline_no_pending_entry:'原账户暂无待入场机会',baseline_origin_unavailable_or_future:'原信号时间缺失或无效',baseline_source_stale_or_unavailable:'原账户观察过期或缺失',baseline_existing_inventory_not_new_entry:'已有持仓，不属于新入场',baseline_original_signal_not_admitted:'原信号尚未准入',baseline_original_entry_checks_not_all_reported_passed:'原执行检查尚未全部通过',baseline_pending_expired_or_invalid:'原待入场机会已过期或无效',baseline_pullback_not_ready:'原回踩确认尚未完成',baseline_reported_unhealthy_or_unknown:'原数据状态降级或未知',forward_history_warming_up:'前瞻历史尚不足',observation_stale:'观察已过期',observation_missing_or_invalid:'缺少有效观察',sector_exposure_unavailable:'同业风险尚不可核算',candidate_direction_unknown:'当前无有效入场方向',international_calendar_blackout:'国际事件窗口',international_calendar_stale:'日历核验已过期',correlated_same_direction_position_limit:'同向存储股持仓达到研究上限',correlated_stop_risk_budget:'同向存储股止损风险超过研究预算',energy_and_technology_shock:'能源上涨与科技下跌冲击',yen_and_technology_shock:'日元升值与科技下跌冲击',technology_disorderly_move:'科技期货短时大幅波动'};
 const labels = {observing:'观察中',collecting:'正在采集',degraded:'部分来源不可用',starting:'启动中',fresh:'有效观察',healthy:'有效观察',stale:'已过期',missing:'缺失',unavailable:'不可用',future:'未来时间无效',not_yet_available:'尚未可用',invalid_date:'观察日期无效',daily_current:'日频有效／不是盘中',date_only:'仅日频日期',cached:'缓存／原时间不变',ok:'抓取成功',error:'抓取失败',deadline_exceeded:'采集超时',contract_review_due:'合约待审核',market_closed:'参考时段休市',market_maintenance:'参考维护时段',session_unknown:'参考时段未知',clear:'当前无事件窗口',blackout:'事件窗口内',warming_up:'前瞻历史预热'};
 const sessionStatuses = new Set(['market_closed','market_maintenance','session_unknown']);
@@ -14,6 +14,14 @@ export function numberText(value, unit='') {
   return typeof value === 'number' && Number.isFinite(value) ? `${value.toLocaleString('zh-CN',{maximumFractionDigits:4})}${unit==='percent'?'%':unit==='bp'?' bp':''}` : '—';
 }
 function translated(value) { return labels[value] || value || '—'; }
+function observationLabel(key, row) {
+  const base=names[key]||key;
+  if(!['nq_dec_2026','wti_usd_per_barrel','brent_usd_per_barrel'].includes(key))return base;
+  const month=row.instrument?.contract_month,symbol=row.instrument?.symbol;
+  if(typeof month!=='string'||!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)
+      ||typeof symbol!=='string'||!/^[A-Z0-9][A-Z0-9._-]{0,47}$/.test(symbol))return base;
+  return `${base} ${month}（${symbol}）`;
+}
 function dailyAgeDays(row, now) {
   if(typeof row.observed_date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(row.observed_date))return null;
   const observed=Date.parse(`${row.observed_date}T00:00:00Z`);
@@ -77,8 +85,8 @@ export function render(status, snapshot, calendar) {
   document.getElementById('exposure').textContent=exposure.status==='available'?`${numberText(exposure.gross_notional_usdt)} USDT`:'尚不可计算';
   document.getElementById('exposure-detail').textContent=exposure.status==='available'?`多 ${exposure.same_direction?.['1']?.count||0} · 空 ${exposure.same_direction?.['-1']?.count||0}；仅事实持仓`:(exposure.reasons||[]).join('、');
   rows('observations',Object.entries(snapshot.observations||{}),(tr,[key,row])=>{
-    const title=cell(tr,names[key]||key);
-    try { const url=new URL(row.source_url); if(url.protocol==='https:'&&!url.username&&!url.password){const a=document.createElement('a');a.textContent=names[key]||key;a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';title.replaceChildren(a);} } catch {}
+    const label=observationLabel(key,row),title=cell(tr,label);
+    try { const url=new URL(row.source_url); if(url.protocol==='https:'&&!url.username&&!url.password){const a=document.createElement('a');a.textContent=label;a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';title.replaceChildren(a);} } catch {}
     cell(tr,numberText(row.value,row.unit));
     cell(tr,row.precision==='date'?`${row.observed_date||'—'}（日期口径）`:timeText(row.observed_at_ms));
     cell(tr,timeText(row.first_seen_at_ms));

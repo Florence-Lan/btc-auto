@@ -54,6 +54,7 @@ $launcher = @"
 Set-Location -LiteralPath $rootLiteral
 `$env:PYTHONUTF8 = '1'
 `$env:PYTHONIOENCODING = 'utf-8'
+`$env:BINANCE_PUBLIC_DIAGNOSTICS = '1'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding
 `$attempt = 0
 while (`$true) {

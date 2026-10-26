@@ -5,7 +5,7 @@
   "collection_timeout_seconds": 12,
   "notes": [
     "Independent public-data sidecar only. No portfolio, ledger, signal, leverage or execution setting is modified.",
-    "Yahoo futures have explicit December 2026 symbols; no continuous futures and no automatic roll. A conservative contract-review cutoff is not a claimed expiration date.",
+    "Yahoo futures use explicit WTI/NQ December 2026 and Brent January 2027 symbols; no continuous futures and no automatic roll. A conservative review cutoff is not a claimed expiration timestamp.",
     "Yahoo regularMarketTime is the provider quote observation time. Reception delay is visible in freshness.age_ms; no claim of real-time exchange entitlement is made.",
     "provider_previous_close is only a same-instrument provider reference, never a common 30-minute return across markets.",
     "Official bond feeds expose dates, not actual observation/publication times. They remain date-only diagnostics and cannot satisfy intraday risk admission.",
@@ -13,7 +13,8 @@
     "Daily sources have independent six-hour polling clocks. HTTP 403/429 are not bypassed; at least one hour of backoff applies.",
     "Session labels are finite reference diagnostics only; closed, maintenance or unknown sessions cannot admit intraday observations. They never renew quote age.",
     "Session reference expires November 2 New York midnight; expired or unreviewed dates become unknown until independently maintained.",
-    "Daily observations remain ineligible for intraday use even when their source gives an explicit GMT observation minute."
+    "Daily observations remain ineligible for intraday use even when their source gives an explicit GMT observation minute.",
+    "Transient transport timeouts use bounded retry backoff; successful daily reads retain six-hour polling. Identity/parse failures do not receive fast retries and HTTP denial backoff is preserved."
   ],
   "sources": [
     {
@@ -79,26 +80,28 @@
       }
     },
     {
-      "id": "yahoo_brent_dec_2026",
+      "id": "yahoo_brent_jan_2027",
       "parser": "yahoo_chart",
       "provider": "Yahoo Finance public chart (NYMEX quote)",
-      "url": "https://query1.finance.yahoo.com/v8/finance/chart/BZZ26.NYM?interval=1m&range=1d",
-      "expected_symbol": "BZZ26.NYM",
+      "url": "https://query2.finance.yahoo.com/v8/finance/chart/BZF27.NYM?interval=1m&range=1d",
+      "expected_symbol": "BZF27.NYM",
       "expected_type": "FUTURE",
       "expected_currency": "USD",
       "timezone": "America/New_York",
       "poll_seconds": 60,
       "timeout_seconds": 7,
-      "contract_review_cutoff_utc": "2026-10-28T00:00:00Z",
+      "contract_review_cutoff_utc": "2026-11-25T00:00:00Z",
       "instrument": {
-        "symbol": "BZZ26.NYM",
-        "name": "NYMEX Brent Crude Oil Last Day Financial December 2026 futures",
-        "contract_month": "2026-12",
+        "symbol": "BZF27.NYM",
+        "name": "NYMEX Brent Crude Oil Last Day Financial January 2027 futures",
+        "contract_month": "2027-01",
         "exchange": "NYMEX",
         "currency": "USD",
         "proxy_caveat": "NYMEX financially settled Brent futures; not ICE spot or an ICE execution quote",
         "continuous_contract": false,
-        "automatic_roll": false
+        "automatic_roll": false,
+        "termination_date": "2026-11-30",
+        "termination_time_status": "date_verified_exact_minute_not_verified"
       },
       "fields": {
         "brent_usd_per_barrel": {
@@ -127,7 +130,7 @@
           "2026-11-01"
         ],
         "holiday_exclusions": [],
-        "session_id": "yahoo_brent_dec_2026",
+        "session_id": "yahoo_brent_jan_2027",
         "schedule_kind": "cme_nymex_23x5",
         "basis": "scheduled_exchange_reference",
         "source_urls": [
@@ -137,14 +140,27 @@
         "review_scope": "Bounded standard Globex reference plus 2026 holiday list review; unscheduled or product-specific halts unknown."
       },
       "contract_review": {
-        "verified_at_ms": 1792936777518,
+        "first_seen_at_ms": 1793022583564,
+        "available_at_ms": 1793022583564,
+        "verified_at_ms": 1793022861274,
         "automatic_roll": false,
-        "policy": "Conservative review cutoff preserved; it is not an expiration timestamp. No splice or automatic roll of named contract histories.",
+        "policy": "Explicit manually reviewed named-contract change only; local review cutoff is not expiry. No history splice, auto-roll, backfill or research-epoch reset. Existing session/date coverage remains independently bounded.",
         "source_urls": [
           "https://www.cmegroup.com/rulebook/NYMEX/6/698.pdf",
-          "https://www.ice.com/products/219"
+          "https://www.ice.com/products/219/Brent-Crude-Futures/expiry",
+          "https://www.cmegroup.com/markets/energy/crude-oil/brent-crude-oil-last-day.calendar.html"
         ],
-        "rule": "CME chapter 698: last London business day of second month preceding contract month; New Year exception applies. December contract review remains October 28 UTC, before normal month-end termination."
+        "termination_date": "2026-11-30",
+        "termination_date_basis": "CME Chapter 698 termination day equals ICE Brent contract day; official ICE expiry table Jan27 LTD=2026-11-30. CME calendar web shell had no readable row.",
+        "next_review_basis": "Conservative manual review on November 25 UTC before November 30 termination and U.S. Thanksgiving period; this is a proposed review time, not an exchange expiry or extension of the prior December cutoff.",
+        "previous_named_contract": {
+          "symbol": "BZZ26.NYM",
+          "contract_month": "2026-12",
+          "review_cutoff_utc": "2026-10-28T00:00:00Z",
+          "termination_date": "2026-10-30"
+        },
+        "verification_evidence": "data/research/data_reliability_20261026/brent_roll_review.json",
+        "live_first_seen_policy": "The runtime collector must stamp its own actual first receipt of the new identity; do not inject this research preflight receipt into runtime rows."
       }
     },
     {
@@ -448,5 +464,10 @@
       "max_age_days": 4,
       "same_snapshot_required": true
     }
+  },
+  "retry_policy": {
+    "initial_delay_seconds": 60,
+    "maximum_delay_seconds": 900,
+    "backoff_multiplier": 2
   }
 }
