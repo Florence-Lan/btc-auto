@@ -3,7 +3,7 @@
   "mode": "SIMULATION",
   "places_orders": false,
   "sndk_frozen_runtime": {
-    "runtime_root": "data/runtime/frozen_sndk_data_reliability_20261026"
+    "runtime_root": "data/runtime/frozen_sndk_signal_bucket_fix_20261028"
   },
   "btc_reentry_shadow": {
     "enabled": true,

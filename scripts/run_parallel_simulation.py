@@ -638,8 +638,17 @@ class StockAccount:
                 message = str(exc)[:160]
                 errors[key] = (message if message in ('Completed candle response is empty',
                     'Nonconsecutive completed candles') else type(exc).__name__ + ': ' + message)
-        if 'signal' in data and not errors.get('signal') and not errors.get('five'):
-            self.candle_bucket = self.now_ms() // FIVE_MINUTES
+        if 'signal' in data:
+            # Certify only the completed-bar snapshot validated against this
+            # batch's exchange clock, never the later processing-time bucket.
+            complete_snapshot = (clock and data.get('signal') and data.get('five')
+                and not errors.get('signal') and not errors.get('five')
+                and self.signal_bars and self.five
+                and int(self.signal_bars[-1][0]) + self.signal_interval_ms
+                    == timestamp // self.signal_interval_ms * self.signal_interval_ms
+                and int(self.five[-1][0]) + FIVE_MINUTES
+                    == timestamp // FIVE_MINUTES * FIVE_MINUTES)
+            self.candle_bucket = timestamp // FIVE_MINUTES if complete_snapshot else None
         mark_source_available = bool(mark) and not errors.get('mark')
         try:
             if not mark or errors.get('mark'):
