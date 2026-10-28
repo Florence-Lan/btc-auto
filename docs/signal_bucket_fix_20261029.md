@@ -30,4 +30,6 @@ SNDK旧策略使用新冻结目录 `data/runtime/frozen_sndk_signal_bucket_fix_2
 
 观察器源码不依赖此次修改，观察器及终端未停机，观察器manifest和epoch不变。
 
+恢复后的独立复核确认60个金融账户的资金、仓位、止损、保证金、规则及epoch与停写快照一致；279份停写日志前缀及另外8份较大历史日志前缀全部保留。五组实验指纹分别覆盖38/61/42/43/47个源码文件，均与激活记录和实际文件匹配；旧冻结目录41个文件及其manifest仍保持原字节。
+
 本地证据在 `data/research/signal_bucket_fix_20261028/`：`plan.json`、`helper_review.json`、`stopped_before_inventory.json`、`activation.json`、全量测试输出及独立前后审计。激活时本机原生 `mklink` 的中文输出出现子进程解码提示，但返回码为0；实际junction解析、全部冻结文件哈希、真实existing-ledger检查及金融字节保全均通过。未重复迁移或恢复任何金融文件。
