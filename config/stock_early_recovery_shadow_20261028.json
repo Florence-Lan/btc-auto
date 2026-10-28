@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "experiment_id": "stock_early_recovery_shadow_20261028",
+  "mode": "SIMULATION",
+  "places_orders": false,
+  "output_dir": "data/paper_trading/stock_early_recovery_shadow_20261028",
+  "baseline_profile": "config/stock_event_guarded_20261020.json",
+  "source_plan": "config/parallel_simulation_plan_20261005.json",
+  "symbols": ["MUUSDT", "SNDKUSDT", "SKHYNIXUSDT"],
+  "variants": ["baseline", "candidate"],
+  "cost_multipliers": {"normal": 1, "double": 2},
+  "initial_balance_usdt_each": 1000,
+  "effective_from_ms": 1793119200000,
+  "declared_at_utc": "2026-10-27T16:40:00+00:00",
+  "poll_seconds": 30,
+  "review_minimum_elapsed_days": 14,
+  "review_minimum_closed_positions_each": 10,
+  "automatic_strategy_promotion": false,
+  "historical_warmup_counts_as_forward_performance": false,
+  "candidate_only_added_rule": "early_recovery_1h_v1",
+  "declaration": {
+    "objective": "Prospective test of an early closed-hour recovery mechanism against the current Donchian20 plus completed-4h trend strategy. No automatic promotion, no claim of demonstrated profitability.",
+    "long": "Use exactly the latest 60 consecutive completed UTC hourly bars. Previous EMA8 < EMA24; previous close minus the close six hours earlier <= minus one previous ATR14. Previous close <= previous EMA8. Current close > current EMA8 and > previous high. Current close minus EMA8 <= one current ATR14. Short is symmetric.",
+    "structure": "The extreme over the last six closed hours including signal plus 0.25 ATR buffer must fit the ORIGINAL per-symbol 2 ATR / minimum-stop / maximum-stop initial-stop model. Inherit original symbol minimum stop (MU/SKH 2%, SNDK 0.5%) without widening any stop.",
+    "entry_validity": "Freeze max(EMA8, previous high) for longs or min(EMA8, previous low) for shorts. Observed executable quote, mark and final adverse-slippage fill must stay strictly outside that recovery boundary; equality or loss cancels the signal. Retain 0.5 ATR adverse-chase, one ATR extension and one-hour validity. Record actual first-seen time and lag. Early describes price structure, not an instant direction prediction.",
+    "isolation": "Twelve NEW hypothetical 1000-USDT accounts: three symbols times baseline/candidate times normal/double costs. This 12000-USDT research capital is independent of original accounts and is never added to main-account profit. Original 48 financial accounts and all histories remain unchanged by this experiment.",
+    "retained_risk": "Original 0.25% equity risk, <=1x stock gross notional, leverage ceiling, 2ATR stop, symbol target/trailing/holding limits, three-bar cooldown, official earnings calendar, freshness, spread, depth, funding, basis and drawdown checks; no automatic reversal. Only candidate entry mechanism and its boundary admission differ; it does not wait for completed-4h alignment.",
+    "costs": "Double both taker fees and adverse slippage; observed funding settlement logic is identical. Independently size and execute every account against common current public observations. Paths and trades can differ; never force same-trade pairing.",
+    "epoch": "Initialize only at verified Aster exchange time after declaration. Warmup candles create indicators only. Admit only signal boundaries strictly AFTER inception, never backfill trades, never fill at a historical candle close. Missing/corrupt financial state or changed source/rules requires explicit repair or a new experiment generation, never silent reset.",
+    "known_history": "Recent missed SKH recovery and existing RSI/shock mechanism research were already inspected. This generic fixed rule was not parameter-swept or selected for that individual path; any replay of those observations is diagnostic and cannot count as independent validation.",
+    "review": "At least 14 elapsed days AND 10 complete positions in EVERY relevant symbol/arm before first comparative review. Readiness is not a pass. Inspect normal and double-cost returns after estimated open close costs, drawdown, turnover, best-winner dependence, calendar/data coverage and independently divergent paths. Insufficient evidence leaves the main strategy unchanged. No automatic promotion."
+  }
+}
