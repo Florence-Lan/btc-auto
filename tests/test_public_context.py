@@ -162,6 +162,13 @@ def test_collect_preserves_utf8_snapshot_with_gbk_default(tmp_path, monkeypatch)
             return '''2026 FOMC Meetings
             <div class="fomc-meeting__month"><strong>October</strong></div>
             <div class="fomc-meeting__date">27-28</div>'''
+        if url == pc.FED_MONTH_CALENDAR.format(year=2026, month="september"):
+            return '<title>Federal Reserve Board - Calendar: September 2026</title>'
+        if url == pc.FED_MONTH_CALENDAR.format(year=2026, month="october"):
+            return '''<title>Federal Reserve Board - Calendar: October 2026</title>
+            <div class="row"><div class="col-xs-2"><p>2:30 p.m.</p></div>
+            <div class="col-xs-7"><p>FOMC Press Conference</p></div>
+            <div class="col-xs-3"><p>28</p></div></div>'''
         if url == pc.BLS_CALENDAR:
             return '''BEGIN:VCALENDAR
 BEGIN:VEVENT
@@ -190,6 +197,11 @@ END:VCALENDAR'''
     assert persisted["coverage_checks"] == [old_check, payload["coverage_checks"][-1]]
     assert pc.health_at(persisted, ms(NOW)) == (True, [])
     assert event_risk.load_event_snapshot(output)
+    press = [row for row in persisted["calendars"] if row.get("event_type") == "press_conference"]
+    assert len(press) == 1 and press[0]["scheduled_at_utc"] == "2026-10-28T18:30:00+00:00"
+    assert press[0]["first_seen_at_utc"] == pc.iso(NOW)
+    assert persisted["metadata"]["source_status"]["fomc_calendar"]["verified_month_pages"] == [
+        url for _, _, url in pc._fed_month_pages(NOW)]
 
 
 def factor_rows():

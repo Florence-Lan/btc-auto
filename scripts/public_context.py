@@ -10,6 +10,7 @@ from email.utils import parsedate_to_datetime
 import gzip
 import hashlib
 import html
+from html.parser import HTMLParser
 import json
 import math
 import os
@@ -27,6 +28,7 @@ from public_transport import PublicTransportError, safe_transport_error
 UTC = timezone.utc
 ET_ZONE = ZoneInfo("America/New_York")
 FED_CALENDAR = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+FED_MONTH_CALENDAR = "https://www.federalreserve.gov/newsevents/{year}-{month}.htm?view=calendar"
 NYFED_CALENDAR = "https://www.newyorkfed.org/research/calendars/nationalecon_cal"
 BLS_CALENDAR = "https://www.bls.gov/schedule/news_release/bls.ics"
 RSS = {
@@ -106,9 +108,12 @@ def parse_rss(body, source, url, now):
     return records
 
 
-def calendar_item(identity, headline, scheduled, source, url, now, *, time_basis="source"):
-    return {"calendar_id": identity, "headline": headline, "scheduled_at_utc": iso(scheduled),
+def calendar_item(identity, headline, scheduled, source, url, now, *, time_basis="source", event_type=None):
+    row = {"calendar_id": identity, "headline": headline, "scheduled_at_utc": iso(scheduled),
             "source": source, "source_url": url, "first_seen_at_utc": iso(now), "time_basis": time_basis}
+    if event_type is not None:
+        row["event_type"] = event_type
+    return row
 
 
 def parse_fomc(body, now):
@@ -135,10 +140,142 @@ def parse_fomc(body, now):
                 continue
             date = scheduled.date().isoformat()
             records.append(calendar_item("fomc:" + date, "FOMC policy decision", scheduled,
-                           "fomc_calendar", FED_CALENDAR, now, time_basis="regular_meeting_14_ET_convention"))
+                           "fomc_calendar", FED_CALENDAR, now, time_basis="regular_meeting_14_ET_convention",
+                           event_type="policy_decision"))
     if not any(utc(row["scheduled_at_utc"]) > now for row in records):
         raise ValueError("FOMC calendar contains no future meetings")
     return records
+
+
+class _FedMonthHTML(HTMLParser):
+    """Keep title and same-row calendar columns, without crossing panels."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.divs, self.rows, self.title = [], [], []
+        self.in_title = False
+        self.title_seen = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "title" and not self.title_seen:
+            self.in_title = True
+            self.title_seen = True
+        if tag == "div":
+            classes = (dict(attrs).get("class") or "").split()
+            self.divs.append({"classes": set(classes), "text": [], "children": []})
+
+    def handle_data(self, data):
+        if self.in_title:
+            self.title.append(data)
+        for frame in self.divs:
+            frame["text"].append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "title":
+            self.in_title = False
+        if tag != "div" or not self.divs:
+            return
+        frame = self.divs.pop()
+        if self.divs:
+            self.divs[-1]["children"].append(frame)
+        if "row" in frame["classes"]:
+            columns = {}
+            for child in frame["children"]:
+                for key in ("col-xs-2", "col-xs-7", "col-xs-3"):
+                    if key in child["classes"]:
+                        columns.setdefault(key, []).append(" ".join(" ".join(child["text"]).split()))
+            if "col-xs-7" in columns:
+                self.rows.append(columns)
+
+
+def _fed_month_pages(now):
+    first = now.astimezone(ET_ZONE).replace(day=1)
+    following = (first + timedelta(days=32)).replace(day=1)
+    return [(month.year, month.month, FED_MONTH_CALENDAR.format(
+        year=month.year, month=calendar.month_name[month.month].lower())) for month in (first, following)]
+
+
+def _fed_month_time(value, year, month, day):
+    # The Board's monthly local calendar uses Eastern time. Explicit UTC or
+    # EST/EDT labels, if present, must agree with the requested date and DST.
+    match = re.fullmatch(r"(\d{1,2}):(\d{2})\s*(a\.?m\.?|p\.?m\.?)?\s*"
+                         r"(ET|EST|EDT|UTC|Eastern(?: Standard| Daylight)? Time)?", value, re.I)
+    if not match:
+        raise ValueError("Fed press conference time missing or ambiguous")
+    hour, minute = int(match[1]), int(match[2])
+    meridiem, zone = match[3], (match[4] or "ET").upper()
+    if meridiem:
+        if not 1 <= hour <= 12:
+            raise ValueError("Fed press conference clock invalid")
+        hour = hour % 12 + (12 if meridiem.lower().startswith("p") else 0)
+    elif hour < 13 and not match[4]:
+        raise ValueError("Fed press conference time missing meridiem")
+    scheduled = datetime(year, month, day, hour, minute, tzinfo=UTC if zone == "UTC" else ET_ZONE)
+    expected = {"EST": -5, "EASTERN STANDARD TIME": -5,
+                "EDT": -4, "EASTERN DAYLIGHT TIME": -4}.get(zone)
+    if expected is not None and scheduled.utcoffset() != timedelta(hours=expected):
+        raise ValueError("Fed press conference timezone conflicts with DST")
+    return scheduled
+
+
+def parse_fomc_press_conferences(body, year, month, url, decisions, now):
+    """Only explicitly published month/date/time rows create conferences.
+
+    An expected meeting with no matching row is a coverage failure, never an
+    excuse to fabricate the usual 14:30 time. Nonmeeting months may be empty.
+    """
+    parser = _FedMonthHTML()
+    parser.feed(body)
+    title = " ".join(" ".join(parser.title).split())
+    if title != f"Federal Reserve Board - Calendar: {calendar.month_name[month]} {year}":
+        raise ValueError("Fed monthly calendar identity mismatch")
+    expected = {utc(row["scheduled_at_utc"]).astimezone(ET_ZONE).date()
+                for row in decisions if _is_fomc_decision(row)
+                and (utc(row["scheduled_at_utc"]).astimezone(ET_ZONE).year,
+                     utc(row["scheduled_at_utc"]).astimezone(ET_ZONE).month) == (year, month)}
+    records, observed = [], set()
+    for columns in parser.rows:
+        titles = columns.get("col-xs-7", [])
+        if not any("FOMC Press Conference" in value for value in titles):
+            continue
+        if (titles != ["FOMC Press Conference"]
+                or len(columns.get("col-xs-2", [])) != 1
+                or len(columns.get("col-xs-3", [])) != 1
+                or not re.fullmatch(r"\d{1,2}", columns["col-xs-3"][0])):
+            raise ValueError("Fed press conference row malformed")
+        day = int(columns["col-xs-3"][0])
+        scheduled = _fed_month_time(columns["col-xs-2"][0], year, month, day)
+        local_date = scheduled.astimezone(ET_ZONE).date()
+        if local_date not in expected or local_date in observed:
+            raise ValueError("Fed press conference date inconsistent with policy calendar")
+        observed.add(local_date)
+        records.append(calendar_item("fomc_press_conference:" + local_date.isoformat(),
+            "FOMC press conference", scheduled, "fomc_calendar", url, now,
+            time_basis="official_monthly_calendar_time_America_New_York",
+            event_type="press_conference"))
+    if observed != expected:
+        raise ValueError("Fed monthly calendar missing an explicitly timed press conference")
+    return records
+
+
+def _is_fomc_decision(row):
+    # Existing archives did not have an event_type field.
+    return row.get("source") == "fomc_calendar" and row.get("event_type", "policy_decision") == "policy_decision"
+
+
+def fomc_calendar(now):
+    decisions = parse_fomc(fetch(FED_CALENDAR), datetime.now(UTC))
+    records = list(decisions)
+    pages = _fed_month_pages(now)
+    for year, month, url in pages:
+        records.extend(parse_fomc_press_conferences(fetch(url), year, month, url,
+                                                   decisions, datetime.now(UTC)))
+    # Nothing from a partial fetch is adopted, and full validation receipt is
+    # the first possible availability of a newly added calendar record.
+    received = datetime.now(UTC)
+    if pages != _fed_month_pages(received):
+        raise ValueError("Fed monthly calendar coverage changed during fetch")
+    return {"rows": [{**row, "first_seen_at_utc": iso(received)} for row in records],
+            "verified_month_pages": [url for _, _, url in pages]}
 
 
 ECONOMIC_NAMES = r"Consumer Price Index|Employment Situation|Producer Price Index|Job Openings and Labor Turnover|Personal Income|Gross Domestic Product"
@@ -231,7 +368,8 @@ def merge_calendar(previous, incoming, now):
     for raw in incoming:
         old = next((row for row in reversed(output) if row["calendar_id"] == raw["calendar_id"]
                     and not row.get("superseded_at_utc")), None)
-        if old and old["scheduled_at_utc"] == raw["scheduled_at_utc"] and old["headline"] == raw["headline"]:
+        if (old and old["scheduled_at_utc"] == raw["scheduled_at_utc"] and old["headline"] == raw["headline"]
+                and old.get("event_type", "policy_decision") == raw.get("event_type", "policy_decision")):
             continue
         if old:
             old["superseded_at_utc"] = iso(now)
@@ -263,6 +401,7 @@ def make_events(news, calendars):
                        "ends_at_utc": iso(scheduled + timedelta(minutes=90)),
                        "superseded_at_utc": row.get("superseded_at_utc"),
                        "severity": .8, "block_entries": True, "category": "scheduled_macro",
+                       "event_type": row.get("event_type", "policy_decision" if row["source"] == "fomc_calendar" else "economic_release"),
                        "headline": row["headline"], "source_url": row["source_url"]})
     return events
 
@@ -302,7 +441,7 @@ def last_factor(payload, name, now):
 
 def rate_expectation(calendars, factor_payload, now):
     meetings = sorted(utc(row["scheduled_at_utc"]) for row in calendars
-                      if row["source"] == "fomc_calendar" and not row.get("superseded_at_utc")
+                      if _is_fomc_decision(row) and not row.get("superseded_at_utc")
                       and utc(row["scheduled_at_utc"]) > now)
     if not meetings:
         raise ValueError("No next FOMC meeting")
@@ -322,7 +461,7 @@ def rate_expectation(calendars, factor_payload, now):
         except ValueError as exc:
             fallback_reason = str(exc)
     if following_has_meeting or fallback_reason:
-        same_month = [row for row in calendars if row["source"] == "fomc_calendar"
+        same_month = [row for row in calendars if _is_fomc_decision(row)
                       and not row.get("superseded_at_utc")
                       and utc(row["scheduled_at_utc"]).astimezone(ET_ZONE).strftime("%Y-%m") == local.strftime("%Y-%m")]
         total_days = calendar.monthrange(local.year, local.month)[1]
@@ -441,6 +580,8 @@ def _source_content_available(previous, name, success, now):
                        and utc(row["first_seen_at_utc"]) <= success
                        for row in previous.get("news", []))
         if name in {"fomc_calendar", "economic_calendar"}:
+            if name == "fomc_calendar" and not _cached_fomc_month_pages(previous, success, now):
+                return False
             return any(row.get("source") == name and utc(row["first_seen_at_utc"]) <= success
                        and utc(row["scheduled_at_utc"]) > now
                        and (not row.get("superseded_at_utc") or utc(row["superseded_at_utc"]) > now)
@@ -451,6 +592,20 @@ def _source_content_available(previous, name, success, now):
         return False
 
 
+def _cached_fomc_month_pages(previous, success, now):
+    expected = {url for _, _, url in _fed_month_pages(now)}
+    for check in reversed(previous.get("coverage_checks", [])):
+        if utc(check["available_at_utc"]) > now:
+            continue
+        state = check.get("sources", {}).get("fomc_calendar", {})
+        raw = state.get("last_success_at_utc")
+        if raw and utc(raw) == success:
+            pages = state.get("verified_month_pages")
+            if isinstance(pages, list) and all(isinstance(page, str) for page in pages) and expected <= set(pages):
+                return pages
+    return None
+
+
 def _source_status(previous, name, now, *, error=None, received_at=None):
     if error is None:
         return {"ok": True, "fetch_ok": True, "status": "live", "error": None,
@@ -458,9 +613,12 @@ def _source_status(previous, name, now, *, error=None, received_at=None):
     success = _last_source_success(previous, name, now)
     usable = (success is not None and timedelta(0) <= now - success <= SOURCE_MAX_AGE
               and _source_content_available(previous, name, success, now))
-    return {"ok": bool(usable), "fetch_ok": False,
+    result = {"ok": bool(usable), "fetch_ok": False,
             "status": "cached" if usable else "unavailable", "error": error,
             "last_success_at_utc": iso(success) if success else None}
+    if usable and name == "fomc_calendar":
+        result["verified_month_pages"] = _cached_fomc_month_pages(previous, success, now)
+    return result
 
 
 def apply_entry_coverage(sleeves, payload):
@@ -481,7 +639,7 @@ def collect(output, factor_path):
     previous = json.loads(output.read_text(encoding="utf-8")) if output.exists() else {}
     now = datetime.now(UTC)
     jobs = {name: (lambda n=name, u=url: parse_rss(fetch(u), n, u, datetime.now(UTC))) for name, url in RSS.items()}
-    jobs["fomc_calendar"] = lambda: parse_fomc(fetch(FED_CALENDAR), datetime.now(UTC))
+    jobs["fomc_calendar"] = lambda: fomc_calendar(datetime.now(UTC))
     jobs["economic_calendar"] = lambda: economic_calendar(datetime.now(UTC))
     status, collected, attempts = {}, {}, {}
 
@@ -504,7 +662,8 @@ def collect(output, factor_path):
         for row in collected.get(source, []):
             news.setdefault(row["news_id"], row)
     economic, fallback_errors = collected.get("economic_calendar", ([], []))
-    calendars = merge_calendar(previous.get("calendars", []), collected.get("fomc_calendar", []) + economic, now)
+    fed_calendar = collected.get("fomc_calendar", {"rows": []})
+    calendars = merge_calendar(previous.get("calendars", []), fed_calendar["rows"] + economic, now)
     expectations = list(previous.get("rate_expectations", []))
     factors = {}
     try:
@@ -521,6 +680,8 @@ def collect(output, factor_path):
         rate_contract = None
     now = datetime.now(UTC)
     status = {name: _source_status(previous, name, now, **attempts[name]) for name in REQUIRED}
+    if status["fomc_calendar"]["fetch_ok"]:
+        status["fomc_calendar"]["verified_month_pages"] = fed_calendar["verified_month_pages"]
     status["economic_calendar"]["fallback_errors"] = fallback_errors
     if rate_contract:
         status["rate_expectations"]["contract"] = rate_contract

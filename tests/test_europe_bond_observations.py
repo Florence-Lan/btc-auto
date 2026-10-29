@@ -197,3 +197,140 @@ def test_pagination_is_sequential_and_dated_candidates_sort_without_guessing():
     page2 = eb.discover_europe_bond_briefs(index(next_href="?lang=en&page=3"),
         index_url=eb.INDEX_URL + "&page=2", asof_ms=RECEIVED)
     assert page2["next_page_url"] == eb.INDEX_URL + "&page=3"
+
+
+# Verbatim report container shape fetched from the October 28 archive link.
+# The source itself has the extra full stop and separate continuation paragraph.
+OCT28_URL = ("https://www.borsaitaliana.it/borsa/notizie/radiocor/finance/dettaglio/"
+             "euro-zone-benchmark-10year-sovereign-bond-yields-nRC_28102026_1652_576143484.html?lang=en")
+OCT28_RECEIVED = ms("2026-10-28T17:18:09.302Z")
+OCT28_BRIEF = """<html><h1>Euro zone benchmark 10-year sovereign bond yields</h1>
+<span class="t-text -block -line-1-3em">
+<p>(Il Sole 24 Ore Radiocor) - Milano, 28 ott - Euro zone
+benchmark 10-year sovereign bond yields at 1548 GMT.</p>
+<p>Germany - yield 3.37%; up 0.02 percentage points from the previous close.</p>
+<p>France - yield 4.93%; up 0.01 percentage points from the previous close.</p>
+<p>Belgium - yield 4.38%; down 0.03 percentage points from the previous close.</p>
+<p>Italy - yield 4.52%; up 0.01 percentage points from the previous close.</p>
+<p>Spain - yield 3.99%; down 0.01 percentage points from the.</p>
+<p>previous close.</p>
+<p>(RADIOCOR) 28-10-26 16:52:20 (0576) 5 NNNN</p></span></html>"""
+
+
+def parse_oct28(body=OCT28_BRIEF, **kwargs):
+    return eb.parse_europe_bond_brief(body, source_url=kwargs.pop("source_url", OCT28_URL),
+        received_at_ms=kwargs.pop("received_at_ms", OCT28_RECEIVED),
+        asof_ms=kwargs.pop("asof_ms", OCT28_RECEIVED), **kwargs)
+
+
+def test_oct28_verified_split_paragraph_preserves_five_country_identity_and_gmt():
+    snapshot = parse_oct28()
+    assert {k: r["value"] for k, r in snapshot["observations"].items()} == {
+        "de_10y_pct": 3.37, "fr_10y_pct": 4.93, "be_10y_pct": 4.38,
+        "it_10y_pct": 4.52, "es_10y_pct": 3.99}
+    assert snapshot["observed_at_ms"] == ms("2026-10-28T15:48:00Z")
+    assert snapshot["derived_spreads"]["fr_de_10y_spread_bp"]["value"] == 156
+    assert snapshot["derived_spreads"]["it_de_10y_spread_bp"]["value"] == 115
+    assert snapshot["derived_spreads"]["es_de_10y_spread_bp"]["value"] == 62
+    assert snapshot["provenance"]["format_normalizations"] == ["joined_previous_close_paragraph"]
+    assert snapshot["provenance"]["publication_wall_time"] == "2026-10-28T16:52:20"
+    assert snapshot["provenance"]["publication_timezone"] == "unspecified_by_source"
+    assert snapshot["provenance"]["published_at_ms"] is None
+    assert snapshot["observations"]["es_10y_pct"]["change_from_previous_close_pp"] == -.01
+    for row in [*snapshot["observations"].values(), *snapshot["derived_spreads"].values()]:
+        assert row["snapshot_id"] == snapshot["snapshot_id"]
+        assert row["first_seen_at_ms"] == row["available_at_ms"] == OCT28_RECEIVED
+        assert row["frequency"] == "daily" and not row["eligible_intraday"]
+
+
+def test_split_and_semantically_identical_joined_report_keep_first_availability():
+    first = parse_oct28()
+    joined = OCT28_BRIEF.replace("from the.</p>\n<p>previous close.</p>",
+                                "from the previous close.</p>")
+    later = ms("2026-11-02T00:00:00Z")
+    second = parse_oct28(joined, previous=first, received_at_ms=later, asof_ms=later)
+    assert second["snapshot_id"] == first["snapshot_id"]
+    assert second["first_seen_at_ms"] == OCT28_RECEIVED
+    assert second["status"] == "stale" and not second["eligible_intraday"]
+    assert second["provenance"]["source_body_sha256"] != first["provenance"]["source_body_sha256"]
+    assert second["provenance"]["format_normalizations"] == []
+    assert all(row["available_at_ms"] == OCT28_RECEIVED for row in second["observations"].values())
+
+
+@pytest.mark.parametrize("before,after", [
+    ("<h1>Euro zone benchmark", "<h1>Unknown benchmark"),
+    ("<p>previous close.</p>", "<p>previous monthly average.</p>"),
+    ("from the.</p>", "from the estimate.</p>"),
+    ("<p>previous close.</p>", "<p>previous close.</p><p>previous close.</p>"),
+    ("<p>previous close.</p>", "<p>previous close.</p><p>Unverified data 2.5%</p>"),
+    ("<p>Germany - yield 3.37%; up 0.02 percentage points from the previous close.</p>", ""),
+    ("France - yield", "Spain - yield"),
+    ("3.99%;", "3.99bp;"),
+    ("1548 GMT", "1548 CET"),
+    ("28-10-26", "29-10-26"),
+])
+def test_split_report_retains_strict_identity_date_unit_and_complete_rows(before, after):
+    with pytest.raises(eb.EuropeBondError):
+        parse_oct28(OCT28_BRIEF.replace(before, after))
+
+
+def test_split_report_rejects_multiple_containers_and_hidden_page_numbers():
+    with pytest.raises(eb.EuropeBondError, match="brief_structure_changed"):
+        parse_oct28(OCT28_BRIEF + '<span class="t-text -block -line-1-3em"></span>')
+    missing = OCT28_BRIEF.replace(
+        "<p>Germany - yield 3.37%; up 0.02 percentage points from the previous close.</p>", "")
+    with pytest.raises(eb.EuropeBondError):
+        parse_oct28(missing + "<nav>Germany - yield 3.37%; up 0.02 percentage points from the previous close.</nav>")
+
+
+def test_split_report_rejects_future_observation_and_future_receipt():
+    before = ms("2026-10-28T15:47:59Z")
+    with pytest.raises(eb.EuropeBondError, match="future_observation"):
+        parse_oct28(received_at_ms=before, asof_ms=before)
+    with pytest.raises(eb.EuropeBondError, match="receipt_after_asof"):
+        parse_oct28(asof_ms=OCT28_RECEIVED - 1)
+
+
+def test_split_report_cannot_normalize_multiple_country_breaks():
+    duplicate_split = OCT28_BRIEF.replace(
+        "France - yield 4.93%; up 0.01 percentage points from the previous close.",
+        "France - yield 4.93%; up 0.01 percentage points from the.</p><p>previous close.")
+    with pytest.raises(eb.EuropeBondError):
+        parse_oct28(duplicate_split)
+
+
+def test_collector_keeps_two_page_budget_and_daily_receipt_without_cache_renewal():
+    import cross_market_observations as collector
+
+    source = {"id": "radiocor_europe_daily", "parser": "europe_bond_brief",
+        "url": eb.INDEX_URL, "provider": eb.PROVIDER, "timezone": "UTC",
+        "poll_seconds": 21600, "timeout_seconds": 7, "maximum_index_pages": 2,
+        "fields": {country + "_10y_pct": {"unit": "percent", "max_age_days": 4}
+                   for country in ("de", "fr", "it", "es", "be")}}
+    config = {"schema_version": 1, "mode": "OBSERVATION_ONLY", "sources": [source],
+        "collection_timeout_seconds": 12,
+        "derived_spreads": {"fr_de_10y_spread_bp": {"left": "fr_10y_pct", "right": "de_10y_pct",
+                                                  "same_snapshot_required": True}}}
+    calls = []
+
+    def fetch(item, timeout):
+        calls.append(item["url"])
+        assert 0 < timeout <= 7
+        return {eb.INDEX_URL: index(article_url=OCT28_URL), OCT28_URL: OCT28_BRIEF}[item["url"]]
+
+    first = collector.collect_observations(config, now_ms=OCT28_RECEIVED, fetcher=fetch)
+    assert calls == [eb.INDEX_URL, OCT28_URL]
+    assert first["sources"][source["id"]]["status"] == "ok"
+    row = first["observations"]["fr_10y_pct"]
+    assert row["value"] == 4.93 and row["first_seen_at_ms"] == OCT28_RECEIVED
+    assert row["freshness"]["status"] == "daily_current" and not row["eligible_intraday"]
+    assert first["observations"]["fr_de_10y_spread_bp"]["value"] == 156
+    collector.collect_observations(config, previous=first, now_ms=OCT28_RECEIVED + 1000, fetcher=fetch)
+    assert len(calls) == 2
+    second = collector.collect_observations(config, previous=first,
+        now_ms=OCT28_RECEIVED + 21600001, fetcher=fetch)
+    assert calls == [eb.INDEX_URL, OCT28_URL, eb.INDEX_URL, OCT28_URL]
+    for key in first["observations"]:
+        assert second["observations"][key]["first_seen_at_ms"] == OCT28_RECEIVED
+        assert second["observations"][key]["available_at_ms"] == OCT28_RECEIVED
+        assert not second["observations"][key]["eligible_intraday"]

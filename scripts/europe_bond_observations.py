@@ -265,9 +265,27 @@ def parse_europe_bond_brief(payload: bytes | str, *, source_url: str,
     parser.close()
     if (parser.containers != 1 or parser._span_depth or parser._paragraph is not None
             or [title for title in parser.titles if title] != [TITLE]
-            or len(parser.paragraphs) not in {6, 7}):
+            or len(parser.paragraphs) not in {6, 7, 8}):
         raise EuropeBondError("brief_structure_changed")
-    lines = parser.paragraphs
+    # The verified October 27/28 brief splits one country row after "from the."
+    # into an isolated "previous close." paragraph. Repair only this exact
+    # source formatting artifact inside the already identified report. The
+    # complete row is still validated below; arbitrary extra text is rejected.
+    lines = []
+    joined_previous_close = False
+    for line in parser.paragraphs:
+        if line == "previous close.":
+            if (joined_previous_close or not lines or not re.fullmatch(
+                    r"(?:Germany|France|Italy|Spain|Belgium) - yield -?\d+(?:\.\d{1,3})?%; "
+                    r"(?:(?:up|down) \d+(?:\.\d{1,3})? percentage points|unchanged) from the\.",
+                    lines[-1])):
+                raise EuropeBondError("brief_structure_changed")
+            lines[-1] = lines[-1][:-1] + " previous close."
+            joined_previous_close = True
+        else:
+            lines.append(line)
+    if len(lines) not in {6, 7}:
+        raise EuropeBondError("brief_structure_changed")
     header = re.fullmatch(
         r"\(Il Sole 24 Ore Radiocor\) - Milano, (\d{1,2}) ([a-z]{3}) - "
         r"Euro zone benchmark 10-year sovereign bond yields at (\d{2})(\d{2}) GMT\.", lines[0])
@@ -327,6 +345,8 @@ def parse_europe_bond_brief(payload: bytes | str, *, source_url: str,
                  "eligible_intraday": False}
     provenance = {"provider": PROVIDER, "source_url": source_url,
                   "source_body_sha256": body_digest, "canonical_report_sha256": snapshot_id,
+                  "format_normalizations": (["joined_previous_close_paragraph"]
+                                            if joined_previous_close else []),
                   "publication_wall_time": wall_time.isoformat(),
                   "publication_timezone": "unspecified_by_source", "published_at_ms": None,
                   "publication_time_basis": "RADIOCOR_footer_wall_time_not_assumed_UTC",

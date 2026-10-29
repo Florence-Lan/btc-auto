@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "experiment_id": "stock_entry_timing_trial_20261029",
+  "mode": "SIMULATION",
+  "places_orders": false,
+  "output_dir": "data/paper_trading/stock_entry_timing_trial_20261029",
+  "baseline_profile": "config/stock_event_guarded_20261020.json",
+  "source_plan": "config/parallel_simulation_plan_20261005.json",
+  "symbols": [
+    "MUUSDT",
+    "SNDKUSDT",
+    "SKHYNIXUSDT"
+  ],
+  "variants": [
+    "baseline",
+    "turning",
+    "turn_pullback"
+  ],
+  "cost_multipliers": {
+    "normal": 1,
+    "double": 2
+  },
+  "initial_balance_usdt_each": 1000,
+  "effective_from_ms": 1793208610915,
+  "declared_at_utc": "2026-10-28T17:30:10.915176+00:00",
+  "poll_seconds": 30,
+  "review_minimum_elapsed_days": 14,
+  "review_minimum_closed_positions_each": 10,
+  "automatic_strategy_promotion": false,
+  "historical_warmup_counts_as_forward_performance": false,
+  "candidate_only_changed_group": "entry_confirmation_and_fresh_pullback",
+  "shared_scheduled_macro_guard": true,
+  "declaration": {
+    "objective": "Separate a faster completed-4h turning hypothesis from a fresh trend-pullback continuation hypothesis. Prospective only; no profitability or early-entry guarantee.",
+    "baseline": "Current main hourly Donchian20 plus completed-4h strict alignment technical rules, with the SAME additional public scheduled macro entry guard used by BOTH candidates. This baseline can differ from the actual main account during macro blackouts.",
+    "turning": "Keep original Donchian20 raw signal and its extension/EMA60/activity/quality checks. Admit original strict 4h context OR completed-4h fast on the directional side of BOTH mid and slow, close on slow side, unchanged abs(fast-slow)/close>=0.004, and mid[-1]-mid[-4] in trade direction. Never use forming 4h candles.",
+    "turn_pullback": "Use turning context. Original Donchian raw has priority; only if absent may the existing fixed hourly trend_pullback mechanism emit a fresh reclaim. Preserve its full EMA8/24/60 ordering, rising/falling mid over six bars, previous close across EMA8, fast/mid minimum separation and <=1ATR extension. A rejected Donchian cannot fall back to bypass a gate.",
+    "pullback_admission": "Freeze actual original hourly EMA8 and two-bar structure plus 0.25ATR buffer. Existing initial 2ATR/minimum/maximum stop must contain that structure at signal, quote and actual fill. Mark, executable quote and fill must stay strictly on the frozen reclaimed side; preserve 0.5ATR chase and 1ATR extension. Do not revive an expired prior breakout.",
+    "retained_risk": "Per-symbol original stops, targets, trailing exits, holding cap, funding, drawdown, liquidity, <=1x gross notional, leverage ceiling, 0.25% equity risk, 3-bar cooldown, one-hour validity, no automatic reversal, company earnings guard. Shared macro guard pre30/post90 from causally available source events affects only new risk.",
+    "costs": "Normal/double independently size and execute. Double both taker fee and adverse slippage; common observed funding settlement. Same market batch, company calendar and public context per tick. Different entry histories are independent-account outcomes, not matched-trade causal profits.",
+    "epoch": "18 NEW independent 1000-USDT ledgers, total hypothetical18000 research capital, never combined with main4000 or prior experiments. Verified exchange inception after declaration; warmup builds indicators only. Only strictly post-inception boundaries, actual current books, no backfill fills. Preserve old60 accounts and all epochs.",
+    "evidence": "MU/SKH timing cases and prior mechanism research have already been inspected. Rule choices are generic fixed hypotheses, not a parameter sweep or validation on those known cases. Any replay is diagnostic, not unseen forward performance.",
+    "review": "At least14days AND10 fully closed positions per relevant symbol/arm, fresh reconciled data, normal AND double costs, estimated open-position close costs, drawdown, churn, lost winners and best-winner dependence. Also inspect turning vs baseline and incremental pullback vs turning. Readiness is not a pass; no automatic promotion.",
+    "first_seen": "Persist actual signal observation time, lag from complete hour boundary, variant and immutable context hashes. Early describes admission stage; closing-hour rules still have finite latency.",
+    "original_accounts_modified": false
+  }
+}

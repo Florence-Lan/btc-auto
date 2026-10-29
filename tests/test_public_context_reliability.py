@@ -32,10 +32,13 @@ def previous_snapshot():
     expectation = {"meeting_at_utc": pc.iso(NOW + timedelta(days=9)),
                    "available_at_utc": pc.iso(NOW), "quote_at_utc": pc.iso(NOW),
                    "expected_change_bps": 5, "contract": "ZQX26.CBT"}
+    states = {name: {"ok": True} for name in pc.REQUIRED}
+    states["fomc_calendar"]["last_success_at_utc"] = pc.iso(NOW)
+    states["fomc_calendar"]["verified_month_pages"] = [url for _, _, url in pc._fed_month_pages(NOW)]
     return {"schema_version": 1, "news": news, "calendars": calendars,
             "rate_expectations": [expectation],
             "coverage_checks": [{"available_at_utc": pc.iso(NOW),
-                                  "sources": {name: {"ok": True} for name in pc.REQUIRED}}]}
+                                  "sources": states}]}
 
 
 def outage_collect(tmp_path, monkeypatch, current, previous=None):
