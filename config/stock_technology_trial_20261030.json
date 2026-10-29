@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "experiment_id": "stock_technology_trial_20261030",
+  "mode": "SIMULATION",
+  "places_orders": false,
+  "output_dir": "data/paper_trading/stock_technology_trial_20261030",
+  "baseline_profile": "config/stock_event_guarded_20261020.json",
+  "source_trial": "config/stock_entry_timing_trial_20261029.json",
+  "symbols": [
+    "MUUSDT",
+    "SNDKUSDT",
+    "SKHYNIXUSDT"
+  ],
+  "variants": [
+    "baseline",
+    "guarded"
+  ],
+  "cost_multipliers": {
+    "normal": 1,
+    "double": 2
+  },
+  "initial_balance_usdt_each": 1000,
+  "effective_from_ms": 1793291934835,
+  "declared_at_utc": "2026-10-29T16:38:54.835851+00:00",
+  "poll_seconds": 1,
+  "review_minimum_elapsed_days": 14,
+  "review_minimum_closed_positions_each": 10,
+  "automatic_strategy_promotion": false,
+  "historical_warmup_counts_as_forward_performance": false,
+  "candidate_only_added_rule": "technology_guard_policy",
+  "market_feed": "existing_entry_timing_trial_immutable_context",
+  "technology_guard_policy": {
+    "mode": "named_nq_daily_and_30m_long_guard_v1",
+    "source_id": "yahoo_nq_dec_2026",
+    "source_config_id": "c7f9a7e67f5e9b08a3296c5d41752edcdf3862c6f1fe080e4f55d6e96593c622",
+    "provider": "Yahoo Finance public chart (CME quote)",
+    "source_url": "https://query1.finance.yahoo.com/v8/finance/chart/NQZ26.CME?interval=1m&range=1d",
+    "symbol": "NQZ26.CME",
+    "contract_month": "2026-12",
+    "exchange": "CME",
+    "currency": "USD",
+    "unit": "index_points",
+    "observation_timezone": "America/New_York",
+    "contract_review_cutoff_at_ms": 1796947200000,
+    "maximum_quote_age_minutes": 20,
+    "lookback_minutes": 30,
+    "reference_earlier_tolerance_minutes": 5,
+    "minimum_trial_elapsed_minutes": 30,
+    "daily_return_weak_below_pct": 0,
+    "intraday_return_weak_below_pct": 0,
+    "unknown_new_long_allowed": false,
+    "automatic_roll": false
+  },
+  "declaration": {
+    "hypothesis": "Only refuse an otherwise valid NEW long when named NQ is below its provider previous-close reference AND below a same-reference quote30-35minutes earlier. Zero thresholds are fixed sign boundaries, not optimized or proven profitable.",
+    "baseline": "Current declared turn_pullback mechanism, same macro and company event rules, costs, stops and position risk. This is a NEW epoch comparison, not a restart or replacement of the existing18 or main accounts.",
+    "unknown": "Missing/stale/conflicting/closed-session/date-roll/reference-change/coverage-expiry inputs block guarded NEW longs as unknown, separately from weak. Baseline, shorts and protective exits retain original rules.",
+    "warmup": "Own actual journal receipts after epoch only; reference observed_at>=epoch and >=30minute real elapsed. Delayed observations normally require40-50minutes or longer before the first clear/weak state; no backfill.",
+    "causality": "No alternate quote host, Binance information worker or bulk polling. Consume immutable existing18 shared market contexts with source clocks preserved; original15second clock and60second market age checks remain. A genuinely needed funding-mark proxy uses a shared guarded public Aster lookup only.",
+    "capital": "12 new independent1000-USDT accounts (12000 hypothetical total); original78 accounts, their money, rules, positions and epochs unchanged. No automatic promotion.",
+    "evaluation": "Review after at least14days AND10 complete trades per relevant arm; normal/double fees and slippage, funding and estimated exit costs. Separate weak rejection, unknown exclusion, missed winners, foregone losses, churn and drawdown. Readiness is not a pass.",
+    "coverage": "Named December2026 NQ and current upstream schedule/review coverage only; provider observed_date is not a verified CME trading day; no auto roll or coverage extension."
+  }
+}

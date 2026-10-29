@@ -414,11 +414,14 @@ def _stamp_row(candidate: dict, old: dict | None, received: int) -> dict:
     return candidate
 
 
-def _europe_fetch(source: dict, fetcher: Callable, now_fn: Callable, timeout: float) -> dict:
+def _europe_fetch(source: dict, fetcher: Callable, now_fn: Callable, timeout: float,
+                  *, deadline_at: float | None = None) -> dict:
     """At most three real archive pages plus one article, under ONE deadline."""
     url = source["url"]
     visited = []
     end = time.monotonic() + timeout
+    if deadline_at is not None:
+        end = min(end, deadline_at)
     def get(actual_url):
         remaining = end - time.monotonic()
         if remaining <= 0:
@@ -493,7 +496,8 @@ def _source_fetch(source: dict, fetcher: Callable, now_fn: Callable,
     try:
         if source["parser"] == "europe_bond_brief":
             parsed = deadline.run(("cross_market", source["id"], source["url"]),
-                                  lambda: _europe_fetch(source, fetcher, now_fn, timeout))
+                                  lambda: _europe_fetch(source, fetcher, now_fn, timeout,
+                                                       deadline_at=started + timeout))
             received = now_fn()
         else:
             payload = deadline.run(("cross_market", source["id"], source["url"]),
