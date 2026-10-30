@@ -152,6 +152,9 @@ def load_design(path=DEFAULT_CONFIG):
     return spec, rules, fingerprint
 
 
+from main_stock_rule_revision import declared_main_baseline_matches
+
+
 def check_source_rules(spec, rules):
     # The new baseline shares a declared macro ENTRY guard with both candidates.
     # Strip only that guard/label and restore the main calendar path for equality.
@@ -167,7 +170,7 @@ def check_source_rules(spec, rules):
         expected.pop(macro.POLICY_KEY)
         expected.pop('entry_timing_variant')
         expected['stock_event_risk_policy']['calendar_path'] = state['rule']['stock_event_risk_policy']['calendar_path']
-        if state['rule'] != expected or state.get('places_orders') is not False:
+        if not declared_main_baseline_matches(state, expected) or state.get('places_orders') is not False:
             raise ValueError('Main rules differ from declared technical baseline: ' + symbol)
     return {s: accounts[s]['state_path'] for s in SYMBOLS}
 

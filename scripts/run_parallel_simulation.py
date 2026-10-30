@@ -1045,7 +1045,8 @@ def stock_config(plan, symbol):
     common = {key: profile[key] for key in ('signal_timeframe', 'execution_timeframe', 'cooldown_signal_bars',
                                           'max_entry_spread_fraction', 'profit_exit_policy', 'trend_exit_policy',
                                           'entry_quality_policy', 'swing_confirmation_policy',
-                                          'entry_timing_policy', 'stock_event_risk_policy') if key in profile}
+                                          'entry_timing_policy', 'stock_event_risk_policy',
+                                          'short_confirmation_policy') if key in profile}
     cfg = {**base, **common, **profile['symbol_profiles'][symbol],
         'candidate_id': profile['symbol_profiles'][symbol].get('candidate_id', profile['candidate_id']),
         'risk_fraction_per_trade': profile['risk_fraction_per_bucket_trade'],
@@ -1055,6 +1056,9 @@ def stock_config(plan, symbol):
     entry_quality.validate(cfg)
     swing_confirmation.validate(cfg)
     stock_entry_timing.validate(cfg)
+    if 'short_confirmation_policy' in cfg:
+        import stock_short_confirmation
+        stock_short_confirmation.validate(cfg)
     if cfg.get('trend_exit_policy') is not None:
         trend_exits.validate(cfg['trend_exit_policy'])
     return cfg
@@ -1078,6 +1082,16 @@ def synchronize_stock_rules(plan, root, manifest):
         exit_only = plan.get('stock_rule_revision_scope') == 'profit_exits_only'
         timing_only = plan.get('stock_rule_revision_scope') == 'entry_timing_only'
         event_only = plan.get('stock_rule_revision_scope') == 'stock_event_risk_only'
+        short_only = plan.get('stock_rule_revision_scope') == 'short_confirmation_only'
+        if short_only:
+            ignored = {'short_confirmation_policy'}
+            if ({k: v for k, v in state['rule'].items() if k not in ignored}
+                    != {k: v for k, v in cfg.items() if k not in ignored}
+                    or 'short_confirmation_policy' in state['rule']
+                    or 'short_confirmation_policy' not in cfg):
+                raise ValueError('Short-confirmation migration cannot alter other signals, exits or risk settings')
+            if plan.get('main_stock_runtime') != 'price_led_short_v1':
+                raise ValueError('Short-confirmation migration requires the main paper runtime')
         if event_only:
             ignored = {'stock_event_risk_policy', 'candidate_id'}
             if ({k: v for k, v in state['rule'].items() if k not in ignored}
@@ -1098,12 +1112,18 @@ def synchronize_stock_rules(plan, root, manifest):
             'previous_rule': state['rule'], 'new_rule': cfg,
             'source_hash': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             'reason': plan.get('stock_rule_revision_reason', 'User authorized independent per-account strategies and shorter stock signal cycles; closed-bar signals with 30s entry retries.')}
+        if short_only:
+            revision['scope'] = 'short_confirmation_only'
         state.setdefault('rule_history', []).append(revision)
         state.update(rule=cfg, signal_timeframe=cfg['signal_timeframe'])
         if cfg.get('trend_exit_policy') != revision['previous_rule'].get('trend_exit_policy'):
             state['trend_exit_active_after_ms'] = activated
             state.pop('trend_exit_status', None)
-        if event_only:
+        if short_only:
+            # Apply the alternative only to newly completed hours. Retain consumed
+            # signals, existing pending identity, activation epoch and every ledger.
+            state['short_confirmation_active_after_ms'] = activated
+        elif event_only:
             # An event gate is entry admission, not a new signal experiment.
             # Preserve pending identity/expiry, consumed candles, activation and
             # all financial/inventory fields; every retry/fill checks the gate.
@@ -1543,7 +1563,13 @@ def _run_locked(plan, root, args):
     for account in plan['accounts']:
         if account['account_id'] != 'btc':
             state = json.loads((ROOT / account['state_path']).read_text(encoding='utf-8'))
-            workers[account['account_id']] = StockAccount(ROOT / account['state_path'], venue,
+            account_type = StockAccount
+            if 'short_confirmation_policy' in state['rule']:
+                if plan.get('main_stock_runtime') != 'price_led_short_v1':
+                    raise ValueError('Main short-confirmation runtime must be explicitly enabled')
+                from main_stock_runtime import MainStockAccount
+                account_type = MainStockAccount
+            workers[account['account_id']] = account_type(ROOT / account['state_path'], venue,
                 account['symbol'], state['rule'])
             if comparison:
                 path = comparison[0] / account['account_id'] / 'state.json'
@@ -1580,7 +1606,7 @@ def _run_locked(plan, root, args):
                     'return_pct', 'position_qty', 'fill_count_total', 'fees_paid', 'funding_pnl', 'max_drawdown_pct',
                     'last_mark_price', 'entry_price', 'signal_status', 'signal_timeframe', 'signal_family', 'entry_direction', 'next_signal_time_ms',
                     'last_signal_time_ms', 'signal_active_after_ms', 'entry_checks', 'entry_blockers', 'entry_qualification',
-                    'swing_confirmation',
+                    'swing_confirmation', 'short_confirmation', 'main_stock_runtime',
                     'execution_entry_gate', 'entry_source_status', 'llm_trade_gate', 'errors', 'observations',
                     'btc_entry_timing', 'btc_pullback_entry', 'stock_entry_timing', 'stock_event_risk',
                     'profit_exit_status', 'realized_pnl', 'risk_monitor')}

@@ -18,6 +18,7 @@ import threading
 import time
 
 from process_lock import exclusive_process_lock
+from main_stock_rule_revision import declared_main_baseline_matches
 import run_parallel_simulation as paper
 import run_sndk_4h_gate_shadow as shared
 import stock_exit_response as exits
@@ -138,7 +139,7 @@ def check_source_rules(spec, rules):
         expected = deepcopy(rules[symbol]['baseline_normal'])
         expected['stock_event_risk_policy']['calendar_path'] = state['rule']['stock_event_risk_policy']['calendar_path']
         if (state.get('mode') != 'simulation' or state.get('places_orders') is not False
-                or state.get('symbol') != symbol or state.get('rule') != expected):
+                or state.get('symbol') != symbol or not declared_main_baseline_matches(state, expected)):
             raise ValueError('Original account rule differs from the declared baseline: ' + symbol)
     return {s: accounts[s]['state_path'] for s in SYMBOLS}
 
