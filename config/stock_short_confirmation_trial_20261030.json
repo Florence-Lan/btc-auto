@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "experiment_id": "stock_short_confirmation_trial_20261030",
+  "mode": "SIMULATION",
+  "places_orders": false,
+  "output_dir": "data/paper_trading/stock_short_confirmation_trial_20261030",
+  "baseline_profile": "config/stock_event_guarded_20261020.json",
+  "source_trial": "config/stock_entry_timing_trial_20261029.json",
+  "symbols": [
+    "MUUSDT",
+    "SNDKUSDT",
+    "SKHYNIXUSDT"
+  ],
+  "variants": [
+    "baseline",
+    "candidate"
+  ],
+  "cost_multipliers": {
+    "normal": 1,
+    "double": 2
+  },
+  "initial_balance_usdt_each": 1000,
+  "effective_from_ms": 1793323298863,
+  "declared_at_utc": "2026-10-30T01:21:38.863413+00:00",
+  "poll_seconds": 1,
+  "review_minimum_elapsed_days": 14,
+  "review_minimum_closed_positions_each": 10,
+  "automatic_strategy_promotion": false,
+  "historical_warmup_counts_as_forward_performance": false,
+  "candidate_only_added_rule": "short_confirmation_policy",
+  "market_feed": "existing_entry_timing_trial_immutable_context",
+  "short_confirmation_policy": {
+    "mode": "closed_4h_price_led_short_v1",
+    "confirmation_timeframe": "4h",
+    "ema_fast": 8,
+    "ema_mid": 24,
+    "ema_slow": 60,
+    "warmup_bars": 60,
+    "require_close_below_fast_mid": true,
+    "fast_slope_lookback_bars": 1,
+    "minimum_ema_spread_fraction": 0.004
+  },
+  "declaration": {
+    "hypothesis": "For an otherwise valid ORIGINAL hourly Donchian short only, accept strict4h OR completed4h close below EMA8 and EMA24, EMA8 lower than previous completed4h value, unchanged absolute fast-slow spread>=0.004. Do not wait for full bearish4h ordering. This is a fixed hypothesis, not a profitability claim or parameter search.",
+    "baseline": "Current main hourly Donchian20 and original strict completed4h confirmation, plus the SAME scheduled macro entry gate on both arms. This baseline differs from actual main during macro blackouts.",
+    "preserved": "Original hourly EMA60, ATR limit, genuine fresh20bar breakout, <=1ATR extension, <=0.5ATR quote/fill chasing, onehour validity, frozen boundary at quote/mark/fill; long signals strictly original; no pullback fallback, NQ filter, automatic reversal or retrospective signals.",
+    "risk": "Original per-symbol stops/trailing/targets/holding limit,0.25percent equity risk, <=1x gross notional, leverage ceiling,3hour cooldown, company calendar, macro gate, clock/book/mark freshness, liquidity, funding and reconciliation remain.",
+    "feed": "Read existing18 immutable public batch context with original clock monotonic receipts. No new bulk polling or Binance information worker; a genuinely required settlement-mark fallback is a shared guarded public Aster GET only.",
+    "epoch": "12 NEW independent1000-USDT accounts (12000 research total). Verified exchange inception after declaration, strictly later hourly signal boundaries only. Old90 states/rules/epochs/history untouched. Warmup and known six rejected shorts are not forward PnL; no manual late short.",
+    "costs": "Normal/double independently size and execute; double original taker fees and adverse slippage, actual common funding. Different account paths are not matched-trade causal returns.",
+    "review": "At least14days AND10 complete positions per relevant arm; normal AND double costs, full estimated exit cost, early short falsebreakouts, missed winners, drawdown, churn, fees/funding and winner dependence. Equal long checks are control. No automatic promotion.",
+    "failure_policy": "Missing/incomplete/gapped/nonfinite fourhour context cannot be waived; a new candidate alone never guarantees executable entry. Protect existing positions through original risk path even if signal or calendar data fails."
+  }
+}
