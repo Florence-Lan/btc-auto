@@ -3,53 +3,93 @@
   "calendar_id": "stock_official_earnings_20261020_v1",
   "first_seen_at_ms": 1792427764000,
   "available_at_ms": 1792427764000,
-  "verified_at_ms": 1792936215689,
-  "valid_until_ms": 1793462400000,
+  "verified_at_ms": 1793461711831,
+  "valid_until_ms": 1794067200000,
   "coverage_start_ms": 1792427764000,
-  "coverage_end_ms": 1793462400000,
-  "review_due_reason": "Coverage expires at 2026-11-01 00:00 Asia/Shanghai. Refresh known official notices during routine operations and refresh the next coverage period before expiry; no manual approval is required.",
-  "verification_scope": "Known SK hynix and Sandisk scheduled call anchors re-read in this maintenance. MU no-announced-event review retains its original verification clock because the latest public IR review was incomplete. No claim of an exact first release, actual call completion, exhaustive announcement coverage, or extended horizon.",
+  "coverage_end_ms": 1794067200000,
+  "review_due_reason": "Partial coverage expires at 2026-11-08 00:00 Asia/Shanghai. Re-read official announcements during routine operations and before expiry. MU remains unverified and blocked until a populated official current list can be checked.",
+  "verification_scope": "Seven-day operational review horizon for currently announced earnings events only; no guarantee against new notices. MU fails closed. Original event anchors, availability, first-seen and unknown release/end times are preserved.",
   "symbol_reviews": {
     "MUUSDT": {
-      "status": "no_announced_event_found",
+      "status": "latest_review_unverified",
       "verified_at_ms": 1792427764000,
       "source_urls": [
         "https://investors.micron.com/events-and-presentations/default.aspx"
       ],
       "note": "No next earnings date was confirmed in this review; absence is not proof no event will be announced.",
       "last_review_attempt": {
-        "attempted_at_ms": 1792936215689,
-        "first_seen_at_ms": 1792936215689,
-        "available_at_ms": 1792936215689,
+        "attempted_at_ms": 1793461711831,
+        "available_at_ms": 1793461711831,
         "status": "unverified_dynamic_content_or_access",
         "verification_success": false,
         "source_urls": [
-          "https://investors.micron.com/events-and-presentations/",
-          "https://investors.micron.com/news/default.aspx"
+          "https://investors.micron.com/events-and-presentations/default.aspx"
         ],
-        "http_statuses": [
-          403,
-          403
+        "note": "Do not extend the old no-announced-event conclusion; current absence is unverified and new MU risk must remain blocked."
+      },
+      "previous_verified_review": {
+        "status": "no_announced_event_found",
+        "verified_at_ms": 1792427764000,
+        "source_urls": [
+          "https://investors.micron.com/events-and-presentations/default.aspx"
         ],
-        "note": "Public HTTP requests were access-denied; the web reader exposed dynamic page shells without a current event list. The previous no-announced-event review and its verified_at_ms are preserved; no new absence claim or next earnings date is inferred."
+        "note": "No next earnings date was confirmed in this review; absence is not proof no event will be announced.",
+        "last_review_attempt": {
+          "attempted_at_ms": 1792936215689,
+          "first_seen_at_ms": 1792936215689,
+          "available_at_ms": 1792936215689,
+          "status": "unverified_dynamic_content_or_access",
+          "verification_success": false,
+          "source_urls": [
+            "https://investors.micron.com/events-and-presentations/",
+            "https://investors.micron.com/news/default.aspx"
+          ],
+          "http_statuses": [
+            403,
+            403
+          ],
+          "note": "Public HTTP requests were access-denied; the web reader exposed dynamic page shells without a current event list. The previous no-announced-event review and its verified_at_ms are preserved; no new absence claim or next earnings date is inferred."
+        }
       }
     },
     "SNDKUSDT": {
       "status": "official_event_verified",
-      "verified_at_ms": 1792936215689,
+      "verified_at_ms": 1793461711831,
       "source_urls": [
-        "https://investor.sandisk.com/node/8381/pdf"
-      ]
+        "https://investor.sandisk.com/node/8381/pdf",
+        "https://investor.sandisk.com/news-events/events",
+        "https://www.sandisk.com/company/newsroom/press-releases/2026/2026-10-29-sandisk-reports-fiscal-first-quarter-2027-financial-results"
+      ],
+      "note": "Latest populated official event/IR list reviewed now; seven-day finite horizon, no claim that future announcements cannot occur. Original recorded call remains the anchor.",
+      "last_review_attempt": {
+        "attempted_at_ms": 1793461711831,
+        "available_at_ms": 1793461711831,
+        "status": "official_populated_list_reviewed",
+        "verification_success": true,
+        "source_urls": [
+          "https://investor.sandisk.com/news-events/events",
+          "https://www.sandisk.com/company/newsroom/press-releases/2026/2026-10-29-sandisk-reports-fiscal-first-quarter-2027-financial-results"
+        ]
+      }
     },
     "SKHYNIXUSDT": {
       "status": "official_event_verified",
-      "verified_at_ms": 1792936215689,
+      "verified_at_ms": 1793461711831,
       "source_urls": [
         "https://www.sec.gov/Archives/edgar/data/2120882/000119312526420934/d413172d6k.htm",
         "https://news.skhynix.com/en/q3-2026-earnings-conference-call-invitation/",
         "https://news.skhynix.com/en/category/ir/"
       ],
-      "note": "Latest official October 21 invitation reconfirms the original October 28 09:00 Seoul call; the press release precedes 09:00 that day, without an exact minute. New source adoption is timestamped in verification_history, not backdated to the original calendar."
+      "note": "Latest populated official event/IR list reviewed now; seven-day finite horizon, no claim that future announcements cannot occur. Original recorded call remains the anchor.",
+      "last_review_attempt": {
+        "attempted_at_ms": 1793461711831,
+        "available_at_ms": 1793461711831,
+        "status": "official_populated_list_reviewed",
+        "verification_success": true,
+        "source_urls": [
+          "https://news.skhynix.com/en/category/ir/"
+        ]
+      }
     }
   },
   "events": [
@@ -146,6 +186,62 @@
       "no_actual_release_or_call_end_imputed": true,
       "international_template_rewritten": false,
       "evidence": "data/research/macro_maintenance_20261025/event_maintenance_evidence.json"
+    },
+    {
+      "review_id": "official_company_calendar_partial_20261031",
+      "first_seen_at_ms": 1793461711831,
+      "available_at_ms": 1793461711831,
+      "verified_at_ms": 1793461711831,
+      "verification_method": "official_public_web_reader_populated_lists_for_sndk_skhynix",
+      "raw_http_payload_or_hash_claimed": false,
+      "verified_symbols": [
+        "SNDKUSDT",
+        "SKHYNIXUSDT"
+      ],
+      "unverified_symbols": [
+        "MUUSDT"
+      ],
+      "sources": [
+        {
+          "url": "https://investor.sandisk.com/news-events/events",
+          "title": "Events",
+          "symbols": [
+            "SNDKUSDT"
+          ],
+          "finding": "Populated upcoming and past sections. October 29 earnings call is past; next listed event is the November 17 shareholder meeting, outside this coverage."
+        },
+        {
+          "url": "https://www.sandisk.com/company/newsroom/press-releases/2026/2026-10-29-sandisk-reports-fiscal-first-quarter-2027-financial-results",
+          "title": "Sandisk Reports Fiscal First Quarter 2027 Financial Results",
+          "symbols": [
+            "SNDKUSDT"
+          ],
+          "source_published_date": "2026-10-29",
+          "finding": "Published results and same-day scheduled call confirm the prior call anchor. No exact first-publication minute or actual call completion is inferred."
+        },
+        {
+          "url": "https://news.skhynix.com/en/category/ir/",
+          "title": "IR",
+          "symbols": [
+            "SKHYNIXUSDT"
+          ],
+          "finding": "Populated latest IR list shows October 28 earnings-call access and results and October 21 invitation. No newer scheduled earnings call was present in this reviewed list."
+        },
+        {
+          "url": "https://investors.micron.com/events-and-presentations/default.aspx",
+          "title": "Events and Presentations",
+          "symbols": [
+            "MUUSDT"
+          ],
+          "finding": "Official reader exposed a dynamic shell without a verifiable current event list. Review is unsuccessful; absence of announcements is not established."
+        }
+      ],
+      "coverage_end_ms": 1794067200000,
+      "scope": "Seven-day operational review horizon for currently announced earnings events only; no guarantee against new notices. MU fails closed. Original event anchors, availability, first-seen and unknown release/end times are preserved.",
+      "prior_calendar_sha256": "ae3f8216a08a88ca9dc1334c79f4826cbe65d2f473426bbad37c2291f6c16cbd",
+      "production_account_writes": false,
+      "source_or_rule_changes": false,
+      "evidence": "data/research/profit_budget_update_20261031/company_calendar_review.json"
     }
   ]
 }

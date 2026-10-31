@@ -149,17 +149,34 @@ def test_recheck_reads_new_bytes_and_can_block_previously_approved_pending(tmp_p
     assert after['calendar_sha256'] != before['calendar_sha256']
 
 
-def test_shipped_calendar_timezone_mapping_and_full_lifecycle_horizon():
+def test_shipped_calendar_partial_review_preserves_events_and_blocks_unverified_symbol():
     root = Path(__file__).resolve().parents[1]
     raw = json.loads((root/'config/stock_event_calendar_20261020.json').read_text(encoding='utf-8'))
     events = {event['event_id']: event for event in raw['events']}
     assert events['skhynix_2026q3_call_20261028']['anchor_time_ms'] == 1793145600000
     assert events['sandisk_fy2027q1_call_20261029']['anchor_time_ms'] == 1793305800000
-    assert raw['valid_until_ms'] == raw['coverage_end_ms'] == 1793462400000
+    assert raw['valid_until_ms'] == raw['coverage_end_ms'] == 1794067200000
+    archive = root/'config/stock_event_calendar_20261020_history/ae3f8216a08a88ca9dc1334c79f4826cbe65d2f473426bbad37c2291f6c16cbd.json'
+    previous = json.loads(archive.read_text(encoding='utf-8'))
+    assert raw['events'] == previous['events']
+    assert raw['symbol_reviews']['MUUSDT']['previous_verified_review'] == previous['symbol_reviews']['MUUSDT']
+    assert raw['symbol_reviews']['MUUSDT']['verified_at_ms'] == previous['symbol_reviews']['MUUSDT']['verified_at_ms']
     cfg = {risk.POLICY_KEY: {**risk.POLICY, 'calendar_path': 'config/stock_event_calendar_20261020.json',
                             'effective_from_ms': raw['available_at_ms']}}
+    complete_hours = [bar(i * HOUR) for i in range(raw['verified_at_ms']//HOUR-2,
+                                                   raw['verified_at_ms']//HOUR)]
     for symbol in raw['symbol_reviews']:
-        assert risk.evaluate(cfg, symbol, raw['verified_at_ms'], root=root)['allowed']
+        outcome = risk.evaluate(cfg, symbol, raw['verified_at_ms'], root=root,
+                                closed_hourly_bars=complete_hours)
+        if symbol == 'MUUSDT':
+            assert not outcome['allowed']
+            assert outcome['reasons'] == ['stock_event_symbol_review_invalid']
+            assert outcome['protective_exits_allowed']
+        else:
+            assert outcome['allowed']
+        expired = risk.evaluate(cfg, symbol, raw['valid_until_ms'], root=root,
+                                closed_hourly_bars=complete_hours)
+        assert expired['reasons'] == ['stock_event_calendar_expired']
         if raw['verified_at_ms'] > raw['available_at_ms']:
             original_time = risk.evaluate(cfg, symbol, raw['available_at_ms'], root=root)
             assert not original_time['allowed']

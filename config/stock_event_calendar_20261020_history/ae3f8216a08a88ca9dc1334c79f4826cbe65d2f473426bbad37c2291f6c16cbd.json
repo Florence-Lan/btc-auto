@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "calendar_id": "stock_official_earnings_20261020_v1",
+  "first_seen_at_ms": 1792427764000,
+  "available_at_ms": 1792427764000,
+  "verified_at_ms": 1792936215689,
+  "valid_until_ms": 1793462400000,
+  "coverage_start_ms": 1792427764000,
+  "coverage_end_ms": 1793462400000,
+  "review_due_reason": "Coverage expires at 2026-11-01 00:00 Asia/Shanghai. Refresh known official notices during routine operations and refresh the next coverage period before expiry; no manual approval is required.",
+  "verification_scope": "Known SK hynix and Sandisk scheduled call anchors re-read in this maintenance. MU no-announced-event review retains its original verification clock because the latest public IR review was incomplete. No claim of an exact first release, actual call completion, exhaustive announcement coverage, or extended horizon.",
+  "symbol_reviews": {
+    "MUUSDT": {
+      "status": "no_announced_event_found",
+      "verified_at_ms": 1792427764000,
+      "source_urls": [
+        "https://investors.micron.com/events-and-presentations/default.aspx"
+      ],
+      "note": "No next earnings date was confirmed in this review; absence is not proof no event will be announced.",
+      "last_review_attempt": {
+        "attempted_at_ms": 1792936215689,
+        "first_seen_at_ms": 1792936215689,
+        "available_at_ms": 1792936215689,
+        "status": "unverified_dynamic_content_or_access",
+        "verification_success": false,
+        "source_urls": [
+          "https://investors.micron.com/events-and-presentations/",
+          "https://investors.micron.com/news/default.aspx"
+        ],
+        "http_statuses": [
+          403,
+          403
+        ],
+        "note": "Public HTTP requests were access-denied; the web reader exposed dynamic page shells without a current event list. The previous no-announced-event review and its verified_at_ms are preserved; no new absence claim or next earnings date is inferred."
+      }
+    },
+    "SNDKUSDT": {
+      "status": "official_event_verified",
+      "verified_at_ms": 1792936215689,
+      "source_urls": [
+        "https://investor.sandisk.com/node/8381/pdf"
+      ]
+    },
+    "SKHYNIXUSDT": {
+      "status": "official_event_verified",
+      "verified_at_ms": 1792936215689,
+      "source_urls": [
+        "https://www.sec.gov/Archives/edgar/data/2120882/000119312526420934/d413172d6k.htm",
+        "https://news.skhynix.com/en/q3-2026-earnings-conference-call-invitation/",
+        "https://news.skhynix.com/en/category/ir/"
+      ],
+      "note": "Latest official October 21 invitation reconfirms the original October 28 09:00 Seoul call; the press release precedes 09:00 that day, without an exact minute. New source adoption is timestamped in verification_history, not backdated to the original calendar."
+    }
+  },
+  "events": [
+    {
+      "event_id": "skhynix_2026q3_call_20261028",
+      "symbols": [
+        "SKHYNIXUSDT"
+      ],
+      "anchor_kind": "official_earnings_call_start",
+      "anchor_time_ms": 1793145600000,
+      "anchor_time_local": "2026-10-28T09:00:00+09:00",
+      "first_release_time_ms": null,
+      "first_release_time_status": "unknown",
+      "call_end_time_ms": null,
+      "call_end_time_status": "unknown",
+      "first_seen_at_ms": 1792427764000,
+      "available_at_ms": 1792427764000,
+      "verified_at_ms": 1792936215689,
+      "source_published_date": "2026-10-14",
+      "source_title": "SK hynix Inc. Form 6-K: 2026 3Q Earnings Results conference call",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/2120882/000119312526420934/d413172d6k.htm",
+      "verification_history": [
+        {
+          "first_seen_at_ms": 1792936215689,
+          "available_at_ms": 1792936215689,
+          "verified_at_ms": 1792936215689,
+          "source_url": "https://news.skhynix.com/en/q3-2026-earnings-conference-call-invitation/",
+          "source_published_date": "2026-10-21",
+          "source_title": "Q3 2026 Earnings Conference Call Invitation",
+          "verification_method": "official_public_html_and_web_reader",
+          "http_received_at_ms": 1792935848159,
+          "source_sha256": "81096672050822c54188dc727200cfdc72f585133deef3b9037d6070a04036fc",
+          "scheduled_call_start_confirmed": true,
+          "first_release_before_ms": 1793145600000,
+          "first_release_minute_known": false,
+          "actual_release_observed": false,
+          "actual_call_end_observed": false,
+          "first_seen_scope": "New adoption of this source into this company calendar during this maintenance; original event clocks remain unchanged."
+        }
+      ]
+    },
+    {
+      "event_id": "sandisk_fy2027q1_call_20261029",
+      "symbols": [
+        "SNDKUSDT"
+      ],
+      "anchor_kind": "official_earnings_call_start",
+      "anchor_time_ms": 1793305800000,
+      "anchor_time_local": "2026-10-29T13:30:00-07:00",
+      "first_release_time_ms": null,
+      "first_release_time_status": "unknown",
+      "call_end_time_ms": null,
+      "call_end_time_status": "unknown",
+      "first_seen_at_ms": 1792427764000,
+      "available_at_ms": 1792427764000,
+      "verified_at_ms": 1792936215689,
+      "source_published_date": "2026-09-29",
+      "source_title": "Sandisk to Report First Quarter Fiscal Year 2027 Results on October 29, 2026",
+      "source_url": "https://investor.sandisk.com/node/8381/pdf",
+      "verification_history": [
+        {
+          "first_seen_at_ms": 1792936215689,
+          "available_at_ms": 1792936215689,
+          "verified_at_ms": 1792936215689,
+          "source_url": "https://investor.sandisk.com/node/8381/pdf",
+          "source_published_date": "2026-09-29",
+          "source_title": "Sandisk to Report First Quarter Fiscal Year 2027 Results on October 29, 2026",
+          "verification_method": "official_pdf_read_by_public_web_reader",
+          "scheduled_call_start_confirmed": true,
+          "first_release_minute_known": false,
+          "actual_release_observed": false,
+          "actual_call_end_observed": false,
+          "http_attempt_status": 403,
+          "note": "The public web reader extracted the official one-page PDF and confirmed the scheduled call. Direct HTTP access returned 403 and was not bypassed; that denial is not a PDF content hash.",
+          "first_seen_scope": "This verification record was first observed now; the original PDF/event first-seen clock remains unchanged."
+        }
+      ]
+    }
+  ],
+  "verification_history": [
+    {
+      "review_id": "official_company_calendar_maintenance_20261025",
+      "first_seen_at_ms": 1792936215689,
+      "available_at_ms": 1792936215689,
+      "verified_at_ms": 1792936215689,
+      "reverified_symbols": [
+        "SKHYNIXUSDT",
+        "SNDKUSDT"
+      ],
+      "unverified_latest_review_symbols": [
+        "MUUSDT"
+      ],
+      "original_event_first_seen_available_anchor_and_coverage_preserved": true,
+      "no_actual_release_or_call_end_imputed": true,
+      "international_template_rewritten": false,
+      "evidence": "data/research/macro_maintenance_20261025/event_maintenance_evidence.json"
+    }
+  ]
+}
