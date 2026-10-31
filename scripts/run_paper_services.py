@@ -95,21 +95,25 @@ def build_services(root=ROOT, shadow=SHADOW, python=sys.executable):
     btc = next(account for account in accounts if account['account_id'] == 'btc')
     report = contained(root, btc['strategy_report_path'], 'data/parallel_simulation')
     report.relative_to(generation)
-    shadow = contained(root, shadow, 'data/paper_trading')
-    if not (shadow / 'manifest.json').is_file() or any(
-            not (shadow / arm / 'state.json').is_file() for arm in ARMS):
-        raise ValueError('Existing shadow manifest and all four ledgers are required; bootstrap separately')
     commands = [
         (python, '-u', str(root / 'scripts' / ALLOWED[0]), '--require-existing', '--poll-seconds', '30'),
         (python, '-u', str(root / 'scripts' / ALLOWED[1]), '--poll-seconds', '30'),
-        (python, '-u', str(extra.get('sndk_script', root / 'scripts' / ALLOWED[2])), '--require-existing', '--poll-seconds', '30',
-         '--output-dir', str(shadow)),
     ]
     if any(not Path(command[2]).is_file() for command in commands):
         raise ValueError('A required paper script is unavailable')
     services = [Service('main', commands[0], main_status, tuple(a['account_id'] for a in accounts)),
-            Service('btc_signals', commands[1], report.with_name('status.json'), startup_grace_seconds=600),
-            Service('sndk_shadow', commands[2], shadow / 'status.json', ARMS)]
+            Service('btc_signals', commands[1], report.with_name('status.json'), startup_grace_seconds=600)]
+    if extra.get('sndk_enabled', True):
+        shadow = contained(root, shadow, 'data/paper_trading')
+        if not (shadow / 'manifest.json').is_file() or any(
+                not (shadow / arm / 'state.json').is_file() for arm in ARMS):
+            raise ValueError('Existing shadow manifest and all four ledgers are required; bootstrap separately')
+        script = extra.get('sndk_script', root / 'scripts' / ALLOWED[2])
+        if not script.is_file():
+            raise ValueError('A required paper script is unavailable')
+        command = (python, '-u', str(script), '--require-existing', '--poll-seconds', '30',
+                   '--output-dir', str(shadow))
+        services.append(Service('sndk_shadow', command, shadow / 'status.json', ARMS))
     if 'reentry_output' in extra:
         extensions.require_reentry_ledgers(root, extra['reentry_config'], extra['reentry_output'])
         script = root / 'scripts' / ALLOWED[3]
@@ -158,6 +162,8 @@ def canonical_command(argv, root=ROOT, shadow=SHADOW):
         return None
     script = contained(root, argv.pop(0))
     extra = extensions.load(root, verify_frozen=False)
+    if not extra.get('sndk_enabled', True) and script.name.casefold() == ALLOWED[2]:
+        return None
     allowed_paths = {(root / 'scripts' / name).resolve() for name in ALLOWED}
     if 'sndk_script' in extra:
         allowed_paths.add(extra['sndk_script'].resolve())

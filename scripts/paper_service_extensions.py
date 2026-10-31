@@ -67,11 +67,20 @@ def load(root, verify_frozen=True):
     if (spec.get('schema_version') != 1 or spec.get('mode') != 'SIMULATION'
             or spec.get('places_orders') is not False
             or set(spec) - {'schema_version', 'mode', 'places_orders',
-                             'sndk_frozen_runtime', 'btc_reentry_shadow', 'stock_macro_shadow'}):
+                             'sndk_shadow', 'sndk_frozen_runtime', 'btc_reentry_shadow', 'stock_macro_shadow'}):
         raise ValueError('Invalid paper service extensions')
     result = {}
+    if 'sndk_shadow' in spec:
+        service = spec['sndk_shadow']
+        if (not isinstance(service, dict) or set(service) != {'enabled'}
+                or type(service['enabled']) is not bool):
+            raise ValueError('Invalid SNDK shadow service switch')
+        result['sndk_enabled'] = service['enabled']
     frozen = spec.get('sndk_frozen_runtime')
-    if frozen is not None:
+    # An explicitly disabled comparison must not prevent the two primary
+    # services from starting because its historical archive is unavailable.
+    # Preserve the binding as configuration only; validate it if re-enabled.
+    if frozen is not None and result.get('sndk_enabled', True):
         if not isinstance(frozen, dict) or set(frozen) != {'runtime_root'}:
             raise ValueError('Invalid frozen runtime binding')
         runtime = contained(root, frozen['runtime_root'], 'data/runtime')

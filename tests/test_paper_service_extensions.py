@@ -185,3 +185,58 @@ def test_pinned_review_environment_rejects_binary_drift_without_editing_global_s
     executable.write_bytes(b'changed')
     with pytest.raises(ValueError, match='missing or changed'):
         extensions.review_environment(root)
+
+
+def test_explicit_disabled_comparisons_need_no_shadow_ledgers_scripts_or_frozen_runtime(layout):
+    root, shadow, plan = layout
+    main_before = {a['account_id']: (root/a['state_path']).read_bytes() for a in plan['accounts']}
+    write_extensions(root, sndk_shadow={'enabled': False},
+        sndk_frozen_runtime={'runtime_root': 'data/runtime/absent_historical_runtime'},
+        btc_reentry_shadow={'enabled': False, 'config_path': extensions.REENTRY_CONFIG,
+                           'output_dir': extensions.REENTRY_OUTPUT},
+        stock_macro_shadow={'enabled': False, 'config_path': extensions.MACRO_CONFIG,
+                            'output_dir': extensions.MACRO_OUTPUT})
+    for path in [shadow/'manifest.json', *(shadow/arm/'state.json' for arm in paper.ARMS),
+                 *(root/'scripts'/name for name in paper.ALLOWED[2:])]:
+        path.unlink()
+    assert extensions.load(root) == {'sndk_enabled': False}
+    for _ in range(2):
+        services = paper.build_services(root, shadow)
+        assert [s.name for s in services] == ['main', 'btc_signals']
+        assert all(paper.canonical_command(service.command, root) is not None for service in services)
+    assert not (shadow/'manifest.json').exists()
+    assert not (root/'data/runtime/absent_historical_runtime').exists()
+    assert main_before == {a['account_id']: (root/a['state_path']).read_bytes() for a in plan['accounts']}
+
+
+@pytest.mark.parametrize('switch', [None, False, {}, {'enabled': None}, {'enabled': 0},
+                                   {'enabled': 'false'}, {'enabled': False, 'runtime_root': 'unused'}])
+def test_sndk_switch_requires_an_explicit_typed_boolean(layout, switch):
+    root, _, _ = layout
+    write_extensions(root, sndk_shadow=switch)
+    with pytest.raises(ValueError, match='SNDK shadow service switch'):
+        extensions.load(root)
+
+
+def test_explicit_reenable_restores_sndk_original_ledger_guard(layout):
+    root, shadow, _ = layout
+    write_extensions(root, sndk_shadow={'enabled': True})
+    assert [s.name for s in paper.build_services(root, shadow)] == ['main', 'btc_signals', 'sndk_shadow']
+    (shadow/paper.ARMS[0]/'state.json').unlink()
+    with pytest.raises(ValueError, match='all four ledgers'):
+        paper.build_services(root, shadow)
+    write_extensions(root, sndk_shadow={'enabled': False})
+    assert [s.name for s in paper.build_services(root, shadow)] == ['main', 'btc_signals']
+
+
+def test_disabled_sndk_does_not_validate_an_inactive_frozen_source_binding(layout):
+    root, shadow, _ = layout
+    # Disabled historical bindings are not used for any command. If re-enabled,
+    # the original containment/fingerprint validation is restored immediately.
+    write_extensions(root, sndk_shadow={'enabled': False},
+                     sndk_frozen_runtime={'runtime_root': '../outside'})
+    assert [s.name for s in paper.build_services(root, shadow)] == ['main', 'btc_signals']
+    write_extensions(root, sndk_shadow={'enabled': True},
+                     sndk_frozen_runtime={'runtime_root': '../outside'})
+    with pytest.raises(ValueError):
+        extensions.load(root)

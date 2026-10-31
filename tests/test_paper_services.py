@@ -75,6 +75,51 @@ def test_guards_reject_account_paths_outside_generation(layout):
         services(layout)
 
 
+def test_disabled_comparison_never_restarts_and_primary_services_remain_managed(layout):
+    root, shadow, plan = layout
+    save(root/'config/paper_service_extensions_20261020.json', {
+        'schema_version': 1, 'mode': 'SIMULATION', 'places_orders': False,
+        'sndk_shadow': {'enabled': False},
+        'btc_reentry_shadow': {'enabled': False,
+            'config_path': 'config/btc_reentry_compat_shadow_20261020.json',
+            'output_dir': 'data/paper_trading/btc_reentry_compat_shadow_20261020'},
+        'stock_macro_shadow': {'enabled': False,
+            'config_path': 'config/stock_macro_shadow_20261021.json',
+            'output_dir': 'data/paper_trading/stock_macro_shadow_20261021'}})
+    old_shadow = (str(root/'.venv/Scripts/python.exe'), '-u',
+        str(root/'scripts/run_sndk_4h_gate_shadow.py'), '--require-existing',
+        '--poll-seconds', '30', '--output-dir', str(shadow))
+    assert paper.canonical_command(old_shadow, root) is None
+    definitions = services(layout)
+    assert [service.name for service in definitions] == ['main', 'btc_signals']
+    before = {a['account_id']: (root/a['state_path']).read_bytes() for a in plan['accounts']}
+    backend = FakeProcesses()
+    control = paper.Supervisor(definitions, backend, root/'data/control_test', root, lambda: 1000)
+    for _ in range(3):
+        control.tick()
+    assert set(control.managed) == {'main', 'btc_signals'}
+    assert {service.name for service in backend.started} == {'main', 'btc_signals'}
+    assert len(backend.started) == 2 and not backend.stopped
+    assert before == {a['account_id']: (root/a['state_path']).read_bytes() for a in plan['accounts']}
+
+
+def test_disabled_shadow_cannot_bypass_primary_ledger_or_script_guards(layout):
+    root, _, plan = layout
+    save(root/'config/paper_service_extensions_20261020.json', {
+        'schema_version': 1, 'mode': 'SIMULATION', 'places_orders': False,
+        'sndk_shadow': {'enabled': False}})
+    primary = root/plan['accounts'][0]['state_path']
+    raw = primary.read_bytes()
+    primary.unlink()
+    with pytest.raises(ValueError, match='Original account ledger missing'):
+        services(layout)
+    assert not primary.exists()
+    primary.write_bytes(raw)
+    (root/'scripts/run_parallel_btc_signals.py').unlink()
+    with pytest.raises(ValueError, match='required paper script'):
+        services(layout)
+
+
 def identity(service, pid=10, parent=1, created=100, command=None):
     argv = tuple(command or service.command)
     return paper.ProcessIdentity(pid, parent, created, ' '.join(argv), argv)
