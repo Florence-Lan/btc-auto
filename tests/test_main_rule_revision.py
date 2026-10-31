@@ -3,6 +3,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -15,6 +16,7 @@ import stock_short_confirmation as short
 def fixture():
     expected = {'signal_family': 'donchian20', 'entry_enabled': True,
                 'risk_fraction_per_trade': .0025,
+                'portfolio_gross_notional_fraction': 1.0,
                 'stock_event_risk_policy': {'calendar_path': 'config/original_calendar.json'}}
     current = {**deepcopy(expected), short.POLICY_KEY: deepcopy(short.POLICY)}
     revision = {'scope': 'short_confirmation_only', 'activated_at_ms': 2000,
@@ -134,3 +136,115 @@ def test_risk_drift_in_main_still_blocks_exit_restore(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match='differs from the declared baseline'):
         shadow.check_source_rules(spec, rules)
     assert path.read_bytes() == before
+
+
+@pytest.fixture
+def budget_policy(monkeypatch):
+    # The verifier must use the exact policy exported by the reviewed module,
+    # including scalar types. This isolated stub tests that dependency contract.
+    policy = {'mode': 'net100_risk25_v1', 'net_profit_target_usdt': 100.,
+              'maximum_planned_loss_usdt': 25., 'maximum_equity_risk_fraction': .025,
+              'minimum_net_reward_risk': 4., 'maximum_leverage': 10.,
+              'maximum_gross_notional_fraction': 10.}
+    monkeypatch.setitem(sys.modules, 'trade_profit_budget', SimpleNamespace(POLICY=policy))
+    return policy
+
+
+def with_budget(state, policy):
+    previous = deepcopy(state['rule'])
+    current = {**previous, 'trade_profit_budget_policy': deepcopy(policy),
+               'risk_fraction_per_trade': .025, 'portfolio_gross_notional_fraction': 10.}
+    state.update(rule=current, trade_profit_budget_active_after_ms=3000)
+    state['rule_history'].append({'scope': 'profit_budget_only', 'activated_at_ms': 3000,
+                                  'previous_rule': previous, 'new_rule': deepcopy(current)})
+    return state
+
+
+def test_exact_two_stage_main_revision_chain_keeps_old_baseline_and_inputs(budget_policy):
+    state, expected = fixture()
+    with_budget(state, budget_policy)
+    original = deepcopy((state, expected))
+    assert declared_main_baseline_matches(state, expected)
+    assert (state, expected) == original
+    assert state['rule']['risk_fraction_per_trade'] == .025
+    assert expected['risk_fraction_per_trade'] == .0025
+
+
+def test_actual_reviewed_budget_policy_supports_only_the_declared_allocation_chain():
+    import trade_profit_budget as actual
+    state, expected = fixture()
+    with_budget(state, actual.POLICY)
+    assert declared_main_baseline_matches(state, expected)
+    assert state['rule']['trade_profit_budget_policy'] == actual.POLICY
+    assert expected['portfolio_gross_notional_fraction'] == 1.0
+
+
+@pytest.mark.parametrize('mutation', [
+    lambda s: s['rule'].update(risk_fraction_per_trade=.02),
+    lambda s: s['rule'].update(risk_fraction_per_trade=.0025),
+    lambda s: s['rule'].update(portfolio_gross_notional_fraction=1.),
+    lambda s: s['rule'].update(portfolio_gross_notional_fraction=10),
+    lambda s: s['rule']['trade_profit_budget_policy'].update(maximum_planned_loss_usdt=24.),
+    lambda s: s['rule']['trade_profit_budget_policy'].update(maximum_planned_loss_usdt=25),
+    lambda s: s['rule']['trade_profit_budget_policy'].update(extra=True),
+    lambda s: s['rule'].update(unreviewed_policy={}),
+    lambda s: s['rule'].pop(short.POLICY_KEY),
+    lambda s: s.pop('trade_profit_budget_active_after_ms'),
+    lambda s: s.update(trade_profit_budget_active_after_ms=True),
+    lambda s: s.update(trade_profit_budget_active_after_ms=3000.),
+    lambda s: s.update(trade_profit_budget_active_after_ms=2000),
+    lambda s: s['rule_history'][-1].update(scope='risk_fraction_only'),
+    lambda s: s['rule_history'][-1].update(activated_at_ms=3000.),
+    lambda s: s['rule_history'][-1].update(activated_at_ms=2999),
+    lambda s: s['rule_history'][-1]['previous_rule'].update(risk_fraction_per_trade=.01),
+    lambda s: s['rule_history'][-1]['new_rule'].update(risk_fraction_per_trade=.01),
+    lambda s: s['rule_history'].pop(0),
+    lambda s: s['rule_history'].reverse(),
+    lambda s: s['rule_history'].append(deepcopy(s['rule_history'][-1])),
+])
+def test_budget_chain_rejects_any_other_rule_policy_cutoff_or_history_change(budget_policy, mutation):
+    state, expected = fixture()
+    with_budget(state, budget_policy)
+    mutation(state)
+    original = deepcopy((state, expected))
+    assert not declared_main_baseline_matches(state, expected)
+    assert (state, expected) == original
+
+
+def test_hidden_intermediate_risk_change_is_not_ignored(budget_policy):
+    state, expected = fixture()
+    with_budget(state, budget_policy)
+    before = deepcopy(state['rule_history'][0]['new_rule'])
+    after = {**before, 'risk_fraction_per_trade': .01}
+    state['rule_history'].insert(1, {'scope': 'unapproved', 'activated_at_ms': 2500,
+                                   'previous_rule': before, 'new_rule': after})
+    assert not declared_main_baseline_matches(state, expected)
+
+
+def test_current_budget_does_not_validate_against_a_replaced_declared_baseline(budget_policy):
+    state, expected = fixture()
+    with_budget(state, budget_policy)
+    expected['risk_fraction_per_trade'] = .025
+    assert not declared_main_baseline_matches(state, expected)
+
+
+def test_budget_policy_module_unavailable_fails_closed(monkeypatch, budget_policy):
+    state, expected = fixture()
+    with_budget(state, budget_policy)
+    monkeypatch.setitem(sys.modules, 'trade_profit_budget', None)
+    assert not declared_main_baseline_matches(state, expected)
+
+
+def test_exit_and_early_restore_exact_budget_chain_without_rule_or_financial_writes(tmp_path, monkeypatch, budget_policy):
+    spec, rules = setup_source(tmp_path, monkeypatch)
+    for symbol in shadow.SYMBOLS:
+        path = tmp_path / (symbol + '.json')
+        state = json.loads(path.read_text(encoding='utf-8'))
+        path.write_text(json.dumps(with_budget(state, budget_policy)), encoding='utf-8')
+    before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
+    original_rules = deepcopy(rules)
+    assert set(shadow.check_source_rules(spec, rules)) == set(shadow.SYMBOLS)
+    import run_stock_early_recovery_shadow as early
+    assert set(early.check_source_rules(spec, rules)) == set(shadow.SYMBOLS)
+    assert rules == original_rules
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before

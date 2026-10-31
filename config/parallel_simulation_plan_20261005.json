@@ -7,7 +7,7 @@
   "total_initial_balance_usdt": 4000,
   "capital_transfers_between_accounts": false,
   "historical_warmup_counts_as_forward_performance": false,
-  "stock_research_profile": "config/stock_main_price_led_short_20261030.json",
+  "stock_research_profile": "config/stock_net100_risk25_20261031.json",
   "main_stock_runtime": "price_led_short_v1",
   "market_data_policy": {
     "source": "real_public_venue_market_data",
@@ -85,7 +85,7 @@
   "start_policy": "Fresh 1000 USDT empty accounts, common exchange UTC inception; preserve every earlier generation.",
   "prospective_start_utc": "2026-10-07T13:50:09.264000+00:00",
   "status_path": "data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007/status.json",
-  "stock_rule_revision_scope": "short_confirmation_only",
+  "stock_rule_revision_scope": "profit_budget_only",
   "previous_plan_archive": "config/parallel_simulation_plan_20261005_archived_before_new_20261007.json",
   "btc_signal_producer_script": "scripts/run_parallel_btc_signals.py",
   "accounts": [
@@ -150,7 +150,7 @@
     "verified_at_utc": "2026-10-11T04:21:12.570493+00:00",
     "all_four_worker_heartbeats_verified": true
   },
-  "stock_rule_revision_reason": "User explicitly requested direct MAIN paper deployment. Add only the price-led completed-4h short confirmation alternative; retain long signals, risk, stops, history, pending identity and simulation epoch. Share only an originally timed verified public clock to reduce duplicate time requests; no stale-signal replay.",
+  "stock_rule_revision_reason": "User authorized each main account single-trade net target100 USDT and planned loss25 USDT/2.5% equity, net reward/risk>=4. New forward entries only; grandfather existing positions and preserve all cash/history.",
   "swing_policy": {
     "requested_at_utc": "2026-10-11T04:11:15.795291+00:00",
     "source_user_instruction": "??????????????????????????????????",
@@ -266,5 +266,14 @@
     "forward_validated": false,
     "verification_path": "data/research/strategy_risk_update_20261020/activation_20261019T173922_280474Z/verification.json",
     "btc_reentry_experiment": "config/btc_reentry_shadow_20261020.json"
+  },
+  "trade_profit_budget_policy": {
+    "mode": "net100_risk25_v1",
+    "net_profit_target_usdt": 100.0,
+    "maximum_planned_loss_usdt": 25.0,
+    "maximum_equity_risk_fraction": 0.025,
+    "minimum_net_reward_risk": 4.0,
+    "maximum_leverage": 10.0,
+    "maximum_gross_notional_fraction": 10.0
   }
 }

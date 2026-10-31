@@ -19,6 +19,7 @@ import zlib
 import run_parallel_simulation as paper
 import stock_short_confirmation as short
 import stock_swing_profiles as profiles
+import trade_profit_budget as profit_budget
 
 SHARED_ROOT = paper.ROOT / 'data/paper_trading/stock_entry_timing_trial_20261029'
 MAX_BLOCK_BYTES = 8_000_000
@@ -187,15 +188,101 @@ class MainStockAccount(paper.StockAccount):
                 or self.short_confirmation_active_after_ms <= 0):
             raise ValueError('main_short_confirmation_activation_required')
         self._main_clock_diagnostic = {'source': 'not_observed'}
+        self._declared_config = deepcopy(config)
+        self._budget_decision = None
+        self._legacy_position_mode = False
+        self.trade_profit_budget_active_after_ms = state.get('trade_profit_budget_active_after_ms')
+        if profit_budget.enabled(config):
+            profit_budget.validate(config)
+            if (type(self.trade_profit_budget_active_after_ms) is not int
+                    or self.trade_profit_budget_active_after_ms <= 0):
+                raise ValueError('main_profit_budget_activation_required')
 
     def market_data(self, force_rules=False, force_signal=False):
         self._main_clock_diagnostic = {'source': 'not_observed'}
         return _BASE_MARKET_DATA(_AccountView(self), force_rules=force_rules, force_signal=force_signal)
 
+    def _plan_budget(self, state, equity, sig, entry, stop, step, lot, volume, minimum, actual_qty=None):
+        decision = profit_budget.stock_plan(self.config, equity=equity, entry=entry,
+            stop=stop, step=step, direction=sig.direction,
+            maximum_qty=float(lot['maxQty']), minimum_qty=float(lot['minQty']),
+            minimum_notional=minimum, liquidity_qty=volume * .1, actual_qty=actual_qty)
+        decision.update(checked_at_ms=self.now_ms(), signal_time_ms=sig.time_ms,
+            signal_boundary_ms=sig.time_ms + self.signal_interval_ms)
+        self._budget_decision = decision
+        state['entry_profit_budget'] = deepcopy(decision)
+        return decision
+
+    def entry_quantity(self, state, equity, signal, entry, stop, step, lot, volume, minimum):
+        if self._legacy_position_mode:
+            self._budget_decision = {'enabled': True, 'allowed': False,
+                'reasons': ['legacy_position_closed_wait_for_next_observation']}
+            return 0.
+        if not profit_budget.enabled(self.config):
+            return super().entry_quantity(state, equity, signal, entry, stop, step, lot, volume, minimum)
+        if signal.time_ms + self.signal_interval_ms <= self.trade_profit_budget_active_after_ms:
+            self._budget_decision = {'enabled': True, 'allowed': False,
+                'reasons': ['profit_budget_pre_activation_signal']}
+            return 0.
+        decision = self._plan_budget(state, equity, signal, entry, stop, step, lot, volume, minimum)
+        return decision['admitted_quantity']
+
+    def entry_fill_admission(self, state, equity, signal, candidate, result, step, lot, volume, minimum):
+        if not profit_budget.enabled(self.config):
+            return super().entry_fill_admission(state, equity, signal, candidate, result, step, lot, volume, minimum)
+        decision = self._plan_budget(state, equity, signal, result['price'], candidate['stop'],
+            step, lot, volume, minimum, actual_qty=result['qty'])
+        if decision['allowed']:
+            candidate['trade_profit_budget'] = {**deepcopy(decision),
+                'activated_at_ms': self.trade_profit_budget_active_after_ms,
+                'entry_rule': deepcopy(self.config)}
+        return decision
+
+    def allow_profit_target(self, state, position, data, errors, timestamp):
+        if not position.get('trade_profit_budget'):
+            return super().allow_profit_target(state, position, data, errors, timestamp)
+        due = state.get('next_funding_ms')
+        return bool(data.get('clock') and data.get('funding') is not None
+            and not errors.get('funding')
+            and not (due and due <= self.now_ms() and state.get('funding_through_ms', 0) < due))
+
+    def additional_exit_reason(self, state, position, data, errors, timestamp):
+        original = super().additional_exit_reason(state, position, data, errors, timestamp)
+        if original or not position.get('trade_profit_budget'):
+            return original
+        try:
+            side = position['direction']
+            book = data.get('book') or {}
+            price = float(book['bids' if side > 0 else 'asks'][0][0])
+            paper.fresh(book.get('T') or book.get('E'), self.now_ms())
+            exit_price = price * (1 - side * self.config['adverse_slippage_fraction_assumption'])
+            net = side * position['qty'] * (exit_price - position['entry'])
+            net -= (position['entry_fee'] + position['funding']
+                    + position['qty'] * exit_price * self.config['taker_fee_rate_assumption'])
+            cap = position['trade_profit_budget']['loss_budget_usdt']
+            if net <= -cap:
+                return 'trade_profit_budget_loss_limit'
+        except (ValueError, KeyError, TypeError, IndexError):
+            pass  # Original independent mark/stop protection still takes priority.
+        return None
+
     def step(self, market_data=None):
         state = paper.read_json(self.path)
         if short.enabled(self.config) and state.get('short_confirmation_active_after_ms') != self.short_confirmation_active_after_ms:
             raise ValueError('main_short_confirmation_activation_changed')
+        if (profit_budget.enabled(self._declared_config)
+                and state.get('trade_profit_budget_active_after_ms') != self.trade_profit_budget_active_after_ms):
+            raise ValueError('main_profit_budget_activation_changed')
+        self._budget_decision = None
+        self._legacy_position_mode = bool(state.get('position')
+            and not state['position'].get('trade_profit_budget') and profit_budget.enabled(self._declared_config))
+        if self._legacy_position_mode:
+            legacy = state.get('trade_profit_budget_legacy_position_rule')
+            if not isinstance(legacy, dict) or profit_budget.enabled(legacy):
+                raise ValueError('Grandfathered position requires its original rule snapshot')
+            self.config = legacy
+        else:
+            self.config = self._declared_config
         adapter = _SignalProfiles(self.short_confirmation_active_after_ms or 0)
         def write(path, value):
             if Path(path) == Path(self.path) and isinstance(value, dict):
@@ -203,9 +290,22 @@ class MainStockAccount(paper.StockAccount):
                     'short_confirmation_active_after_ms': self.short_confirmation_active_after_ms,
                     'clock': deepcopy(self._main_clock_diagnostic)}
                 value['short_confirmation'] = deepcopy((value.get('signal_diagnostics') or {}).get('short_confirmation'))
+                if self._budget_decision is not None:
+                    value['entry_profit_budget'] = deepcopy(self._budget_decision)
+                    if not self._budget_decision.get('allowed') and not value.get('position'):
+                        value['signal_status'] = 'trade_profit_budget_blocked'
+                        value['entry_blockers'] = list(dict.fromkeys(value.get('entry_blockers', [])
+                            + self._budget_decision.get('reasons', [])))
+                value['main_stock_runtime']['trade_profit_budget'] = {
+                    'enabled': profit_budget.enabled(self._declared_config),
+                    'active_after_ms': self.trade_profit_budget_active_after_ms,
+                    'grandfathered_existing_position': self._legacy_position_mode}
             return _BASE_WRITE(path, value)
         function = FunctionType(_BASE_STEP.__code__, {**_BASE_STEP.__globals__,
             'stock_swing_profiles': adapter, 'write_json': write}, _BASE_STEP.__name__,
             _BASE_STEP.__defaults__, _BASE_STEP.__closure__)
         function.__kwdefaults__ = _BASE_STEP.__kwdefaults__
-        return function(self, market_data)
+        try:
+            return function(self, market_data)
+        finally:
+            self.config = self._declared_config

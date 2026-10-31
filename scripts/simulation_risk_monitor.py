@@ -105,7 +105,9 @@ def monitor(client, now_ms, *, clock_available=True, clock_error=None,
         if (previous.get("position_qty") and updated.get("position_qty") == 0
                 and updated.get("created_at_utc") == previous.get("created_at_utc")
                 and isinstance(fill, dict)
-                and (updated.get("risk_halt_at_utc") or fill.get("reason") == "net_margin_target")
+                and (updated.get("risk_halt_at_utc") or fill.get("reason") in {
+                    "net_margin_target", "main_btc_net100_target",
+                    "main_btc_budget_protective_stop", "main_btc_budget_loss_limit"})
                 and fill.get("sequence") == int(previous.get("fill_count_total") or 0) + 1
                 and fill.get("time_utc") == updated.get("updated_at_utc")
                 and round(datetime.fromisoformat(fill["time_utc"]).timestamp()*1000) >= earliest_ms
@@ -170,7 +172,8 @@ def monitor(client, now_ms, *, clock_available=True, clock_error=None,
     if profit_status.get("status") in {"ledger_unavailable", "invalid_policy"}:
         health["errors"]["profit_target"] = "Complete cost ledger unavailable; profit target deferred"
         available = False
-    profit_fill = bool(result["fill"] and result["fill"].get("reason") == "net_margin_target")
+    profit_fill = bool(result["fill"] and result["fill"].get("reason") in {
+        "net_margin_target", "main_btc_net100_target"})
     health.update(
         status="healthy" if clock_available and available and health["clock_source"] == "exchange" else "degraded",
         assessment="evaluated", assessment_time_ms=assessment_ms,

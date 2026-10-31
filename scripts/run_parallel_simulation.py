@@ -449,6 +449,18 @@ class StockAccount:
         with ThreadPoolExecutor(max_workers=7) as pool:
             return list(pool.map(lambda args: fetch(*args), requests_to_make))
 
+    def entry_quantity(self, state, equity, signal, entry, stop, step, lot, volume, minimum):
+        """Default legacy sizing; main-only policies may impose a stricter plan."""
+        return signals.position_size(equity, entry, stop, step,
+            self.config['risk_fraction_per_trade'], self.config['taker_fee_rate_assumption'],
+            self.config['adverse_slippage_fraction_assumption'])
+
+    def entry_fill_admission(self, state, equity, signal, candidate, result, step, lot, volume, minimum):
+        return {'enabled': False, 'allowed': True, 'reasons': []}
+
+    def allow_profit_target(self, state, position, data, errors, timestamp):
+        return True
+
     def close(self, state, pos, book, requested, reason, trigger_ms, step, min_qty):
         """Book one observed exit leg and allocate costs to that leg exactly once."""
         result = book_fill(book, -pos['direction'] * requested, step,
@@ -757,7 +769,8 @@ class StockAccount:
                 reason = 'liquidation_stress'
             elif side * (executable - pos['stop']) <= 0:
                 reason = 'protective_stop'
-            elif not managed and fresh_book and side * (executable * (1 - side * cfg['adverse_slippage_fraction_assumption']) - target) >= 0:
+            elif (not managed and fresh_book and self.allow_profit_target(state, pos, data, errors, timestamp)
+                    and side * (executable * (1 - side * cfg['adverse_slippage_fraction_assumption']) - target) >= 0):
                 reason = 'net120_target'
             elif timestamp - pos['entry_time'] >= cfg['max_holding_calendar_days'] * 86_400_000:
                 reason = 'time_stop'
@@ -922,8 +935,8 @@ class StockAccount:
                         stop = signals.initial_stop(entry_estimate, sig.direction, sig.atr, cfg)
                         if stop:
                             stop = arithmetic.round_tick(stop, tick, sig.direction == -1)
-                            qty = signals.position_size(equity, entry_estimate, stop, step,
-                                cfg['risk_fraction_per_trade'], cfg['taker_fee_rate_assumption'], cfg['adverse_slippage_fraction_assumption'])
+                            qty = self.entry_quantity(state, equity, sig, entry_estimate, stop,
+                                step, lot, volume, minimum)
                             qty = min(qty, equity * cfg['portfolio_gross_notional_fraction'] / entry_estimate,
                                       volume * 0.1, float(lot['maxQty']), equity * 10 / entry_estimate)
                             result = book_fill(book, sig.direction * floor_qty(qty, step), step, cfg['adverse_slippage_fraction_assumption'])
@@ -942,7 +955,10 @@ class StockAccount:
                                     fill_timing = self.record_entry_timing(state, pending, stock_entry_timing.evaluate(
                                         pending.get('entry_trigger'), sig, cfg, reference_price=reference,
                                         mark_price=price, fill_price=result['price']), 'fill')
-                                    if (fill_timing['allowed'] and self.now_ms() < pending['expires_at_ms']
+                                    budget_admission = self.entry_fill_admission(state, equity, sig,
+                                        candidate, result, step, lot, volume, minimum)
+                                    if (fill_timing['allowed'] and budget_admission['allowed']
+                                            and self.now_ms() < pending['expires_at_ms']
                                             and actual_risk <= equity * cfg['risk_fraction_per_trade'] + 1e-9
                                             and abs(stop / result['price'] - 1) <= cfg['max_stop_fraction'] + 1e-12
                                             and sig.direction * (stop - liq) / result['price'] >= cfg['minimum_liquidation_distance_buffer']):
@@ -965,7 +981,10 @@ class StockAccount:
                                             state['signal_status'] = 'stock_event_blocked'
                                             state['entry_blockers'] = fill_event['reasons']
                                     else:
-                                        if not fill_timing['allowed']:
+                                        if not budget_admission['allowed']:
+                                            state['signal_status'] = 'trade_profit_budget_blocked'
+                                            state['entry_blockers'] = budget_admission['reasons']
+                                        elif not fill_timing['allowed']:
                                             state['signal_status'] = ('entry_signal_invalidated' if fill_timing['cancel_pending']
                                                                       else 'entry_timing_blocked')
                                             state['entry_blockers'] = fill_timing['reasons']
@@ -1046,7 +1065,7 @@ def stock_config(plan, symbol):
                                           'max_entry_spread_fraction', 'profit_exit_policy', 'trend_exit_policy',
                                           'entry_quality_policy', 'swing_confirmation_policy',
                                           'entry_timing_policy', 'stock_event_risk_policy',
-                                          'short_confirmation_policy') if key in profile}
+                                          'short_confirmation_policy', 'trade_profit_budget_policy') if key in profile}
     cfg = {**base, **common, **profile['symbol_profiles'][symbol],
         'candidate_id': profile['symbol_profiles'][symbol].get('candidate_id', profile['candidate_id']),
         'risk_fraction_per_trade': profile['risk_fraction_per_bucket_trade'],
@@ -1059,6 +1078,9 @@ def stock_config(plan, symbol):
     if 'short_confirmation_policy' in cfg:
         import stock_short_confirmation
         stock_short_confirmation.validate(cfg)
+    if 'trade_profit_budget_policy' in cfg:
+        import trade_profit_budget
+        trade_profit_budget.validate(cfg)
     if cfg.get('trend_exit_policy') is not None:
         trend_exits.validate(cfg['trend_exit_policy'])
     return cfg
@@ -1083,6 +1105,13 @@ def synchronize_stock_rules(plan, root, manifest):
         timing_only = plan.get('stock_rule_revision_scope') == 'entry_timing_only'
         event_only = plan.get('stock_rule_revision_scope') == 'stock_event_risk_only'
         short_only = plan.get('stock_rule_revision_scope') == 'short_confirmation_only'
+        budget_only = plan.get('stock_rule_revision_scope') == 'profit_budget_only'
+        if budget_only:
+            import trade_profit_budget as budget
+            expected = {**state['rule'], budget.POLICY_KEY: budget.POLICY,
+                'risk_fraction_per_trade': .025, 'portfolio_gross_notional_fraction': 10.0}
+            if budget.POLICY_KEY in state['rule'] or cfg != expected:
+                raise ValueError('Profit-budget migration cannot alter technical signals, stops or exits')
         if short_only:
             ignored = {'short_confirmation_policy'}
             if ({k: v for k, v in state['rule'].items() if k not in ignored}
@@ -1114,12 +1143,22 @@ def synchronize_stock_rules(plan, root, manifest):
             'reason': plan.get('stock_rule_revision_reason', 'User authorized independent per-account strategies and shorter stock signal cycles; closed-bar signals with 30s entry retries.')}
         if short_only:
             revision['scope'] = 'short_confirmation_only'
+        if budget_only:
+            revision['scope'] = 'profit_budget_only'
         state.setdefault('rule_history', []).append(revision)
         state.update(rule=cfg, signal_timeframe=cfg['signal_timeframe'])
         if cfg.get('trend_exit_policy') != revision['previous_rule'].get('trend_exit_policy'):
             state['trend_exit_active_after_ms'] = activated
             state.pop('trend_exit_status', None)
-        if short_only:
+        if budget_only:
+            state['trade_profit_budget_active_after_ms'] = activated
+            if state.get('position'):
+                state['trade_profit_budget_legacy_position_rule'] = revision['previous_rule']
+            state.update(signal_active_after_ms=activated, pending_signal=None)
+            state['entry_profit_budget'] = {'enabled': True, 'allowed': False,
+                'status': 'awaiting_new_signal', 'reasons': ['profit_budget_awaiting_new_signal'],
+                'net_profit_target_usdt': 100., 'maximum_planned_loss_usdt': 25.}
+        elif short_only:
             # Apply the alternative only to newly completed hours. Retain consumed
             # signals, existing pending identity, activation epoch and every ledger.
             state['short_confirmation_active_after_ms'] = activated
@@ -1142,6 +1181,40 @@ def synchronize_stock_rules(plan, root, manifest):
     if revisions:
         manifest.setdefault('rule_revisions', []).extend(revisions)
         write_json(root / 'manifest.json', manifest)
+
+
+def synchronize_btc_profit_budget(plan, root, manifest):
+    """Record the authorized main BTC budget without changing its producer."""
+    policy = plan.get('trade_profit_budget_policy')
+    if policy is None:
+        return
+    import trade_profit_budget as budget
+    budget.validate({budget.POLICY_KEY: policy})
+    account = next(account for account in plan['accounts'] if account['account_id'] == 'btc')
+    path = ROOT/account['state_path']
+    state = read_json(path)
+    if state.get(budget.POLICY_KEY) == policy:
+        if type(state.get('trade_profit_budget_active_after_ms')) is not int:
+            raise ValueError('Existing BTC profit budget has no activation timestamp')
+        return
+    if budget.POLICY_KEY in state:
+        raise ValueError('Incompatible existing BTC trade profit budget')
+    activated = now_ms()
+    revision = {'scope': 'profit_budget_only', 'activated_at_ms': activated,
+        'activated_at_utc': arithmetic.iso(activated), 'previous_policy': None,
+        'new_policy': policy, 'source_hash': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        'reason': 'User authorized each main account net100 target and planned loss <=25, minimum net reward/risk 4; new forward signals only.'}
+    write_json(root/'rule_revisions'/str(activated)/'btc'/'previous_state.json', state)
+    state[budget.POLICY_KEY] = policy
+    state['trade_profit_budget_active_after_ms'] = activated
+    state.setdefault('trade_profit_budget_history', []).append(revision)
+    state['entry_profit_budget'] = {'enabled': True, 'allowed': False,
+        'status': 'awaiting_new_signal', 'reasons': ['profit_budget_awaiting_new_signal'],
+        'net_profit_target_usdt': 100., 'maximum_planned_loss_usdt': 25.}
+    write_json(path, state)
+    journal(path.with_name('rule_revisions.jsonl'), revision)
+    manifest.setdefault('trade_profit_budget_revisions', []).append({'account_id': 'btc', **revision})
+    write_json(root/'manifest.json', manifest)
 
 
 def prepare_profit_comparison(plan, root):
@@ -1332,7 +1405,13 @@ def btc_pullback_market_data(client, point, asof_ms, policy=None):
 def btc_step(account, root, manifest, client):
     path = ROOT / account['state_path']
     profile = json.loads((ROOT / account['strategy_path']).read_text(encoding='utf-8'))
-    execution = SimulationAccount(path, profit_exit_policy=profile.get('profit_exit_policy'))
+    saved = read_json(path) if path.exists() else {}
+    if saved.get('trade_profit_budget_policy') is not None:
+        from main_btc_budget_runtime import BudgetSimulationAccount
+        execution = BudgetSimulationAccount(path, policy=saved['trade_profit_budget_policy'],
+            active_after_ms=saved['trade_profit_budget_active_after_ms'])
+    else:
+        execution = SimulationAccount(path, profit_exit_policy=profile.get('profit_exit_policy'))
     try:
         clock = decision_runtime.resolve_clock(client)
     except Exception as exc:
@@ -1359,6 +1438,7 @@ def btc_step(account, root, manifest, client):
                 'last_mark_price': state.get('last_mark_price'), 'entry_price': state.get('entry_price'),
                 'signal_status': 'entry_data_unavailable', 'entry_blockers': ['exchange_clock_unavailable'],
                 'profit_exit_status': state.get('profit_exit_status'), 'risk_monitor': risk,
+                'entry_profit_budget': state.get('main_btc_profit_budget') or state.get('entry_profit_budget'),
                 'errors': {**risk.get('errors', {}),
                            'exchange_clock': clock.get('primary_error') or 'No current exchange clock'}}
     report_path = ROOT / account.get('strategy_report_path',
@@ -1450,6 +1530,7 @@ def btc_step(account, root, manifest, client):
             'last_mark_price': state.get('last_mark_price'), 'signal_time_ms': point.get('time_ms'),
             'entry_price': state.get('entry_price'),
             'signal_status': signal_status,
+            'entry_profit_budget': state.get('main_btc_profit_budget') or state.get('entry_profit_budget'),
             'llm_trade_gate': state.get('llm_trade_gate'),
             'profit_exit_status': state.get('profit_exit_status'),
             'btc_pullback_entry': pullback if profile.get('btc_pullback_entry_policy') is not None else None,
@@ -1537,6 +1618,7 @@ def _run_locked(plan, root, args):
     root, manifest = bootstrap(plan)
     comparison = prepare_profit_comparison(plan, root)
     synchronize_stock_rules(plan, root, manifest)
+    synchronize_btc_profit_budget(plan, root, manifest)
     status_path = root / 'status.json'
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: STOP.set())
@@ -1606,7 +1688,7 @@ def _run_locked(plan, root, args):
                     'return_pct', 'position_qty', 'fill_count_total', 'fees_paid', 'funding_pnl', 'max_drawdown_pct',
                     'last_mark_price', 'entry_price', 'signal_status', 'signal_timeframe', 'signal_family', 'entry_direction', 'next_signal_time_ms',
                     'last_signal_time_ms', 'signal_active_after_ms', 'entry_checks', 'entry_blockers', 'entry_qualification',
-                    'swing_confirmation', 'short_confirmation', 'main_stock_runtime',
+                    'swing_confirmation', 'short_confirmation', 'main_stock_runtime', 'entry_profit_budget',
                     'execution_entry_gate', 'entry_source_status', 'llm_trade_gate', 'errors', 'observations',
                     'btc_entry_timing', 'btc_pullback_entry', 'stock_entry_timing', 'stock_event_risk',
                     'profit_exit_status', 'realized_pnl', 'risk_monitor')}
