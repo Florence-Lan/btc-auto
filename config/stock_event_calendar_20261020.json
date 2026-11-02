@@ -50,6 +50,14 @@
           ],
           "note": "Public HTTP requests were access-denied; the web reader exposed dynamic page shells without a current event list. The previous no-announced-event review and its verified_at_ms are preserved; no new absence claim or next earnings date is inferred."
         }
+      },
+      "simulation_unverified_review_waiver": {
+        "mode": "ignore_unverified_review_for_simulation",
+        "first_seen_at_ms": 1793626484602,
+        "available_at_ms": 1793626484602,
+        "effective_from_ms": 1793626484602,
+        "valid_until_ms": 1794067200000,
+        "user_authorization": "用户明确要求拿不到的事件资料先不管；仅跳过模拟盘未核验资料阻断，已知事件与其他风控保留。"
       }
     },
     "SNDKUSDT": {

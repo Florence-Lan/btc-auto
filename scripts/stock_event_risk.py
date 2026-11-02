@@ -3,6 +3,8 @@
 No network, order, ledger, or exit side effects. Read the calendar again for each
 retry and immediately before booking an entry; a cached initial signal approval
 is never an entry permit. A missing/expired calendar blocks new risk only.
+An explicit, dated MU simulation waiver can skip an unverified source review;
+it never relabels the source as verified or suppresses a known event window.
 
 The v1 anchor is the OFFICIAL SCHEDULED CALL START, not an invented first release
 or call end. Unknown release/end times stay explicit. Calendar review must cover
@@ -62,7 +64,7 @@ def _nonempty(value, name):
     return value
 
 
-def _calendar(raw, reference_ms, symbol):
+def _calendar(raw, reference_ms, symbol, *, allow_simulation_waiver=False):
     if not isinstance(raw, Mapping) or type(raw.get('version')) is not int or raw['version'] != 1:
         raise ValueError('stock_event_calendar_invalid')
     calendar_id = _nonempty(raw.get('calendar_id'), 'stock_event_calendar_invalid')
@@ -87,13 +89,39 @@ def _calendar(raw, reference_ms, symbol):
         raise ValueError('stock_event_symbol_not_covered')
     review = coverage[symbol]
     if (not isinstance(review, Mapping)
-            or review.get('status') not in ('official_event_verified', 'no_announced_event_found')
+            or review.get('status') not in ('official_event_verified', 'no_announced_event_found',
+                                             'latest_review_unverified')
             or _time(review.get('verified_at_ms'), 'stock_event_symbol_review_invalid') > times['verified_at_ms']
             or not isinstance(review.get('source_urls'), list) or not review['source_urls']
             or any(not isinstance(url, str) or not url.startswith('https://') for url in review['source_urls'])):
         raise ValueError('stock_event_symbol_review_invalid')
     if reference_ms < review['verified_at_ms']:
         raise ValueError('stock_event_symbol_review_not_yet_available')
+    waiver_metadata = {}
+    if review['status'] == 'latest_review_unverified':
+        waiver = review.get('simulation_unverified_review_waiver')
+        if not (allow_simulation_waiver and symbol == 'MUUSDT' and isinstance(waiver, Mapping)):
+            raise ValueError('stock_event_symbol_review_invalid')
+        expected = {'mode', 'first_seen_at_ms', 'available_at_ms', 'effective_from_ms',
+                    'valid_until_ms', 'user_authorization'}
+        if (set(waiver) != expected
+                or waiver.get('mode') != 'ignore_unverified_review_for_simulation'):
+            raise ValueError('stock_event_review_waiver_invalid')
+        clocks = {key: _time(waiver[key], 'stock_event_review_waiver_invalid') for key in (
+            'first_seen_at_ms', 'available_at_ms', 'effective_from_ms', 'valid_until_ms')}
+        if not (times['verified_at_ms'] <= clocks['first_seen_at_ms'] <= clocks['available_at_ms']
+                <= clocks['effective_from_ms'] < clocks['valid_until_ms'] <= times['valid_until_ms']):
+            raise ValueError('stock_event_review_waiver_invalid')
+        authorization = _nonempty(waiver['user_authorization'], 'stock_event_review_waiver_invalid')
+        if not clocks['effective_from_ms'] <= reference_ms < clocks['valid_until_ms']:
+            raise ValueError('stock_event_symbol_review_invalid')
+        waiver_metadata = {'review_waiver_applied': True, 'data_quality': 'unverified',
+                          'review_waiver_reason': authorization,
+                          'review_waiver_effective_from_ms': clocks['effective_from_ms'],
+                          'review_waiver_valid_until_ms': clocks['valid_until_ms'],
+                          'review_due_reason': 'MU source remains unverified; the active user-authorized '
+                                               'simulation waiver skips only that review blocker. '
+                                               'Known event windows remain enforced.'}
     rows = raw.get('events')
     if not isinstance(rows, list):
         raise ValueError('stock_event_calendar_invalid')
@@ -129,7 +157,8 @@ def _calendar(raw, reference_ms, symbol):
             events.append(dict(row))
     if review['status'] == 'official_event_verified' and not events:
         raise ValueError('stock_event_symbol_event_missing')
-    return {'calendar_id': calendar_id, **times, 'symbol_review_status': review['status']}, events
+    return {'calendar_id': calendar_id, **times, 'symbol_review_status': review['status'],
+            **waiver_metadata}, events
 
 
 def _post_event_bars(rows, anchor, reference_ms):
@@ -209,7 +238,8 @@ def evaluate(config, symbol, reference_ms, *, closed_hourly_bars=None, root=None
                           review_due_reason=raw.get('review_due_reason'),
                           fetch_attempt_at_ms=raw.get('fetch_attempt_at_ms'),
                           source_fetch_verification=raw.get('source_fetch_verification'))
-        metadata, events = _calendar(raw, reference_ms, symbol)
+        metadata, events = _calendar(raw, reference_ms, symbol,
+                                    allow_simulation_waiver=config.get('live_orders_allowed') is False)
         result.update(metadata, calendar_age_ms=reference_ms - metadata['verified_at_ms'],
                       calendar_remaining_ms=metadata['valid_until_ms'] - reference_ms,
                       fetch_success_at_ms=raw.get('fetch_success_at_ms'),
@@ -240,7 +270,9 @@ def evaluate(config, symbol, reference_ms, *, closed_hourly_bars=None, root=None
                 if not bars_ok:
                     blocked.append({**detail, 'observed_post_event_hour_starts_ms': pair})
                     reasons.append('stock_event_post_event_bars_unavailable')
-        result.update(allowed=not reasons, status='blackout' if reasons else 'clear',
+        status = ('blackout' if reasons else 'unverified_review_ignored'
+                  if result.get('review_waiver_applied') else 'clear')
+        result.update(allowed=not reasons, status=status,
                       reasons=list(dict.fromkeys(reasons)), blocked_events=blocked,
                       event_ids=[event['event_id'] for event in blocked],
                       next_event=min(upcoming, key=lambda item: item['anchor_time_ms']) if upcoming else None,

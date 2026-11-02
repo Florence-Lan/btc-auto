@@ -53,6 +53,7 @@ function stockEventDetails(account) {
   const gate = account.stock_event_risk;
   if (!gate?.enabled) return '';
   const label = {clear: '当前窗口外', blackout: '暂停新增', unavailable: '日历需要复核',
+    unverified_review_ignored: '资料未核验，模拟盘继续评估',
     not_active_yet: '等待生效'}[gate.status] || '等待检查';
   const pieces = [`财报风控：${label}`];
   if (gate.next_event?.anchor_time_ms) pieces.push(`下一电话会 ${localTime(gate.next_event.anchor_time_ms)}`);

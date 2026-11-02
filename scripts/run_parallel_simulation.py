@@ -533,7 +533,12 @@ class StockAccount:
         if not stock_event_risk.enabled(self.config):
             state['stock_event_risk'] = None
             return {'enabled': False, 'allowed': True, 'reasons': []}
-        outcome = stock_event_risk.evaluate(self.config, self.symbol,
+        event_config = self.config
+        if (state.get('mode') == 'simulation' and state.get('places_orders') is False
+                and 'live_orders_allowed' not in self.config):
+            # The paper-only context is private; frozen account rules stay intact.
+            event_config = {**self.config, 'live_orders_allowed': False}
+        outcome = stock_event_risk.evaluate(event_config, self.symbol,
             self.now_ms() if reference_ms is None else reference_ms,
             closed_hourly_bars=self.signal_bars if self.signal_timeframe == '1h' else None,
             root=ROOT, reference_clock=self.now_ms)
