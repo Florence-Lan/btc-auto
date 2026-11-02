@@ -49,9 +49,9 @@
         "timezone": "America/New_York",
         "source_published_date": null,
         "first_seen_at_ms": 1792936777518,
-        "verified_at_ms": 1792936777518,
+        "verified_at_ms": 1793625272064,
         "valid_from_ms": 1792936777518,
-        "valid_until_ms": 1793595600000,
+        "valid_until_ms": 1794114000000,
         "reviewed_local_dates": [
           "2026-10-24",
           "2026-10-25",
@@ -61,17 +61,23 @@
           "2026-10-29",
           "2026-10-30",
           "2026-10-31",
-          "2026-11-01"
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03",
+          "2026-11-04",
+          "2026-11-05",
+          "2026-11-06",
+          "2026-11-07"
         ],
         "holiday_exclusions": [],
         "session_id": "yahoo_wti_dec_2026",
         "schedule_kind": "cme_nymex_23x5",
         "basis": "scheduled_exchange_reference",
         "source_urls": [
-          "https://www.cmegroup.com/trading-hours.html",
-          "https://www.cmegroup.com/notices/ser/2024/05/SER-9366.pdf"
+          "https://www.cmegroup.com/markets/energy/crude-oil/light-sweet-crude.contractSpecs.html",
+          "https://www.cmegroup.com/trading-hours.html"
         ],
-        "review_scope": "Bounded standard Globex reference plus 2026 holiday list review; unscheduled or product-specific halts unknown."
+        "review_scope": "Current official CME named CL/BZ Globex product specification: Sunday-Friday 17:00-16:00 Central with a daily 16:00-17:00 maintenance break. Official 2026 Globex holiday list reviewed for New York November 2-7 only, with no listed holiday in this window. Bounded standard reference; temporary or product-specific halts, actual venue status and quote freshness remain independently unverified. November 8 is unreviewed; coverage ends November 8 00:00 New York."
       },
       "contract_review": {
         "verified_at_ms": 1792936777518,
@@ -115,9 +121,9 @@
         "timezone": "America/New_York",
         "source_published_date": null,
         "first_seen_at_ms": 1792936777518,
-        "verified_at_ms": 1792936777518,
+        "verified_at_ms": 1793625272064,
         "valid_from_ms": 1792936777518,
-        "valid_until_ms": 1793595600000,
+        "valid_until_ms": 1794114000000,
         "reviewed_local_dates": [
           "2026-10-24",
           "2026-10-25",
@@ -127,17 +133,23 @@
           "2026-10-29",
           "2026-10-30",
           "2026-10-31",
-          "2026-11-01"
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03",
+          "2026-11-04",
+          "2026-11-05",
+          "2026-11-06",
+          "2026-11-07"
         ],
         "holiday_exclusions": [],
         "session_id": "yahoo_brent_jan_2027",
         "schedule_kind": "cme_nymex_23x5",
         "basis": "scheduled_exchange_reference",
         "source_urls": [
-          "https://www.cmegroup.com/trading-hours.html",
-          "https://www.cmegroup.com/notices/ser/2024/05/SER-9366.pdf"
+          "https://www.cmegroup.com/markets/energy/crude-oil/brent-crude-oil-last-day.contractSpecs.html",
+          "https://www.cmegroup.com/trading-hours.html"
         ],
-        "review_scope": "Bounded standard Globex reference plus 2026 holiday list review; unscheduled or product-specific halts unknown."
+        "review_scope": "Current official CME named CL/BZ Globex product specification: Sunday-Friday 17:00-16:00 Central with a daily 16:00-17:00 maintenance break. Official 2026 Globex holiday list reviewed for New York November 2-7 only, with no listed holiday in this window. Bounded standard reference; temporary or product-specific halts, actual venue status and quote freshness remain independently unverified. November 8 is unreviewed; coverage ends November 8 00:00 New York."
       },
       "contract_review": {
         "first_seen_at_ms": 1793022583564,
@@ -263,9 +275,9 @@
         "timezone": "America/New_York",
         "source_published_date": null,
         "first_seen_at_ms": 1792936777518,
-        "verified_at_ms": 1792936777518,
+        "verified_at_ms": 1793625272064,
         "valid_from_ms": 1792936777518,
-        "valid_until_ms": 1793595600000,
+        "valid_until_ms": 1794114000000,
         "reviewed_local_dates": [
           "2026-10-24",
           "2026-10-25",
@@ -275,7 +287,13 @@
           "2026-10-29",
           "2026-10-30",
           "2026-10-31",
-          "2026-11-01"
+          "2026-11-01",
+          "2026-11-02",
+          "2026-11-03",
+          "2026-11-04",
+          "2026-11-05",
+          "2026-11-06",
+          "2026-11-07"
         ],
         "holiday_exclusions": [],
         "session_id": "yahoo_usdjpy",
@@ -285,7 +303,7 @@
           "https://www.oanda.com/us-en/trading/hours-of-operation/",
           "https://www.oanda.com/us-en/trading/holiday-trading-hours/"
         ],
-        "review_scope": "Bounded standard-session reference. No announced holiday exception found in this window; no actual venue status or quote-freshness assertion. OTC reference may differ by venue."
+        "review_scope": "OANDA standard non-TRY/non-NZD FX reference reviewed for New York November 2-7 only: Sunday 17:05 through Friday 16:59 with a daily six-minute break. Holiday page did not provide date-specific confirmation for this future week. Indicative broker reference only; not Yahoo or OTC actual venue status, holiday certification or a quote-freshness override. November 8 is unreviewed; coverage ends November 8 00:00 New York."
       }
     },
     {
