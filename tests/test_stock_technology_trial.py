@@ -12,6 +12,12 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 import run_stock_technology_trial as trial
 from test_stock_entry_timing_trial import worker as timing_worker
 from test_stock_technology_guard import point
+from stock_trial_feed_fixture import isolate_timing_feed
+
+
+@pytest.fixture(autouse=True)
+def immutable_feed_identity(tmp_path_factory, monkeypatch):
+    return isolate_timing_feed(tmp_path_factory.mktemp('technology-timing-feed'), monkeypatch, trial)
 
 
 def technology_worker(tmp_path,monkeypatch,*,guarded=True,short=False):
@@ -110,6 +116,18 @@ def test_only_guard_differs_and_old_source_experiment_is_untouched():
             assert guarded.pop('technology_guard_policy')==trial.guard.POLICY
             assert guarded==arms['baseline_'+cost]
     assert 'scripts/run_stock_technology_trial.py' in fp['source_sha256']
+
+
+def test_stale_feed_source_fingerprint_is_still_refused(immutable_feed_identity):
+    path=immutable_feed_identity/'manifest.json'
+    manifest=json.loads(path.read_text(encoding='utf-8'))
+    name=next(iter(manifest['fingerprint']['source_sha256']))
+    manifest['fingerprint']['source_sha256'][name]='0'*64
+    path.write_text(json.dumps(manifest),encoding='utf-8')
+    before=path.read_bytes()
+    with pytest.raises(ValueError,match='feed trial rules or source identity changed'):
+        trial.load_design()
+    assert path.read_bytes()==before
 
 
 def test_independent_epoch_has_twelve_accounts_and_refuses_corrupt_resume(tmp_path):

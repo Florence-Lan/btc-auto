@@ -3,6 +3,7 @@
 This never derives or updates experimental rules. Existing experiments retain
 their declared baseline while the main accounts may enable the fixed short
 confirmation alternative and a separately activated profit/risk budget.
+The main trend overlay is a third exact, prospectively bound addition.
 """
 from __future__ import annotations
 
@@ -39,6 +40,43 @@ def declared_main_baseline_matches(state, expected):
         return False
     if _same_value(current, expected):
         return True
+    trend_key = 'main_stock_trend_policy'
+    if trend_key in current:
+        # A main-only overlay must extend the complete, independently checked
+        # short -> budget chain. Never authorize it by merely ignoring its key.
+        try:
+            import main_stock_trend as trend
+        except ImportError:
+            return False
+        activated = state.get('main_trend_active_after_ms')
+        budget_activated = state.get('trade_profit_budget_active_after_ms')
+        history = state.get('rule_history')
+        if (trend_key in expected or 'trade_profit_budget_policy' not in current
+                or not isinstance(getattr(trend, 'POLICY', None), Mapping)
+                or not _same_value(current[trend_key], trend.POLICY)
+                or type(activated) is not int or type(budget_activated) is not int
+                or activated <= budget_activated
+                or type(state.get('signal_active_after_ms')) is not int
+                or state['signal_active_after_ms'] != activated
+                or not isinstance(history, list)):
+            return False
+        previous = {key: value for key, value in current.items() if key != trend_key}
+        for index, revision in enumerate(history):
+            if (not isinstance(revision, Mapping)
+                    or revision.get('scope') != 'main_trend_only'
+                    or type(revision.get('activated_at_ms')) is not int
+                    or revision['activated_at_ms'] != activated
+                    or not _same_value(revision.get('previous_rule'), previous)
+                    or not _same_value(revision.get('new_rule'), current)):
+                continue
+            if any(isinstance(item, Mapping) and (
+                    'previous_rule' in item or 'new_rule' in item)
+                    for item in history[index + 1:]):
+                continue
+            baseline_state = {**state, 'rule': previous, 'rule_history': history[:index]}
+            if declared_main_baseline_matches(baseline_state, expected):
+                return True
+        return False
     budget_key = 'trade_profit_budget_policy'
     if (short.POLICY_KEY in expected or budget_key in expected
             or not _same_policy(current.get(short.POLICY_KEY))):

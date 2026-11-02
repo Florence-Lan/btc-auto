@@ -1,6 +1,7 @@
 """Real execution and ledger invariants for the short-only confirmation trial."""
 from copy import deepcopy
 from dataclasses import replace
+import json
 from pathlib import Path
 import sys
 
@@ -11,8 +12,14 @@ import run_stock_short_confirmation_trial as trial
 from test_stock_swing_confirmation import worker_fixture,hourly_bars
 from test_stock_short_confirmation import price_led_short_bars
 from test_stock_macro_shadow import macro_permit
+from stock_trial_feed_fixture import isolate_timing_feed
 
 HOUR=trial.timing_trial.HOUR
+
+
+@pytest.fixture(autouse=True)
+def immutable_feed_identity(tmp_path_factory, monkeypatch):
+    return isolate_timing_feed(tmp_path_factory.mktemp('short-timing-feed'), monkeypatch, trial.feed)
 
 
 def worker(tmp_path,monkeypatch,*,variant='candidate',cost='normal',side=-1,price_led=False,epoch=None):
@@ -133,6 +140,18 @@ def test_design_only_changes_short_policy_and_uses_current_main_technical_rules(
             assert 'entry_timing_candidate_policy' not in cfg and 'technology_guard_policy' not in cfg
             assert cfg['signal_family']=='donchian20' and cfg['risk_fraction_per_trade']==.0025
     assert 'scripts/stock_short_confirmation.py' in fp['source_sha256']
+
+
+def test_stale_feed_source_fingerprint_is_still_refused(immutable_feed_identity):
+    path=immutable_feed_identity/'manifest.json'
+    manifest=json.loads(path.read_text(encoding='utf-8'))
+    name=next(iter(manifest['fingerprint']['source_sha256']))
+    manifest['fingerprint']['source_sha256'][name]='0'*64
+    path.write_text(json.dumps(manifest),encoding='utf-8')
+    before=path.read_bytes()
+    with pytest.raises(ValueError,match='market feed source/rule identity changed'):
+        trial.load_design()
+    assert path.read_bytes()==before
 
 
 def test_twelve_new_epochs_and_corrupt_financial_resume_is_refused(tmp_path):

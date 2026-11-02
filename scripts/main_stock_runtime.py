@@ -15,11 +15,14 @@ from pathlib import Path
 import time
 from types import FunctionType
 import zlib
+from collections.abc import Mapping
 
 import run_parallel_simulation as paper
 import stock_short_confirmation as short
 import stock_swing_profiles as profiles
 import trade_profit_budget as profit_budget
+import main_stock_trend as main_trend
+from main_stock_sector import SectorContext
 
 SHARED_ROOT = paper.ROOT / 'data/paper_trading/stock_entry_timing_trial_20261029'
 MAX_BLOCK_BYTES = 8_000_000
@@ -110,8 +113,9 @@ def load_shared_clock(symbol, *, source_root=None, wall_ms=None, monotonic_now=N
 
 
 class _SignalProfiles:
-    def __init__(self, active_after_ms):
+    def __init__(self, active_after_ms, main_active_after_ms=None):
         self.active_after_ms = active_after_ms
+        self.main_active_after_ms = main_active_after_ms
 
     def __getattr__(self, name):
         return getattr(profiles, name)
@@ -120,13 +124,26 @@ class _SignalProfiles:
         config = {} if config is None else config
         boundary = candles[index].time_ms + HOUR
         active = short.enabled(config) and boundary > self.active_after_ms
-        function = short.signal_with_diagnostics if active else profiles.signal_with_diagnostics
+        main_active = (main_trend.enabled(config) and self.main_active_after_ms is not None
+                       and boundary > self.main_active_after_ms)
+        function = (main_trend.signal_with_diagnostics if main_active else
+                    short.signal_with_diagnostics if active else profiles.signal_with_diagnostics)
         signal, diagnostic = function(candles, indicators, index, config)
         diagnostic = deepcopy(diagnostic)
+        if main_trend.enabled(config) and not main_active:
+            signal = None
+            diagnostic['signal_after_confirmation'] = None
+            diagnostic['signal_after_quality'] = None
+            diagnostic['admission'].update(stage='main_trend_not_active',
+                reasons=['main_trend_awaiting_new_signal'])
         diagnostic['main_short_confirmation_runtime'] = {
             'enabled': short.enabled(config), 'candidate_active_for_bar': active,
             'active_after_ms': self.active_after_ms, 'bar_close_ms': boundary,
             'mode': short.POLICY['mode'] if short.enabled(config) else None}
+        if main_trend.enabled(config):
+            diagnostic['main_trend_confirmation_runtime'] = {
+                'enabled': True, 'candidate_active_for_bar': main_active,
+                'active_after_ms': self.main_active_after_ms, 'bar_close_ms': boundary}
         return signal, diagnostic
 
     def signal_at(self, *args, **kwargs):
@@ -181,6 +198,7 @@ class MainStockAccount(paper.StockAccount):
 
     def __init__(self, path, venue, symbol, config):
         short.validate(config)
+        main_trend.validate(config)
         super().__init__(path, venue, symbol, config)
         state = paper.read_json(self.path)
         self.short_confirmation_active_after_ms = state.get('short_confirmation_active_after_ms')
@@ -191,12 +209,77 @@ class MainStockAccount(paper.StockAccount):
         self._declared_config = deepcopy(config)
         self._budget_decision = None
         self._legacy_position_mode = False
+        self.main_trend_active_after_ms = state.get('main_trend_active_after_ms')
+        if main_trend.enabled(config) and (type(self.main_trend_active_after_ms) is not int
+                or self.main_trend_active_after_ms <= 0):
+            raise ValueError('main_trend_activation_required')
+        self._sector_context = None
+        self._sector_blocked = None
         self.trade_profit_budget_active_after_ms = state.get('trade_profit_budget_active_after_ms')
         if profit_budget.enabled(config):
             profit_budget.validate(config)
             if (type(self.trade_profit_budget_active_after_ms) is not int
                     or self.trade_profit_budget_active_after_ms <= 0):
                 raise ValueError('main_profit_budget_activation_required')
+
+    def sector_loader(self, timestamp, *, phase='observation'):
+        if self._sector_context is None:
+            self._sector_context = SectorContext(
+                self.path.with_name('main_sector_quotes.jsonl'), self.main_trend_active_after_ms)
+        return self._sector_context.decision(timestamp)
+
+    def _sector_decision(self, state, direction=None, *, phase='observation', timestamp=None):
+        if not main_trend.enabled(self._declared_config):
+            return {'enabled': False, 'allowed': True, 'reasons': []}
+        timestamp = self.now_ms() if timestamp is None else timestamp
+        try:
+            outcome = deepcopy(self.sector_loader(timestamp, phase=phase))
+            if not isinstance(outcome, Mapping):
+                raise ValueError('main_sector_result_invalid')
+            expected = {'bullish': 1, 'bearish': -1, 'neutral': 0}
+            if (outcome.get('status') not in (*expected, 'unknown')
+                    or (outcome.get('status') != 'unknown'
+                        and (type(outcome.get('direction')) is not int
+                             or outcome['direction'] != expected[outcome['status']]))) :
+                raise ValueError('main_sector_result_invalid')
+            if (outcome.get('status') != 'unknown' and outcome.get('valid_until_ms') is not None
+                    and (type(outcome['valid_until_ms']) is not int or timestamp >= outcome['valid_until_ms'])):
+                raise ValueError('main_sector_result_expired')
+            if (outcome.get('reasons') is not None
+                    and (not isinstance(outcome['reasons'], list)
+                         or any(not isinstance(reason, str) for reason in outcome['reasons']))):
+                raise ValueError('main_sector_reasons_invalid')
+        except Exception:
+            # Supplemental context must never interrupt protective accounting.
+            outcome = {'status': 'unknown', 'direction': None,
+                       'reasons': ['main_sector_data_unavailable']}
+        reasons = list(outcome.get('reasons') or [])
+        allowed = outcome['status'] != 'unknown'
+        if not allowed:
+            reasons = list(dict.fromkeys(['main_sector_unknown'] + reasons))
+        elif direction in (-1, 1) and outcome['direction'] == -direction:
+            allowed = False
+            reasons = ['main_sector_opposes_entry']
+        outcome.update(enabled=True, allowed=allowed, reasons=reasons,
+                       candidate_direction=direction, phase=phase, checked_at_ms=timestamp,
+                       protective_exits_allowed=True)
+        state['main_sector_status'] = outcome
+        if direction in (-1, 1) and not allowed:
+            self._sector_blocked = deepcopy(outcome)
+        return outcome
+
+    def record_stock_event_risk(self, state, phase, reference_ms=None):
+        original = super().record_stock_event_risk(state, phase, reference_ms)
+        pending = state.get('pending_signal') or {}
+        direction = (pending.get('signal') or {}).get('direction')
+        if phase == 'fill' and direction in (-1, 1) and main_trend.enabled(self._declared_config):
+            if pending.get('boundary_ms', 0) <= self.main_trend_active_after_ms:
+                return {**original, 'allowed': False, 'reasons': ['main_trend_awaiting_new_signal']}
+            sector = self._sector_decision(state, direction, phase='fill', timestamp=reference_ms)
+            if not sector['allowed']:
+                return {**original, 'allowed': False,
+                        'reasons': list(dict.fromkeys(original.get('reasons', []) + sector['reasons']))}
+        return original
 
     def market_data(self, force_rules=False, force_signal=False):
         self._main_clock_diagnostic = {'source': 'not_observed'}
@@ -218,6 +301,12 @@ class MainStockAccount(paper.StockAccount):
             self._budget_decision = {'enabled': True, 'allowed': False,
                 'reasons': ['legacy_position_closed_wait_for_next_observation']}
             return 0.
+        if (main_trend.enabled(self._declared_config)
+                and signal.time_ms + self.signal_interval_ms <= self.main_trend_active_after_ms):
+            return 0.
+        sector = self._sector_decision(state, signal.direction, phase='retry')
+        if not sector['allowed']:
+            return 0.
         if not profit_budget.enabled(self.config):
             return super().entry_quantity(state, equity, signal, entry, stop, step, lot, volume, minimum)
         if signal.time_ms + self.signal_interval_ms <= self.trade_profit_budget_active_after_ms:
@@ -228,6 +317,12 @@ class MainStockAccount(paper.StockAccount):
         return decision['admitted_quantity']
 
     def entry_fill_admission(self, state, equity, signal, candidate, result, step, lot, volume, minimum):
+        if (main_trend.enabled(self._declared_config)
+                and signal.time_ms + self.signal_interval_ms <= self.main_trend_active_after_ms):
+            return {'allowed': False, 'reasons': ['main_trend_awaiting_new_signal']}
+        sector = self._sector_decision(state, signal.direction, phase='fill_admission')
+        if not sector['allowed']:
+            return sector
         if not profit_budget.enabled(self.config):
             return super().entry_fill_admission(state, equity, signal, candidate, result, step, lot, volume, minimum)
         decision = self._plan_budget(state, equity, signal, result['price'], candidate['stop'],
@@ -248,8 +343,25 @@ class MainStockAccount(paper.StockAccount):
 
     def additional_exit_reason(self, state, position, data, errors, timestamp):
         original = super().additional_exit_reason(state, position, data, errors, timestamp)
-        if original or not position.get('trade_profit_budget'):
+        if original:
             return original
+        if main_trend.enabled(self._declared_config):
+            if data.get('clock') and not errors.get('clock') and not errors.get('signal'):
+                bars = [paper.arithmetic.candle(row) for row in self.signal_bars]
+                outcome = main_trend.evaluate_position_exit(position, bars, self.config,
+                    timestamp, self.main_trend_active_after_ms)
+            else:
+                outcome = {'enabled': True, 'status': 'unavailable', 'triggered': False,
+                           'reasons': ['main_trend_current_clock_or_candles_unavailable'],
+                           'checked_at_ms': timestamp}
+            state['main_trend_exit_status'] = outcome
+            if outcome['triggered']:
+                if not position.get('pending_exit'):
+                    paper.journal(self.path.with_name('main_trend_decisions.jsonl'), outcome)
+                return 'main_trend_invalidation'
+            self._observe_profit_protection(state, position, data, errors, timestamp)
+        if not position.get('trade_profit_budget'):
+            return None
         try:
             side = position['direction']
             book = data.get('book') or {}
@@ -266,6 +378,88 @@ class MainStockAccount(paper.StockAccount):
             pass  # Original independent mark/stop protection still takes priority.
         return None
 
+    def _observe_profit_protection(self, state, position, data, errors, timestamp):
+        """Tighten only from new executable observations, after old-stop checks."""
+        if (not data.get('clock') or errors.get('clock') or errors.get('book')
+                or timestamp < self.main_trend_active_after_ms or position.get('pending_exit')):
+            return
+        try:
+            book = data['book']
+            observed = int(book.get('T') or book.get('E'))
+            if observed < self.main_trend_active_after_ms:
+                return
+            paper.fresh(observed, self.now_ms())
+            paper.fresh(data['mark']['time'], self.now_ms())
+            filters = {item['filterType']: item for item in self.rules['filters']}
+            lot = filters.get('MARKET_LOT_SIZE') or filters['LOT_SIZE']
+            side = position['direction']
+            fill = paper.book_fill(book, -side * position['qty'], float(lot['stepSize']),
+                                  self.config['adverse_slippage_fraction_assumption'])
+            if fill['qty'] + 1e-12 < position['qty']:
+                return
+            gain = side * (fill['price'] / position['entry'] - 1)
+            detail = position.setdefault('main_trend_profit_protection', {
+                'active_after_ms': self.main_trend_active_after_ms, 'best_executable_return': 0.,
+                'armed': False})
+            detail['best_executable_return'] = max(detail['best_executable_return'], gain)
+            detail.update(checked_at_ms=self.now_ms(), observed_at_ms=observed,
+                          executable_close_price=fill['price'])
+            if detail['best_executable_return'] >= self.config['trail_activation_underlying_return']:
+                tick = float(filters['PRICE_FILTER']['tickSize'])
+                lock = position['entry'] * (1 + side * self.config['trail_locked_underlying_return'])
+                candidate = paper.arithmetic.round_tick(lock, tick, side == 1)
+                previous_stop = position['stop']
+                if side * (candidate - position['stop']) > 0:
+                    position['stop'] = candidate
+                if not detail['armed'] or position['stop'] != previous_stop:
+                    paper.runner_journal(self.path.with_name('main_trend_decisions.jsonl'), {
+                        'record_type': 'executable_profit_lock', 'checked_at_ms': self.now_ms(),
+                        'observed_at_ms': observed, 'active_after_ms': self.main_trend_active_after_ms,
+                        'entry_time_ms': position['entry_time'], 'previous_stop': previous_stop,
+                        'new_stop': position['stop'], 'executable_close_price': fill['price'],
+                        'gain_fraction': gain})
+                detail.update(armed=True, locked_stop=position['stop'])
+            state['main_trend_profit_protection'] = deepcopy(detail)
+        except (ValueError, KeyError, TypeError, IndexError, OverflowError):
+            return  # Independent mark/stop exits remain available.
+
+    def _current_diagnostics(self, state):
+        timestamp = self.now_ms()
+        risk = state.get('risk_monitor') or {}
+        errors = state.get('errors') or {}
+        verified_clock = (risk.get('clock_source') == 'exchange'
+                          and risk.get('assessment') == 'evaluated' and not errors.get('clock'))
+        if verified_clock and not errors.get('signal'):
+            bars = [paper.arithmetic.candle(row) for row in self.signal_bars]
+            current = main_trend.trend_diagnostics(bars, self.config, timestamp)
+        else:
+            current = {'enabled': True, 'status': 'unavailable', 'checked_at_ms': timestamp,
+                       'reasons': ['main_trend_current_clock_or_candles_unavailable'],
+                       'hourly': None, 'four_hour': None}
+        if verified_clock:
+            self._sector_decision(state, phase='observation', timestamp=timestamp)
+        else:
+            state['main_sector_status'] = {'enabled': True, 'allowed': False, 'status': 'unknown',
+                'direction': None, 'reasons': ['main_sector_verified_clock_unavailable'],
+                'checked_at_ms': timestamp, 'protective_exits_allowed': True}
+        state['current_trend'] = current
+        state['long_confirmation'] = deepcopy((state.get('signal_diagnostics') or {}).get('long_confirmation'))
+        if state.get('position'):
+            four = current.get('four_hour') or {}
+            direction = four.get('direction', 0)
+            state['swing_confirmation'] = {'enabled': True, 'allowed': bool(direction),
+                **four, 'reasons': current.get('reasons', []), 'direction': direction,
+                'confirmation_timeframe': '4h', 'checked_at_ms': timestamp,
+                'confirmation_close_ms': current.get('confirmation_close_ms'),
+                'decision_scope': 'current_context_not_entry_permission'}
+            if state['position'].get('pending_exit') == 'main_trend_invalidation':
+                state['main_trend_exit_status'] = {**state.get('main_trend_exit_status', {}),
+                    'status': 'exit_pending', 'triggered': True}
+        else:
+            state['main_trend_profit_protection'] = None
+            state['main_trend_exit_status'] = {'enabled': True, 'status': 'flat', 'triggered': False,
+                                              'checked_at_ms': timestamp}
+
     def step(self, market_data=None):
         state = paper.read_json(self.path)
         if short.enabled(self.config) and state.get('short_confirmation_active_after_ms') != self.short_confirmation_active_after_ms:
@@ -273,23 +467,49 @@ class MainStockAccount(paper.StockAccount):
         if (profit_budget.enabled(self._declared_config)
                 and state.get('trade_profit_budget_active_after_ms') != self.trade_profit_budget_active_after_ms):
             raise ValueError('main_profit_budget_activation_changed')
+        if (main_trend.enabled(self._declared_config)
+                and state.get('main_trend_active_after_ms') != self.main_trend_active_after_ms):
+            raise ValueError('main_trend_activation_changed')
         self._budget_decision = None
+        self._sector_blocked = None
         self._legacy_position_mode = bool(state.get('position')
             and not state['position'].get('trade_profit_budget') and profit_budget.enabled(self._declared_config))
         if self._legacy_position_mode:
             legacy = state.get('trade_profit_budget_legacy_position_rule')
             if not isinstance(legacy, dict) or profit_budget.enabled(legacy):
                 raise ValueError('Grandfathered position requires its original rule snapshot')
-            self.config = legacy
+            self.config = deepcopy(legacy)
+            if main_trend.enabled(self._declared_config):
+                self.config[main_trend.POLICY_KEY] = deepcopy(self._declared_config[main_trend.POLICY_KEY])
         else:
             self.config = self._declared_config
-        adapter = _SignalProfiles(self.short_confirmation_active_after_ms or 0)
+        adapter = _SignalProfiles(self.short_confirmation_active_after_ms or 0, self.main_trend_active_after_ms)
         def write(path, value):
             if Path(path) == Path(self.path) and isinstance(value, dict):
                 value['main_stock_runtime'] = {'mode': 'price_led_short_v1',
                     'short_confirmation_active_after_ms': self.short_confirmation_active_after_ms,
                     'clock': deepcopy(self._main_clock_diagnostic)}
                 value['short_confirmation'] = deepcopy((value.get('signal_diagnostics') or {}).get('short_confirmation'))
+                if main_trend.enabled(self._declared_config):
+                    try:
+                        self._current_diagnostics(value)
+                    except Exception:
+                        # A completed protective fill must still reach its state
+                        # file if an auxiliary diagnostic snapshot is malformed.
+                        value['current_trend'] = {'enabled': True, 'status': 'unavailable',
+                            'checked_at_ms': self.now_ms(), 'reasons': ['main_trend_diagnostics_unavailable'],
+                            'hourly': None, 'four_hour': None}
+                        value['main_sector_status'] = {'enabled': True, 'allowed': False,
+                            'status': 'unknown', 'direction': None,
+                            'reasons': ['main_sector_data_unavailable'], 'protective_exits_allowed': True}
+                    value['main_stock_runtime']['main_trend'] = {
+                        'mode': main_trend.POLICY['mode'], 'active_after_ms': self.main_trend_active_after_ms,
+                        'grandfathered_exit_overlay': self._legacy_position_mode}
+                    if self._sector_blocked and not value.get('position') and value.get('pending_signal'):
+                        value['main_sector_status'] = deepcopy(self._sector_blocked)
+                        value['signal_status'] = 'main_sector_blocked'
+                        value['entry_blockers'] = list(dict.fromkeys(value.get('entry_blockers', [])
+                            + self._sector_blocked['reasons']))
                 if self._budget_decision is not None:
                     value['entry_profit_budget'] = deepcopy(self._budget_decision)
                     if not self._budget_decision.get('allowed') and not value.get('position'):

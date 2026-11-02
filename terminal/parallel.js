@@ -18,7 +18,11 @@ signalNames.swing_confirmation_blocked = '等待4小时波段方向确认';
 signalNames.entry_signal_invalidated = '突破已失效，等待新小时信号';
 signalNames.entry_timing_blocked = '入场价格超出信号有效范围';
 signalNames.stock_event_blocked = '财报事件限制新增交易';
+signalNames.main_sector_blocked = '板块方向限制新增交易';
 const blockerNames = {prior_5m_volume:'此前5分钟成交量为0或缺失', funding:'资金费超限',
+  main_sector_unknown:'板块方向尚不可用，暂停新增',
+  main_sector_opposes_entry:'纳指期货方向与本次开仓相反',
+  main_trend_awaiting_new_signal:'等待趋势修复生效后的新信号',
   mark_index_basis:'标记价与指数价偏离超限', book_mark_basis:'盘口与标记价偏离超限',
   entry_gap:'追价距离超限', bid_ask_spread:'买卖价差超过入场上限',
   swing_4h_warmup:'等待足够的已收盘4小时行情', swing_hourly_alignment:'小时行情时间不完整',
@@ -61,6 +65,7 @@ function stockEventDetails(account) {
 const dataRoot = '/data/parallel_simulation/btc_memory_stocks_latest_1000_each_20261007';
 const stockSymbols = {mu: 'MUUSDT', sndk: 'SNDKUSDT', skhynix: 'SKHYNIXUSDT'};
 const reasonName = reason => ({protective_stop: '保护止损', one_r_partial: '1R分批止盈',
+  main_trend_invalidation: '小时趋势失效退出',
   profit_target: '目标止盈', fresh_closed_5m_signal: '5分钟信号入场',
   fresh_closed_15m_signal: '15分钟信号入场', fresh_closed_1h_signal: '1小时波段信号入场',
   fresh_closed_4h_signal: '4小时波段信号入场', account_hard_stop: '账户回撤退出'}[reason] || reason || '—');
@@ -81,6 +86,35 @@ const btcBlockerName = (reason, account) => ({
   btc_entry_timing_policy_invalid: '入场时效配置无效，暂停首次入场',
   profit_target_signal_consumed: '该小时信号已止盈，等待新信号',
 }[reason] || btcPullbackReasonName(reason, account) || signalNames[reason] || reason);
+
+function stockTrendDetails(account) {
+  const current = account.current_trend;
+  if (!current?.enabled) return '';
+  const direction = n => ({1:'偏多', '-1':'偏空', 0:'尚未形成'}[n] || '等待数据');
+  const pieces = [];
+  if (current.status === 'healthy') {
+    for (const [key, label] of [['hourly', '1小时'], ['four_hour', '4小时']]) {
+      const context = current[key];
+      if (!context) continue;
+      pieces.push(`${label}价格方向：${direction(context.price_led_direction)}；均线背景：${direction(context.strict_direction)} · 收盘 ${localTime(context.closed_at_ms)}`);
+    }
+  } else {
+    pieces.push('当前趋势资料不完整，等待有效时钟及已收盘行情');
+  }
+  const sector = account.main_sector_status;
+  if (sector?.enabled) {
+    const warming = (sector.reasons || []).some(reason => /warming_up|post_inception/.test(reason));
+    const label = {bullish:'偏强', bearish:'偏弱', neutral:'方向分歧', unknown:warming ? '新报价积累中' : '资料暂不可用'}[sector.status] || '等待检查';
+    pieces.push(`纳指期货：${label}${Number.isFinite(sector.daily_return_pct) ? ` · 较前收参考 ${sector.daily_return_pct.toFixed(2)}%` : ''}${Number.isFinite(sector.return_30m_pct) ? ` · 30分钟 ${sector.return_30m_pct.toFixed(2)}%` : ''}`);
+    if (sector.latest?.observed_at_ms) pieces.push(`期货报价时间 ${localTime(sector.latest.observed_at_ms)}`);
+  }
+  const exit = account.main_trend_exit_status;
+  if (exit?.status === 'exit_pending') pieces.push('趋势失效退出已触发，继续等待可成交数量');
+  else if (exit?.status === 'confirming') pieces.push(`趋势失效确认 ${exit.confirmation_bars || 0}/${exit.required_bars || 2} 根完整小时线`);
+  const protection = account.main_trend_profit_protection;
+  if (protection?.armed) pieces.push(`盘中利润保护已启动 · 保护价 ${money(protection.locked_stop)}`);
+  return pieces.join('<br>');
+}
 
 function btcProfitMarkup(account) {
   const p = account.profit_exit_status;
@@ -330,9 +364,10 @@ export function createPaperAccounts(root, fetcher = globalThis.fetch) {
         const spread = a.entry_checks?.max_spread_fraction != null ? `买卖价差 ${(a.entry_checks.spread_fraction * 100).toFixed(4)}% · 入场上限 ${(a.entry_checks.max_spread_fraction * 100).toFixed(4)}%` : '';
         const qualification = a.entry_qualification?.approved_for_forward_simulation === false ? a.entry_qualification.reason : '';
         const confirmation = a.swing_confirmation;
-        const swing = confirmation?.enabled ? `4小时确认：${{1:'多头', '-1':'空头', 0:'趋势未形成'}[confirmation.direction] || '等待完整行情'}${Number.isFinite(confirmation.ema_spread_fraction) ? ' · 均线间距 '+(confirmation.ema_spread_fraction * 100).toFixed(2)+'%' : ''}${confirmation.confirmation_close_ms ? ' · 收盘 '+localTime(confirmation.confirmation_close_ms) : ''}` : '';
+        const swing = !a.current_trend?.enabled && confirmation?.enabled ? `4小时确认：${{1:'多头', '-1':'空头', 0:'趋势未形成'}[confirmation.direction] || '等待完整行情'}${Number.isFinite(confirmation.ema_spread_fraction) ? ' · 均线间距 '+(confirmation.ema_spread_fraction * 100).toFixed(2)+'%' : ''}${confirmation.confirmation_close_ms ? ' · 收盘 '+localTime(confirmation.confirmation_close_ms) : ''}` : '';
+        const trendDetails = id !== 'btc' ? stockTrendDetails(a) : '';
           const events = id !== 'btc' ? stockEventDetails(a) : '';
-          const signal = `<p class="parallel-age">${id !== 'btc' ? escape(family)+' · '+escape(direction)+' · '+escape(a.signal_timeframe || '—')+'<br>' : ''}${escape(signalLabel)}${blockers && !blockers.includes(signalLabel) ? '<br>'+escape(blockers) : ''}${swing ? '<br>'+escape(swing) : ''}${events ? '<br>'+escape(events) : ''}${btcDetails ? '<br>'+escape(btcDetails) : ''}${qualification ? '<br>'+escape(qualification) : ''}${volume ? '<br>'+escape(volume) : ''}${spread ? '<br>'+escape(spread) : ''}${id !== 'btc' ? '<br>下一根收盘 '+localTime(a.next_signal_time_ms) : ''}</p>`;
+          const signal = `<p class="parallel-age">${id !== 'btc' ? escape(family)+' · '+escape(direction)+' · '+escape(a.signal_timeframe || '—')+'<br>' : ''}${escape(signalLabel)}${blockers && !blockers.includes(signalLabel) ? '<br>'+escape(blockers) : ''}${swing ? '<br>'+escape(swing) : ''}${trendDetails ? '<br>'+trendDetails : ''}${events ? '<br>'+escape(events) : ''}${btcDetails ? '<br>'+escape(btcDetails) : ''}${qualification ? '<br>'+escape(qualification) : ''}${volume ? '<br>'+escape(volume) : ''}${spread ? '<br>'+escape(spread) : ''}${id !== 'btc' ? '<br>下一根收盘 '+localTime(a.next_signal_time_ms) : ''}</p>`;
         const p = a.profit_exit_status;
         const profit = id === 'btc' ? btcProfitMarkup(a) : p ? `<p class="parallel-age">分批止盈：${p.split_skipped ? '数量不足以拆分 · 整仓保护' : p.stage_done ? '首段完成 · 余仓跟踪保护' : p.armed ? '首段部分成交 · 继续完成减仓' : p.trigger_observed_at_ms ? '已触发1R · 等待可成交数量' : '等待达到1R'}<br>首段已退出 ${money(p.filled_qty)} · 当前保护价 ${money(p.stop)}</p>` : '';
         const pullback = id === 'btc' ? btcPullbackMarkup(a) : '';

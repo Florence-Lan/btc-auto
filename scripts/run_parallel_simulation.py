@@ -1065,7 +1065,8 @@ def stock_config(plan, symbol):
                                           'max_entry_spread_fraction', 'profit_exit_policy', 'trend_exit_policy',
                                           'entry_quality_policy', 'swing_confirmation_policy',
                                           'entry_timing_policy', 'stock_event_risk_policy',
-                                          'short_confirmation_policy', 'trade_profit_budget_policy') if key in profile}
+                                          'short_confirmation_policy', 'trade_profit_budget_policy',
+                                          'main_stock_trend_policy') if key in profile}
     cfg = {**base, **common, **profile['symbol_profiles'][symbol],
         'candidate_id': profile['symbol_profiles'][symbol].get('candidate_id', profile['candidate_id']),
         'risk_fraction_per_trade': profile['risk_fraction_per_bucket_trade'],
@@ -1081,6 +1082,9 @@ def stock_config(plan, symbol):
     if 'trade_profit_budget_policy' in cfg:
         import trade_profit_budget
         trade_profit_budget.validate(cfg)
+    if 'main_stock_trend_policy' in cfg:
+        import main_stock_trend
+        main_stock_trend.validate(cfg)
     if cfg.get('trend_exit_policy') is not None:
         trend_exits.validate(cfg['trend_exit_policy'])
     return cfg
@@ -1106,6 +1110,13 @@ def synchronize_stock_rules(plan, root, manifest):
         event_only = plan.get('stock_rule_revision_scope') == 'stock_event_risk_only'
         short_only = plan.get('stock_rule_revision_scope') == 'short_confirmation_only'
         budget_only = plan.get('stock_rule_revision_scope') == 'profit_budget_only'
+        main_trend_only = plan.get('stock_rule_revision_scope') == 'main_trend_only'
+        if main_trend_only:
+            import main_stock_trend as main_trend
+            expected = {**state['rule'], main_trend.POLICY_KEY: main_trend.POLICY}
+            if (main_trend.POLICY_KEY in state['rule'] or cfg != expected
+                    or plan.get('main_stock_runtime') != 'price_led_short_v1'):
+                raise ValueError('Main-trend migration cannot alter original sizing, stops or ledger rules')
         if budget_only:
             import trade_profit_budget as budget
             expected = {**state['rule'], budget.POLICY_KEY: budget.POLICY,
@@ -1145,12 +1156,17 @@ def synchronize_stock_rules(plan, root, manifest):
             revision['scope'] = 'short_confirmation_only'
         if budget_only:
             revision['scope'] = 'profit_budget_only'
+        if main_trend_only:
+            revision['scope'] = 'main_trend_only'
         state.setdefault('rule_history', []).append(revision)
         state.update(rule=cfg, signal_timeframe=cfg['signal_timeframe'])
         if cfg.get('trend_exit_policy') != revision['previous_rule'].get('trend_exit_policy'):
             state['trend_exit_active_after_ms'] = activated
             state.pop('trend_exit_status', None)
-        if budget_only:
+        if main_trend_only:
+            state['main_trend_active_after_ms'] = activated
+            state.update(signal_active_after_ms=activated, pending_signal=None)
+        elif budget_only:
             state['trade_profit_budget_active_after_ms'] = activated
             if state.get('position'):
                 state['trade_profit_budget_legacy_position_rule'] = revision['previous_rule']
@@ -1688,7 +1704,9 @@ def _run_locked(plan, root, args):
                     'return_pct', 'position_qty', 'fill_count_total', 'fees_paid', 'funding_pnl', 'max_drawdown_pct',
                     'last_mark_price', 'entry_price', 'signal_status', 'signal_timeframe', 'signal_family', 'entry_direction', 'next_signal_time_ms',
                     'last_signal_time_ms', 'signal_active_after_ms', 'entry_checks', 'entry_blockers', 'entry_qualification',
-                    'swing_confirmation', 'short_confirmation', 'main_stock_runtime', 'entry_profit_budget',
+                    'swing_confirmation', 'short_confirmation', 'long_confirmation', 'main_stock_runtime',
+                    'current_trend', 'main_trend_exit_status', 'main_sector_status',
+                    'main_trend_profit_protection', 'main_trend_active_after_ms', 'entry_profit_budget',
                     'execution_entry_gate', 'entry_source_status', 'llm_trade_gate', 'errors', 'observations',
                     'btc_entry_timing', 'btc_pullback_entry', 'stock_entry_timing', 'stock_event_risk',
                     'profit_exit_status', 'realized_pnl', 'risk_monitor')}
