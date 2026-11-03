@@ -60,8 +60,15 @@ Set-Location -LiteralPath $rootLiteral
 while (`$true) {
     `$stamp = [DateTime]::UtcNow.ToString('yyyyMMddTHHmmss')
     `$log = Join-Path $directoryLiteral ('supervisor_' + `$stamp + '_' + `$PID + '.log')
-    & $pythonLiteral '-u' $scriptLiteral *>> `$log
-    `$exitCode = `$LASTEXITCODE
+    # Windows PowerShell 5 treats native stderr as an error record. Let the
+    # supervisor finish and use its exit code before deciding whether to retry.
+    `$savedErrorActionPreference = `$ErrorActionPreference
+    try {
+        `$ErrorActionPreference = 'Continue'
+        & $pythonLiteral '-u' $scriptLiteral *>> `$log
+        `$exitCode = `$LASTEXITCODE
+    }
+    finally { `$ErrorActionPreference = `$savedErrorActionPreference }
     if (`$exitCode -in @(0, 73, 78)) { exit 0 }
     `$attempt++
     `$delay = [Math]::Min(300, 10 * [Math]::Pow(2, [Math]::Min(`$attempt - 1, 5)))
