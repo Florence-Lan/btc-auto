@@ -40,6 +40,35 @@ def declared_main_baseline_matches(state, expected):
         return False
     if _same_value(current, expected):
         return True
+    entry_key = 'main_stock_entry_trend_policy'
+    if entry_key in current:
+        try:
+            import main_stock_entry_trend as entry
+        except ImportError:
+            return False
+        activated = state.get('entry_trend_active_after_ms')
+        old_activated = state.get('main_trend_active_after_ms')
+        history = state.get('rule_history')
+        if (entry_key in expected or not isinstance(getattr(entry, 'POLICY', None), Mapping)
+                or not _same_value(current[entry_key], entry.POLICY)
+                or type(activated) is not int or type(old_activated) is not int
+                or activated <= old_activated or not isinstance(history, list)):
+            return False
+        previous = {key: value for key, value in current.items() if key != entry_key}
+        matches = [(i, row) for i, row in enumerate(history) if isinstance(row, Mapping)
+                   and ('previous_rule' in row or 'new_rule' in row)]
+        if not matches:
+            return False
+        index, revision = matches[-1]
+        if (revision.get('scope') != 'entry_trend_only'
+                or type(revision.get('activated_at_ms')) is not int
+                or revision['activated_at_ms'] != activated
+                or not _same_value(revision.get('previous_rule'), previous)
+                or not _same_value(revision.get('new_rule'), current)):
+            return False
+        # The overlay deliberately leaves the old signal/exit clocks intact.
+        baseline = {**state, 'rule': previous, 'rule_history': history[:index]}
+        return declared_main_baseline_matches(baseline, expected)
     trend_key = 'main_stock_trend_policy'
     if trend_key in current:
         # A main-only overlay must extend the complete, independently checked
