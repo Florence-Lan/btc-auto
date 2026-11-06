@@ -258,6 +258,7 @@ class WindowsProcesses:
         # unrelated application credentials.
         expression = r"""
         $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
         $all = @(Get-CimInstance Win32_Process)
         $selected = @($all | Where-Object { $_.Name -match '^python(w|[0-9.]*)?\.exe$' })
         $ids = @{}; foreach ($p in $selected) { $ids[[int]$p.ProcessId] = $true }
@@ -275,7 +276,7 @@ class WindowsProcesses:
         }) | ConvertTo-Json -Compress
         """
         result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', expression],
-                                capture_output=True, text=True, timeout=25,
+                                capture_output=True, text=True, encoding='utf-8', timeout=25,
                                 creationflags=subprocess.CREATE_NO_WINDOW)
         if result.returncode:
             raise RuntimeError('Windows process inventory unavailable')
