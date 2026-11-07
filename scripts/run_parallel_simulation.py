@@ -1071,7 +1071,8 @@ def stock_config(plan, symbol):
                                           'entry_quality_policy', 'swing_confirmation_policy',
                                           'entry_timing_policy', 'stock_event_risk_policy',
                                           'short_confirmation_policy', 'trade_profit_budget_policy',
-                                          'main_stock_trend_policy', 'main_stock_entry_trend_policy') if key in profile}
+                                          'main_stock_trend_policy', 'main_stock_entry_trend_policy',
+                                          'main_stock_execution_guard_policy') if key in profile}
     cfg = {**base, **common, **profile['symbol_profiles'][symbol],
         'candidate_id': profile['symbol_profiles'][symbol].get('candidate_id', profile['candidate_id']),
         'risk_fraction_per_trade': profile['risk_fraction_per_bucket_trade'],
@@ -1093,6 +1094,9 @@ def stock_config(plan, symbol):
     if 'main_stock_entry_trend_policy' in cfg:
         import main_stock_entry_trend
         main_stock_entry_trend.validate(cfg)
+    if 'main_stock_execution_guard_policy' in cfg:
+        import main_stock_execution_guard
+        main_stock_execution_guard.validate(cfg)
     if cfg.get('trend_exit_policy') is not None:
         trend_exits.validate(cfg['trend_exit_policy'])
     return cfg
@@ -1117,6 +1121,12 @@ def synchronize_stock_rules(plan, root, manifest):
         timing_only = plan.get('stock_rule_revision_scope') == 'entry_timing_only'
         event_only = plan.get('stock_rule_revision_scope') == 'stock_event_risk_only'
         short_only = plan.get('stock_rule_revision_scope') == 'short_confirmation_only'
+        execution_only = plan.get('stock_rule_revision_scope') == 'execution_guard_only'
+        if execution_only:
+            import main_stock_execution_guard as guard
+            if (guard.POLICY_KEY in state['rule'] or cfg != {**state['rule'], guard.POLICY_KEY: guard.POLICY}
+                    or plan.get('main_stock_runtime') != 'price_led_short_v1'):
+                raise ValueError('Execution-guard migration cannot change signals, technical exits or original budgets')
         budget_only = plan.get('stock_rule_revision_scope') == 'profit_budget_only'
         main_trend_only = plan.get('stock_rule_revision_scope') == 'main_trend_only'
         entry_trend_only = plan.get('stock_rule_revision_scope') == 'entry_trend_only'
@@ -1171,6 +1181,8 @@ def synchronize_stock_rules(plan, root, manifest):
             'reason': plan.get('stock_rule_revision_reason', 'User authorized independent per-account strategies and shorter stock signal cycles; closed-bar signals with 30s entry retries.')}
         if short_only:
             revision['scope'] = 'short_confirmation_only'
+        if execution_only:
+            revision['scope'] = 'execution_guard_only'
         if budget_only:
             revision['scope'] = 'profit_budget_only'
         if main_trend_only:
@@ -1182,7 +1194,11 @@ def synchronize_stock_rules(plan, root, manifest):
         if cfg.get('trend_exit_policy') != revision['previous_rule'].get('trend_exit_policy'):
             state['trend_exit_active_after_ms'] = activated
             state.pop('trend_exit_status', None)
-        if entry_trend_only:
+        if execution_only:
+            state['execution_guard_active_after_ms'] = activated
+            state.update(pending_signal=None, last_signal_result='execution_guard_revision_wait',
+                signal_status='holding' if state.get('position') else 'waiting_for_new_closed_bar')
+        elif entry_trend_only:
             state['entry_trend_active_after_ms'] = activated
             state.update(pending_signal=None, last_signal_result='entry_trend_revision_wait',
                 signal_status='holding' if state.get('position') else 'waiting_for_new_closed_bar')

@@ -24,6 +24,7 @@ import trade_profit_budget as profit_budget
 import main_stock_trend as main_trend
 import main_stock_entry_trend as entry_trend
 from main_stock_sector import SectorContext
+import main_stock_execution_guard as execution_guard
 
 SHARED_ROOT = paper.ROOT / 'data/paper_trading/stock_entry_timing_trial_20261029'
 MAX_BLOCK_BYTES = 8_000_000
@@ -215,6 +216,7 @@ class MainStockAccount(paper.StockAccount):
         short.validate(config)
         main_trend.validate(config)
         entry_trend.validate(config)
+        execution_guard.validate(config)
         super().__init__(path, venue, symbol, config)
         state = paper.read_json(self.path)
         self.short_confirmation_active_after_ms = state.get('short_confirmation_active_after_ms')
@@ -224,6 +226,12 @@ class MainStockAccount(paper.StockAccount):
         self._main_clock_diagnostic = {'source': 'not_observed'}
         self._declared_config = deepcopy(config)
         self._budget_decision = None
+        self._guard_market = {}
+        self._guard_decision = None
+        self.execution_guard_active_after_ms = state.get('execution_guard_active_after_ms')
+        if execution_guard.enabled(config) and (type(self.execution_guard_active_after_ms) is not int
+                or self.execution_guard_active_after_ms <= state.get('entry_trend_active_after_ms', 0)):
+            raise ValueError('main_execution_guard_activation_required')
         self._legacy_position_mode = False
         self.main_trend_active_after_ms = state.get('main_trend_active_after_ms')
         if main_trend.enabled(config) and (type(self.main_trend_active_after_ms) is not int
@@ -335,7 +343,9 @@ class MainStockAccount(paper.StockAccount):
 
     def market_data(self, force_rules=False, force_signal=False):
         self._main_clock_diagnostic = {'source': 'not_observed'}
-        return _BASE_MARKET_DATA(_AccountView(self), force_rules=force_rules, force_signal=force_signal)
+        responses = _BASE_MARKET_DATA(_AccountView(self), force_rules=force_rules, force_signal=force_signal)
+        self._guard_market = {label: (value, error) for label, value, error in responses}
+        return responses
 
     def _plan_budget(self, state, equity, sig, entry, stop, step, lot, volume, minimum, actual_qty=None):
         decision = profit_budget.stock_plan(self.config, equity=equity, entry=entry,
@@ -344,9 +354,49 @@ class MainStockAccount(paper.StockAccount):
             minimum_notional=minimum, liquidity_qty=volume * .1, actual_qty=actual_qty)
         decision.update(checked_at_ms=self.now_ms(), signal_time_ms=sig.time_ms,
             signal_boundary_ms=sig.time_ms + self.signal_interval_ms)
+        if execution_guard.enabled(self.config) and decision.get('allowed'):
+            guard = self._entry_execution_guard(signal=sig, decision=decision, step=step)
+            decision['execution_guard'] = guard
+            if not guard['allowed']:
+                decision.update(allowed=False, admitted_quantity=0., status='blocked',
+                    reasons=list(dict.fromkeys(decision['reasons'] + guard['reasons'])))
         self._budget_decision = decision
         state['entry_profit_budget'] = deepcopy(decision)
         return decision
+
+    def _record_execution_guard(self, state, decision, phase):
+        result = {**decision, 'phase': phase, 'checked_at_ms': self.now_ms(),
+                  'active_after_ms': self.execution_guard_active_after_ms}
+        previous = (state or {}).get('execution_guard', {}).get('checked_at_ms')
+        if type(previous) is int:
+            result['interval_since_previous_guard_ms'] = result['checked_at_ms'] - previous
+        self._guard_decision = result
+        if state is not None:
+            state['execution_guard'] = deepcopy(result)
+        paper.runner_journal(self.path.with_name('execution_guard_decisions.jsonl'), result)
+        return result
+
+    def _entry_execution_guard(self, *, signal, decision, step):
+        try:
+            if signal.time_ms + self.signal_interval_ms <= self.execution_guard_active_after_ms:
+                raise ValueError('main_execution_guard_awaiting_new_signal')
+            mark, mark_error = self._guard_market['mark']
+            book, book_error = self._guard_market['book']
+            _, clock_error = self._guard_market['clock']
+            if mark_error or book_error or clock_error:
+                raise ValueError('main_execution_guard_market_unavailable')
+            paper.fresh(mark['time'], self.now_ms())
+            paper.fresh(book.get('T') or book.get('E'), self.now_ms())
+            close = paper.book_fill(book, -signal.direction * decision['quantity'], step,
+                                    self.config['adverse_slippage_fraction_assumption'])
+            result = execution_guard.entry_decision(self.config, decision,
+                direction=signal.direction, mark_price=float(mark['markPrice']), exit_fill=close)
+            result.update(signal_boundary_ms=signal.time_ms+self.signal_interval_ms,
+                          mark_time_ms=mark['time'], book_time_ms=book.get('T') or book.get('E'))
+        except (ValueError, KeyError, TypeError, IndexError, OverflowError) as exc:
+            result = {'enabled': True, 'allowed': False, 'status': 'unavailable',
+                      'reasons': [str(exc) if isinstance(exc, ValueError) else 'main_execution_guard_market_unavailable']}
+        return self._record_execution_guard(None, result, 'entry')
 
     def entry_quantity(self, state, equity, signal, entry, stop, step, lot, volume, minimum):
         if self._legacy_position_mode:
@@ -404,6 +454,11 @@ class MainStockAccount(paper.StockAccount):
         original = super().additional_exit_reason(state, position, data, errors, timestamp)
         if original:
             return original
+        guarded = bool(position.get('trade_profit_budget', {}).get('execution_guard', {}).get('allowed'))
+        if guarded:
+            reason = self._execution_guard_exit(state, position, data, errors)
+            if reason:
+                return reason
         if main_trend.enabled(self._declared_config):
             if data.get('clock') and not errors.get('clock') and not errors.get('signal'):
                 bars = [paper.arithmetic.candle(row) for row in self.signal_bars]
@@ -419,6 +474,10 @@ class MainStockAccount(paper.StockAccount):
                     paper.journal(self.path.with_name('main_trend_decisions.jsonl'), outcome)
                 return 'main_trend_invalidation'
             self._observe_profit_protection(state, position, data, errors, timestamp)
+            if guarded:
+                reason = self._execution_guard_exit(state, position, data, errors)
+                if reason:
+                    return reason
         if not position.get('trade_profit_budget'):
             return None
         try:
@@ -436,6 +495,39 @@ class MainStockAccount(paper.StockAccount):
         except (ValueError, KeyError, TypeError, IndexError):
             pass  # Original independent mark/stop protection still takes priority.
         return None
+
+    def _execution_guard_exit(self, state, position, data, errors):
+        """Use full observed liquidation depth; old stops survive unavailable data."""
+        try:
+            if errors.get('book') or errors.get('mark'):
+                raise ValueError('main_execution_guard_market_unavailable')
+            book = data['book']
+            paper.fresh(book.get('T') or book.get('E'), self.now_ms())
+            paper.fresh(data['mark']['time'], self.now_ms())
+            filters = {item['filterType']: item for item in self.rules['filters']}
+            lot = filters.get('MARKET_LOT_SIZE') or filters['LOT_SIZE']
+            close = paper.book_fill(book, -position['direction'] * position['qty'], float(lot['stepSize']),
+                                   self.config['adverse_slippage_fraction_assumption'])
+            net = execution_guard.net_close(self.config, position, close)
+            cap = position['trade_profit_budget']['execution_guard']['reserved_loss_budget_usdt']
+            detail = position.get('main_trend_profit_protection') or {}
+            reason = 'main_execution_loss_reserve' if net <= -cap else None
+            floor = detail.get('net_floor_usdt') if detail.get('armed') else None
+            if reason is None and floor is not None and net <= floor:
+                reason = 'main_execution_profit_lock'
+            self._record_execution_guard(state, {'enabled': True, 'status': 'evaluated',
+                'entry_time_ms': position['entry_time'], 'net_full_close_usdt': net,
+                'reserved_loss_budget_usdt': cap, 'net_floor_usdt': floor,
+                'triggered': bool(reason), 'reason': reason,
+                'book_time_ms': book.get('T') or book.get('E'), 'mark_time_ms': data['mark']['time'],
+                'quantity': close['qty'], 'exit_price': close['price']}, 'holding')
+            return reason
+        except (ValueError, KeyError, TypeError, IndexError, OverflowError) as exc:
+            self._record_execution_guard(state, {'enabled': True, 'status': 'unavailable',
+                'entry_time_ms': position['entry_time'], 'triggered': False,
+                'reason': str(exc) if isinstance(exc, ValueError) else 'main_execution_guard_market_unavailable',
+                'original_protective_exits_preserved': True}, 'holding')
+            return None
 
     def _observe_profit_protection(self, state, position, data, errors, timestamp):
         """Tighten only from new executable observations, after old-stop checks."""
@@ -466,6 +558,12 @@ class MainStockAccount(paper.StockAccount):
             if detail['best_executable_return'] >= self.config['trail_activation_underlying_return']:
                 tick = float(filters['PRICE_FILTER']['tickSize'])
                 lock = position['entry'] * (1 + side * self.config['trail_locked_underlying_return'])
+                guarded = bool(position.get('trade_profit_budget', {}).get('execution_guard', {}).get('allowed'))
+                if guarded:
+                    lock_plan = execution_guard.lock_quote(self.config, position)
+                    lock = lock_plan['quote']
+                    detail['net_floor_usdt'] = lock_plan['net_floor_usdt']
+                    detail['known_costs_included'] = True
                 candidate = paper.arithmetic.round_tick(lock, tick, side == 1)
                 previous_stop = position['stop']
                 if side * (candidate - position['stop']) > 0:
@@ -529,6 +627,11 @@ class MainStockAccount(paper.StockAccount):
 
     def step(self, market_data=None):
         state = paper.read_json(self.path)
+        self._guard_decision = None
+        if market_data is not None:
+            self._guard_market = {label: (value, error) for label, value, error in market_data}
+        if execution_guard.enabled(self._declared_config) and state.get('execution_guard_active_after_ms') != self.execution_guard_active_after_ms:
+            raise ValueError('main_execution_guard_activation_changed')
         if short.enabled(self.config) and state.get('short_confirmation_active_after_ms') != self.short_confirmation_active_after_ms:
             raise ValueError('main_short_confirmation_activation_changed')
         if (profit_budget.enabled(self._declared_config)
@@ -601,6 +704,12 @@ class MainStockAccount(paper.StockAccount):
                     'enabled': profit_budget.enabled(self._declared_config),
                     'active_after_ms': self.trade_profit_budget_active_after_ms,
                     'grandfathered_existing_position': self._legacy_position_mode}
+                if execution_guard.enabled(self._declared_config):
+                    value['main_stock_runtime']['execution_guard'] = {
+                        'enabled': True, 'active_after_ms': self.execution_guard_active_after_ms,
+                        'planned_budget_fraction': execution_guard.POLICY['planned_budget_fraction']}
+                    if self._guard_decision is not None:
+                        value['execution_guard'] = deepcopy(self._guard_decision)
             return _BASE_WRITE(path, value)
         function = FunctionType(_BASE_STEP.__code__, {**_BASE_STEP.__globals__,
             'stock_swing_profiles': adapter, 'write_json': write}, _BASE_STEP.__name__,
