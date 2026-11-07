@@ -42,6 +42,26 @@ async function render(value) {
   return {root, view, cards: () => root.fields.cards.innerHTML};
 }
 
+test('pullback waiting and ready states expose frozen prices without claiming a fill', async () => {
+  const value=status({signal_status:'trend_pullback_waiting_confirmation',position_qty:0,
+    trend_pullback_setup:{status:'waiting_confirmation',zone_low:99.5,zone_high:100.5,
+      original_close:101,expires_at_ms:Date.now()+60000}});
+  const rendered=await render(value);
+  try {
+    assert.match(rendered.cards(),/等待5分钟转向确认/);
+    assert.match(rendered.cards(),/观察区域 99\.5000—100\.5000/);
+    assert.doesNotMatch(rendered.cards(),/本次机会已成交/);
+    Object.assign(value.accounts.mu,{signal_status:'trend_pullback_ready',
+      trend_pullback_setup:{...value.accounts.mu.trend_pullback_setup,status:'ready',structural_invalidation:98.7},
+      entry_blockers:['pullback_price_improvement_insufficient']});
+    await rendered.view.refresh();
+    assert.match(rendered.cards(),/回踩已确认 · 等待成交与风险检查/);
+    assert.match(rendered.cards(),/价格改善不足|相对原信号价改善不足/);
+    assert.match(rendered.cards(),/结构失效参考 98\.7000/);
+    assert.doesNotMatch(rendered.cards(),/本次机会已成交/);
+  } finally {rendered.view.destroy();}
+});
+
 test('main stock cards show separate 1h, 2h and 4h closed contexts without claiming an entry', async () => {
   const rendered = await render(status());
   try {

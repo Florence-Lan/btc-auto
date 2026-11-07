@@ -455,6 +455,12 @@ class StockAccount:
             self.config['risk_fraction_per_trade'], self.config['taker_fee_rate_assumption'],
             self.config['adverse_slippage_fraction_assumption'])
 
+    def prepare_pending_entry(self, state, pending, data, errors, timestamp):
+        return pending
+
+    def initial_entry_stop(self, state, signal, entry):
+        return signals.initial_stop(entry, signal.direction, signal.atr, self.config)
+
     def entry_fill_admission(self, state, equity, signal, candidate, result, step, lot, volume, minimum):
         return {'enabled': False, 'allowed': True, 'reasons': []}
 
@@ -896,6 +902,9 @@ class StockAccount:
             elif state['last_signal_time_ms'] == boundary and state.get('last_signal_result') == 'entry_timing_cancelled':
                 state['signal_status'] = 'entry_signal_invalidated'
                 state['entry_blockers'] = state.get('stock_entry_timing', {}).get('reasons', [])
+        if not pos and cfg.get('main_trend_pullback_entry_policy') is not None:
+            pending = self.prepare_pending_entry(state, pending, data, errors, timestamp)
+            state['pending_signal'] = pending
         if not pos and pending and cfg.get('entry_enabled', True):
             state['signal_status'] = 'entry_data_unavailable'
             state['entry_blockers'] = list(errors) or ['entry_data_unavailable']
@@ -937,7 +946,7 @@ class StockAccount:
                                                if not passed and key != 'entry_timing'] + timing['reasons']
                     if not state['entry_blockers']:
                         entry_estimate = reference * (1 + sig.direction * cfg['adverse_slippage_fraction_assumption'])
-                        stop = signals.initial_stop(entry_estimate, sig.direction, sig.atr, cfg)
+                        stop = self.initial_entry_stop(state, sig, entry_estimate)
                         if stop:
                             stop = arithmetic.round_tick(stop, tick, sig.direction == -1)
                             qty = self.entry_quantity(state, equity, sig, entry_estimate, stop,
@@ -946,7 +955,7 @@ class StockAccount:
                                       volume * 0.1, float(lot['maxQty']), equity * 10 / entry_estimate)
                             result = book_fill(book, sig.direction * floor_qty(qty, step), step, cfg['adverse_slippage_fraction_assumption'])
                             if result['qty'] >= float(lot['minQty']) and result['qty'] * result['price'] >= minimum:
-                                stop = signals.initial_stop(result['price'], sig.direction, sig.atr, cfg)
+                                stop = self.initial_entry_stop(state, sig, result['price'])
                                 if stop:
                                     stop = arithmetic.round_tick(stop, tick, sig.direction == -1)
                                     actual_risk = result['qty'] * signals.per_unit_stop_risk(result['price'], stop,
@@ -1072,7 +1081,8 @@ def stock_config(plan, symbol):
                                           'entry_timing_policy', 'stock_event_risk_policy',
                                           'short_confirmation_policy', 'trade_profit_budget_policy',
                                           'main_stock_trend_policy', 'main_stock_entry_trend_policy',
-                                          'main_stock_execution_guard_policy') if key in profile}
+                                          'main_stock_execution_guard_policy',
+                                          'main_trend_pullback_entry_policy') if key in profile}
     cfg = {**base, **common, **profile['symbol_profiles'][symbol],
         'candidate_id': profile['symbol_profiles'][symbol].get('candidate_id', profile['candidate_id']),
         'risk_fraction_per_trade': profile['risk_fraction_per_bucket_trade'],
@@ -1097,6 +1107,9 @@ def stock_config(plan, symbol):
     if 'main_stock_execution_guard_policy' in cfg:
         import main_stock_execution_guard
         main_stock_execution_guard.validate(cfg)
+    if 'main_trend_pullback_entry_policy' in cfg:
+        import main_trend_pullback_entry
+        main_trend_pullback_entry.validate(cfg)
     if cfg.get('trend_exit_policy') is not None:
         trend_exits.validate(cfg['trend_exit_policy'])
     return cfg
@@ -1122,6 +1135,15 @@ def synchronize_stock_rules(plan, root, manifest):
         event_only = plan.get('stock_rule_revision_scope') == 'stock_event_risk_only'
         short_only = plan.get('stock_rule_revision_scope') == 'short_confirmation_only'
         execution_only = plan.get('stock_rule_revision_scope') == 'execution_guard_only'
+        pullback_only = plan.get('stock_rule_revision_scope') == 'trend_pullback_entry_only'
+        if pullback_only:
+            import main_trend_pullback_entry as pullback
+            if (pullback.POLICY_KEY in state['rule']
+                    or cfg != {**state['rule'], pullback.POLICY_KEY: pullback.POLICY}
+                    or plan.get('main_stock_runtime') != 'price_led_short_v1'
+                    or type(state.get('execution_guard_active_after_ms')) is not int
+                    or activated <= state['execution_guard_active_after_ms']):
+                raise ValueError('Pullback migration can only add the explicit entry policy after execution guards')
         if execution_only:
             import main_stock_execution_guard as guard
             if (guard.POLICY_KEY in state['rule'] or cfg != {**state['rule'], guard.POLICY_KEY: guard.POLICY}
@@ -1183,6 +1205,8 @@ def synchronize_stock_rules(plan, root, manifest):
             revision['scope'] = 'short_confirmation_only'
         if execution_only:
             revision['scope'] = 'execution_guard_only'
+        if pullback_only:
+            revision['scope'] = 'trend_pullback_entry_only'
         if budget_only:
             revision['scope'] = 'profit_budget_only'
         if main_trend_only:
@@ -1194,7 +1218,11 @@ def synchronize_stock_rules(plan, root, manifest):
         if cfg.get('trend_exit_policy') != revision['previous_rule'].get('trend_exit_policy'):
             state['trend_exit_active_after_ms'] = activated
             state.pop('trend_exit_status', None)
-        if execution_only:
+        if pullback_only:
+            state['pullback_entry_active_after_ms'] = activated
+            state.update(pending_signal=None, trend_pullback_setup=None, last_signal_result='pullback_revision_wait',
+                signal_status='holding' if state.get('position') else 'trend_pullback_waiting_signal')
+        elif execution_only:
             state['execution_guard_active_after_ms'] = activated
             state.update(pending_signal=None, last_signal_result='execution_guard_revision_wait',
                 signal_status='holding' if state.get('position') else 'waiting_for_new_closed_bar')
@@ -1744,7 +1772,7 @@ def _run_locked(plan, root, args):
                     'last_mark_price', 'entry_price', 'signal_status', 'signal_timeframe', 'signal_family', 'entry_direction', 'next_signal_time_ms',
                     'last_signal_time_ms', 'signal_active_after_ms', 'entry_checks', 'entry_blockers', 'entry_qualification',
                     'swing_confirmation', 'short_confirmation', 'long_confirmation', 'main_stock_runtime',
-                    'current_trend', 'entry_trend_confirmation', 'entry_trend_runtime',
+                    'current_trend', 'entry_trend_confirmation', 'entry_trend_runtime', 'trend_pullback_setup',
                     'entry_trend_execution', 'entry_trend_active_after_ms',
                     'main_trend_exit_status', 'main_sector_status',
                     'main_trend_profit_protection', 'main_trend_active_after_ms', 'entry_profit_budget',

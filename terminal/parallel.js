@@ -19,6 +19,16 @@ signalNames.entry_signal_invalidated = '突破已失效，等待新小时信号'
 signalNames.entry_timing_blocked = '入场价格超出信号有效范围';
 signalNames.stock_event_blocked = '财报事件限制新增交易';
 signalNames.main_sector_blocked = '板块方向限制新增交易';
+Object.assign(signalNames, {
+  trend_pullback_waiting_signal: '等待新趋势机会',
+  trend_pullback_waiting_retest: '趋势已确认 · 等待回踩或反抽',
+  trend_pullback_waiting_confirmation: '已回到观察区域 · 等待5分钟转向确认',
+  trend_pullback_ready: '回踩已确认 · 等待成交与风险检查',
+  trend_pullback_consumed: '本次回踩机会已成交',
+  trend_pullback_cancelled: '本次回踩机会已失效',
+  trend_pullback_expired: '等待超时 · 放弃本次机会',
+  trend_pullback_data_unavailable: '回踩确认资料暂不可用'
+});
 const blockerNames = {prior_5m_volume:'此前5分钟成交量为0或缺失', funding:'资金费超限',
   main_sector_unknown:'板块方向尚不可用，暂停新增',
   main_sector_opposes_entry:'纳指期货方向与本次开仓相反',
@@ -42,6 +52,36 @@ const blockerNames = {prior_5m_volume:'此前5分钟成交量为0或缺失', fun
   entry_timing_fill_extension_exceeded:'成交距突破位超过1 ATR',
   entry_timing_trigger_missing:'原突破位资料缺失，等待新信号',
   entry_timing_trigger_invalid:'原突破位资料无效，等待新信号'};
+Object.assign(blockerNames, {
+  pullback_waiting_retest: '等待价格回到原突破区域',
+  pullback_waiting_confirmation: '等待后续完整5分钟K线确认转向',
+  pullback_new_hourly_signal_required: '等待生效后的新小时机会',
+  pullback_completed_data_required: '等待完整小时与5分钟资料',
+  pullback_latest_closed_five_required: '最新5分钟收盘资料尚未齐备',
+  pullback_price_improvement_insufficient: '相对原信号价改善不足，放弃追价',
+  pullback_confirmation_lost: '短周期转向确认已失效',
+  pullback_confirmation_chase_exceeded: '转向后追价幅度超限',
+  pullback_structure_invalidated: '回踩或反抽结构已失效',
+  pullback_setup_expired: '原机会超过3小时，等待新信号',
+  pullback_confirmation_expired: '转向确认超过有效期',
+  pullback_five_minute_gap: '5分钟资料有缺口，取消本次机会',
+  pullback_revised_completed_price: '已观察的收盘价格发生变化，取消本次机会',
+  pullback_event_gate_blocked: '事件风控取消本次回踩机会',
+  pullback_data_invalid: '回踩资料未通过检查'
+});
+
+function stockPullbackDetails(account) {
+  const setup = account.trend_pullback_setup;
+  if (!setup) return '';
+  const labels = {waiting_retest:'等待回到区域', waiting_confirmation:'等待转向确认',
+    ready:'已确认，仍需执行检查', consumed:'本次机会已成交', expired:'已超时', cancelled:'已失效'};
+  const parts = [`趋势内回踩入场：${labels[setup.status] || '等待检查'}`];
+  if ([setup.zone_low, setup.zone_high].every(Number.isFinite)) parts.push(`观察区域 ${money(setup.zone_low)}—${money(setup.zone_high)}`);
+  if (Number.isFinite(setup.original_close)) parts.push(`原信号价 ${money(setup.original_close)}`);
+  if (Number.isFinite(setup.structural_invalidation)) parts.push(`结构失效参考 ${money(setup.structural_invalidation)}；实际止损仍满足最低宽度`);
+  if (Number.isFinite(setup.expires_at_ms)) parts.push(`原机会截止 ${localTime(setup.expires_at_ms)}`);
+  return parts.join(' · ');
+}
 const stockEventReasonName = reason => ({
   stock_event_blackout: '处于财报电话会前后观察窗口',
   stock_event_post_event_bars_unavailable: '等待财报后两根完整小时行情',
@@ -391,7 +431,7 @@ export function createPaperAccounts(root, fetcher = globalThis.fetch) {
         const family = {breakout:'趋势突破', donchian20:'20根收盘线突破', ema_transition:'均线交叉', trend_pullback:'趋势回调', range_reversion:'震荡回归'}[a.signal_family] || '策略更新中';
         const direction = {both:'双向', long:'只做多', short:'只做空'}[a.entry_direction] || '—';
         const blockers = (a.entry_blockers || []).map(k => id === 'btc' ? btcBlockerName(k, a) : blockerNames[k] || stockEventReasonName(k) || signalNames[k] || k).join('；');
-        const btcDetails = id === 'btc' ? btcEntryDetails(a) : '';
+        const btcDetails = id === 'btc' ? btcEntryDetails(a) : stockPullbackDetails(a);
         const noRawConfirmation = id !== 'btc' && !a.pending_signal
           && a.signal_status === 'swing_confirmation_blocked'
           && (a.signal_diagnostics?.final_stage === 'no_raw_signal'

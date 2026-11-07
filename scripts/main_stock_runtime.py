@@ -25,6 +25,7 @@ import main_stock_trend as main_trend
 import main_stock_entry_trend as entry_trend
 from main_stock_sector import SectorContext
 import main_stock_execution_guard as execution_guard
+import main_trend_pullback_entry as pullback
 
 SHARED_ROOT = paper.ROOT / 'data/paper_trading/stock_entry_timing_trial_20261029'
 MAX_BLOCK_BYTES = 8_000_000
@@ -208,6 +209,16 @@ class _AccountView:
         return getattr(self._account, name)
 
 
+class _EntryTiming:
+    def __getattr__(self, name):
+        return getattr(paper.stock_entry_timing, name)
+
+    def evaluate(self, trigger, signal, config, **prices):
+        if pullback.enabled(config):
+            return pullback.evaluate(trigger, signal, config, **prices)
+        return paper.stock_entry_timing.evaluate(trigger, signal, config, **prices)
+
+
 class MainStockAccount(paper.StockAccount):
     """Use the existing main ledger with a private, post-activation dispatcher."""
     shared_clock_loader = staticmethod(load_shared_clock)
@@ -217,8 +228,13 @@ class MainStockAccount(paper.StockAccount):
         main_trend.validate(config)
         entry_trend.validate(config)
         execution_guard.validate(config)
+        pullback.validate(config)
         super().__init__(path, venue, symbol, config)
         state = paper.read_json(self.path)
+        self.pullback_entry_active_after_ms = state.get('pullback_entry_active_after_ms')
+        if pullback.enabled(config) and (type(self.pullback_entry_active_after_ms) is not int
+                or self.pullback_entry_active_after_ms <= state.get('execution_guard_active_after_ms', 0)):
+            raise ValueError('pullback_activation_required')
         self.short_confirmation_active_after_ms = state.get('short_confirmation_active_after_ms')
         if short.enabled(config) and (type(self.short_confirmation_active_after_ms) is not int
                 or self.short_confirmation_active_after_ms <= 0):
@@ -256,6 +272,92 @@ class MainStockAccount(paper.StockAccount):
             self._sector_context = SectorContext(
                 self.path.with_name('main_sector_quotes.jsonl'), self.main_trend_active_after_ms)
         return self._sector_context.decision(timestamp)
+
+    def _record_pullback(self, state, setup, timestamp):
+        previous = state.get('trend_pullback_setup') or {}
+        if setup and (previous.get('id'), previous.get('status'), previous.get('last_processed_open_ms')) != (
+                setup.get('id'), setup.get('status'), setup.get('last_processed_open_ms')):
+            paper.runner_journal(self.path.with_name('trend_pullback_decisions.jsonl'),
+                {'checked_at_ms': timestamp, 'active_after_ms': self.pullback_entry_active_after_ms,
+                 'setup': deepcopy(setup), 'places_orders': False})
+        state['trend_pullback_setup'] = setup
+
+    def prepare_pending_entry(self, state, pending, data, errors, timestamp):
+        if not pullback.enabled(self.config):
+            return super().prepare_pending_entry(state, pending, data, errors, timestamp)
+        setup = deepcopy(state.get('trend_pullback_setup'))
+        try:
+            if errors.get('five') or errors.get('signal') or errors.get('clock') or not data.get('clock'):
+                state.update(signal_status='trend_pullback_data_unavailable',
+                             entry_blockers=['pullback_completed_data_required'])
+                return None
+            if not self.five or int(self.five[-1][6])+1 != timestamp//pullback.FIVE*pullback.FIVE:
+                state.update(signal_status='trend_pullback_data_unavailable',
+                             entry_blockers=['pullback_latest_closed_five_required'])
+                return None
+            event = state.get('stock_event_risk') or {}
+            if event.get('enabled') and not event.get('allowed'):
+                if setup and setup['status'] not in pullback.TERMINAL:
+                    setup = pullback.cancel(setup, 'pullback_event_gate_blocked')
+                    self._record_pullback(state, setup, timestamp)
+                return None
+            if setup and timestamp >= setup['expires_at_ms'] and setup['status'] not in pullback.TERMINAL:
+                setup = pullback.cancel(setup, 'pullback_setup_expired', 'expired')
+            incoming = pending if (pending or {}).get('entry_trigger', {}).get('family') == 'donchian20' else None
+            if incoming and (not setup or (incoming['boundary_ms'] > setup['boundary_ms'] and (
+                    setup['status'] in pullback.TERMINAL or incoming['signal']['direction'] != setup['direction']))):
+                if setup and setup['status'] not in pullback.TERMINAL:
+                    self._record_pullback(state, pullback.cancel(setup, 'pullback_opposite_signal'), timestamp)
+                setup = pullback.seed(incoming, timestamp=timestamp,
+                                      active_after=self.pullback_entry_active_after_ms)
+            if setup:
+                setup = pullback.advance(setup, self.five, timestamp=timestamp)
+                self._record_pullback(state, setup, timestamp)
+                state['signal_status'] = 'trend_pullback_' + setup['status']
+                state['entry_blockers'] = list(setup.get('reasons', []))
+                return pullback.pending_entry(setup)
+            state.update(signal_status='trend_pullback_waiting_signal', entry_blockers=['pullback_new_hourly_signal_required'])
+            return None
+        except (ValueError, TypeError, KeyError, IndexError, OverflowError) as exc:
+            if setup:
+                self._record_pullback(state, pullback.cancel(setup,
+                    str(exc) if isinstance(exc, ValueError) else 'pullback_data_invalid'), timestamp)
+            state.update(signal_status='trend_pullback_data_unavailable', entry_blockers=['pullback_data_invalid'])
+            return None
+
+    def initial_entry_stop(self, state, signal, entry):
+        if not pullback.enabled(self.config):
+            return super().initial_entry_stop(state, signal, entry)
+        setup = state.get('trend_pullback_setup') or {}
+        try:
+            if setup.get('signal') != vars(signal):
+                return None
+            return pullback.initial_stop(setup, entry, self.config)
+        except (ValueError, TypeError, KeyError, AttributeError):
+            return None
+
+    def record_entry_timing(self, state, pending, decision, phase):
+        result = super().record_entry_timing(state, pending, decision, phase)
+        if (pullback.enabled(self.config) and decision.get('cancel_pending')
+                and pending.get('entry_trigger', {}).get('family') == 'trend_pullback'):
+            setup = deepcopy(state.get('trend_pullback_setup'))
+            if setup:
+                self._record_pullback(state, pullback.cancel(setup,
+                    (decision.get('reasons') or ['pullback_cancelled'])[0]), self.now_ms())
+        return result
+
+    def fill(self, state, result, timestamp, direction, reason, trigger_ms=None):
+        if pullback.enabled(self.config) and reason.startswith('fresh_closed_'):
+            setup = state.get('trend_pullback_setup') or {}
+            result = {**result, 'entry_method': pullback.POLICY['mode'],
+                      'setup_id': setup.get('id'), 'origin_signal_boundary_ms': setup.get('boundary_ms')}
+        record = super().fill(state, result, timestamp, direction, reason, trigger_ms)
+        if pullback.enabled(self.config) and reason.startswith('fresh_closed_'):
+            setup = deepcopy(state.get('trend_pullback_setup'))
+            if setup:
+                setup.update(status='consumed', filled_at_ms=timestamp, reasons=[])
+                self._record_pullback(state, setup, timestamp)
+        return record
 
     def _sector_decision(self, state, direction=None, *, phase='observation', timestamp=None):
         if not main_trend.enabled(self._declared_config):
@@ -440,6 +542,8 @@ class MainStockAccount(paper.StockAccount):
             candidate['trade_profit_budget'] = {**deepcopy(decision),
                 'activated_at_ms': self.trade_profit_budget_active_after_ms,
                 'entry_rule': deepcopy(self.config)}
+            if pullback.enabled(self.config):
+                candidate['trend_pullback_entry'] = deepcopy(state.get('trend_pullback_setup'))
         return decision
 
     def allow_profit_target(self, state, position, data, errors, timestamp):
@@ -627,6 +731,8 @@ class MainStockAccount(paper.StockAccount):
 
     def step(self, market_data=None):
         state = paper.read_json(self.path)
+        if pullback.enabled(self._declared_config) and state.get('pullback_entry_active_after_ms') != self.pullback_entry_active_after_ms:
+            raise ValueError('pullback_activation_changed')
         self._guard_decision = None
         if market_data is not None:
             self._guard_market = {label: (value, error) for label, value, error in market_data}
@@ -710,9 +816,14 @@ class MainStockAccount(paper.StockAccount):
                         'planned_budget_fraction': execution_guard.POLICY['planned_budget_fraction']}
                     if self._guard_decision is not None:
                         value['execution_guard'] = deepcopy(self._guard_decision)
+                if pullback.enabled(self._declared_config):
+                    value['main_stock_runtime']['trend_pullback_entry'] = {
+                        'enabled': True, 'mode': pullback.POLICY['mode'],
+                        'active_after_ms': self.pullback_entry_active_after_ms}
             return _BASE_WRITE(path, value)
         function = FunctionType(_BASE_STEP.__code__, {**_BASE_STEP.__globals__,
-            'stock_swing_profiles': adapter, 'write_json': write}, _BASE_STEP.__name__,
+            'stock_swing_profiles': adapter, 'stock_entry_timing': _EntryTiming(),
+            'write_json': write}, _BASE_STEP.__name__,
             _BASE_STEP.__defaults__, _BASE_STEP.__closure__)
         function.__kwdefaults__ = _BASE_STEP.__kwdefaults__
         try:
