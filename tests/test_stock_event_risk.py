@@ -149,9 +149,10 @@ def test_recheck_reads_new_bytes_and_can_block_previously_approved_pending(tmp_p
     assert after['calendar_sha256'] != before['calendar_sha256']
 
 
-def test_shipped_calendar_partial_review_preserves_events_and_blocks_unverified_symbol():
+def test_archived_october_calendar_preserves_events_and_blocks_unverified_symbol():
     root = Path(__file__).resolve().parents[1]
-    raw = json.loads((root/'config/stock_event_calendar_20261020.json').read_text(encoding='utf-8'))
+    calendar_path = 'config/stock_event_calendar_20261020_history/dd3d14cb4b880b7074ff10bf96003eb79787d9000ea6f49c98beba733d2ac8c0.json'
+    raw = json.loads((root/calendar_path).read_text(encoding='utf-8'))
     events = {event['event_id']: event for event in raw['events']}
     assert events['skhynix_2026q3_call_20261028']['anchor_time_ms'] == 1793145600000
     assert events['sandisk_fy2027q1_call_20261029']['anchor_time_ms'] == 1793305800000
@@ -161,7 +162,7 @@ def test_shipped_calendar_partial_review_preserves_events_and_blocks_unverified_
     assert raw['events'] == previous['events']
     assert raw['symbol_reviews']['MUUSDT']['previous_verified_review'] == previous['symbol_reviews']['MUUSDT']
     assert raw['symbol_reviews']['MUUSDT']['verified_at_ms'] == previous['symbol_reviews']['MUUSDT']['verified_at_ms']
-    cfg = {risk.POLICY_KEY: {**risk.POLICY, 'calendar_path': 'config/stock_event_calendar_20261020.json',
+    cfg = {risk.POLICY_KEY: {**risk.POLICY, 'calendar_path': calendar_path,
                             'effective_from_ms': raw['available_at_ms']}}
     complete_hours = [bar(i * HOUR) for i in range(raw['verified_at_ms']//HOUR-2,
                                                    raw['verified_at_ms']//HOUR)]
@@ -181,6 +182,33 @@ def test_shipped_calendar_partial_review_preserves_events_and_blocks_unverified_
             original_time = risk.evaluate(cfg, symbol, raw['available_at_ms'], root=root)
             assert not original_time['allowed']
             assert original_time['reasons'] == ['stock_event_calendar_not_yet_available']
+
+
+def test_november_calendar_review_is_forward_only_and_keeps_mu_waiver_expired():
+    root = Path(__file__).resolve().parents[1]
+    path = 'config/stock_event_calendar_20261020.json'
+    raw = json.loads((root/path).read_text(encoding='utf-8'))
+    review = raw['verification_history'][-1]
+    previous = json.loads((root/review['prior_calendar_archive']).read_text(encoding='utf-8'))
+    assert raw['events'] == previous['events']
+    assert raw['first_seen_at_ms'] == previous['first_seen_at_ms']
+    assert raw['available_at_ms'] == previous['available_at_ms']
+    assert raw['symbol_reviews']['MUUSDT']['simulation_unverified_review_waiver'] == previous['symbol_reviews']['MUUSDT']['simulation_unverified_review_waiver']
+    assert raw['verified_at_ms'] == review['verified_at_ms'] > previous['valid_until_ms']
+    assert raw['valid_until_ms'] == raw['coverage_end_ms'] == 1794758400000
+    assert raw['valid_until_ms']-raw['verified_at_ms'] <= risk.MAX_SNAPSHOT_AGE_MS
+    cfg = {'live_orders_allowed': False, risk.POLICY_KEY: {**risk.POLICY, 'calendar_path': path,
+                            'effective_from_ms': raw['available_at_ms']}}
+    bars = [bar(i*HOUR) for i in range(raw['verified_at_ms']//HOUR-2, raw['verified_at_ms']//HOUR)]
+    for symbol in raw['symbol_reviews']:
+        before = risk.evaluate(cfg, symbol, raw['verified_at_ms']-1, root=root)
+        assert not before['allowed'] and before['reasons'] == ['stock_event_calendar_not_yet_available']
+        current = risk.evaluate(cfg, symbol, raw['verified_at_ms'], root=root,
+                                closed_hourly_bars=bars)
+        assert current['allowed'] is (symbol != 'MUUSDT')
+        assert current['protective_exits_allowed']
+        expired = risk.evaluate(cfg, symbol, raw['valid_until_ms'], root=root)
+        assert not expired['allowed'] and expired['reasons'] == ['stock_event_calendar_expired']
 
 
 def test_official_verifier_rejects_different_notice_instead_of_retiming_event():

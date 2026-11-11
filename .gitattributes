@@ -1,3 +1,4 @@
 # Frozen research hashes must be identical in Windows and POSIX checkouts.
 scripts/*.py text eol=lf
 config/*.json text eol=lf
+config/stock_event_calendar_20261020_history/*.json text eol=lf

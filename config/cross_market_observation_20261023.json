@@ -49,25 +49,15 @@
         "timezone": "America/New_York",
         "source_published_date": null,
         "first_seen_at_ms": 1792936777518,
-        "verified_at_ms": 1793625272064,
-        "valid_from_ms": 1792936777518,
-        "valid_until_ms": 1794114000000,
+        "verified_at_ms": 1794406505867,
+        "valid_from_ms": 1794406505867,
+        "valid_until_ms": 1794805200000,
         "reviewed_local_dates": [
-          "2026-10-24",
-          "2026-10-25",
-          "2026-10-26",
-          "2026-10-27",
-          "2026-10-28",
-          "2026-10-29",
-          "2026-10-30",
-          "2026-10-31",
-          "2026-11-01",
-          "2026-11-02",
-          "2026-11-03",
-          "2026-11-04",
-          "2026-11-05",
-          "2026-11-06",
-          "2026-11-07"
+          "2026-11-11",
+          "2026-11-12",
+          "2026-11-13",
+          "2026-11-14",
+          "2026-11-15"
         ],
         "holiday_exclusions": [],
         "session_id": "yahoo_wti_dec_2026",
@@ -75,9 +65,10 @@
         "basis": "scheduled_exchange_reference",
         "source_urls": [
           "https://www.cmegroup.com/markets/energy/crude-oil/light-sweet-crude.contractSpecs.html",
-          "https://www.cmegroup.com/trading-hours.html"
+          "https://www.cmegroup.com/trading-hours.html",
+          "https://www.cmegroup.com/tools-information/holiday-calendar/files/2026/veterans-day-holiday-settlement-times-2026.pdf"
         ],
-        "review_scope": "Current official CME named CL/BZ Globex product specification: Sunday-Friday 17:00-16:00 Central with a daily 16:00-17:00 maintenance break. Official 2026 Globex holiday list reviewed for New York November 2-7 only, with no listed holiday in this window. Bounded standard reference; temporary or product-specific halts, actual venue status and quote freshness remain independently unverified. November 8 is unreviewed; coverage ends November 8 00:00 New York."
+        "review_scope": "Current official product standard schedule and 2026 CME Globex holiday list reviewed for New York November 11-15 only. Veterans Day is not in that Globex holiday list; its separate official settlement notice states normal settlement times. This is a bounded standard reference, not proof of actual venue status, no temporary halts, or quote freshness. New coverage begins at this verification instant, without filling November 8-11 gaps; ends November 16 00:00 New York."
       },
       "contract_review": {
         "verified_at_ms": 1792936777518,
@@ -121,25 +112,15 @@
         "timezone": "America/New_York",
         "source_published_date": null,
         "first_seen_at_ms": 1792936777518,
-        "verified_at_ms": 1793625272064,
-        "valid_from_ms": 1792936777518,
-        "valid_until_ms": 1794114000000,
+        "verified_at_ms": 1794406505867,
+        "valid_from_ms": 1794406505867,
+        "valid_until_ms": 1794805200000,
         "reviewed_local_dates": [
-          "2026-10-24",
-          "2026-10-25",
-          "2026-10-26",
-          "2026-10-27",
-          "2026-10-28",
-          "2026-10-29",
-          "2026-10-30",
-          "2026-10-31",
-          "2026-11-01",
-          "2026-11-02",
-          "2026-11-03",
-          "2026-11-04",
-          "2026-11-05",
-          "2026-11-06",
-          "2026-11-07"
+          "2026-11-11",
+          "2026-11-12",
+          "2026-11-13",
+          "2026-11-14",
+          "2026-11-15"
         ],
         "holiday_exclusions": [],
         "session_id": "yahoo_brent_jan_2027",
@@ -147,9 +128,10 @@
         "basis": "scheduled_exchange_reference",
         "source_urls": [
           "https://www.cmegroup.com/markets/energy/crude-oil/brent-crude-oil-last-day.contractSpecs.html",
-          "https://www.cmegroup.com/trading-hours.html"
+          "https://www.cmegroup.com/trading-hours.html",
+          "https://www.cmegroup.com/tools-information/holiday-calendar/files/2026/veterans-day-holiday-settlement-times-2026.pdf"
         ],
-        "review_scope": "Current official CME named CL/BZ Globex product specification: Sunday-Friday 17:00-16:00 Central with a daily 16:00-17:00 maintenance break. Official 2026 Globex holiday list reviewed for New York November 2-7 only, with no listed holiday in this window. Bounded standard reference; temporary or product-specific halts, actual venue status and quote freshness remain independently unverified. November 8 is unreviewed; coverage ends November 8 00:00 New York."
+        "review_scope": "Current official product standard schedule and 2026 CME Globex holiday list reviewed for New York November 11-15 only. Veterans Day is not in that Globex holiday list; its separate official settlement notice states normal settlement times. This is a bounded standard reference, not proof of actual venue status, no temporary halts, or quote freshness. New coverage begins at this verification instant, without filling November 8-11 gaps; ends November 16 00:00 New York."
       },
       "contract_review": {
         "first_seen_at_ms": 1793022583564,
@@ -209,25 +191,15 @@
         "timezone": "America/New_York",
         "source_published_date": null,
         "first_seen_at_ms": 1792936777518,
-        "verified_at_ms": 1793587947771,
-        "valid_from_ms": 1792936777518,
-        "valid_until_ms": 1794114000000,
+        "verified_at_ms": 1794406505867,
+        "valid_from_ms": 1794406505867,
+        "valid_until_ms": 1794805200000,
         "reviewed_local_dates": [
-          "2026-10-24",
-          "2026-10-25",
-          "2026-10-26",
-          "2026-10-27",
-          "2026-10-28",
-          "2026-10-29",
-          "2026-10-30",
-          "2026-10-31",
-          "2026-11-01",
-          "2026-11-02",
-          "2026-11-03",
-          "2026-11-04",
-          "2026-11-05",
-          "2026-11-06",
-          "2026-11-07"
+          "2026-11-11",
+          "2026-11-12",
+          "2026-11-13",
+          "2026-11-14",
+          "2026-11-15"
         ],
         "holiday_exclusions": [],
         "session_id": "yahoo_nq_dec_2026",
@@ -235,9 +207,10 @@
         "basis": "scheduled_exchange_reference",
         "source_urls": [
           "https://www.cmegroup.com/markets/equities/sp-500-and-nasdaq-100-futures.html",
-          "https://www.cmegroup.com/trading-hours.html"
+          "https://www.cmegroup.com/trading-hours.html",
+          "https://www.cmegroup.com/tools-information/holiday-calendar/files/2026/veterans-day-holiday-settlement-times-2026.pdf"
         ],
-        "review_scope": "Official CME equity-futures FAQ standard Sun-Fri 17:00-16:00 Central schedule and 16:00-17:00 maintenance, plus official 2026 holiday-hours list reviewed for New York November 2-7 only. No listed holiday in this finite window; does not verify temporary or product-specific halts, actual market status or quote freshness. November 8 is not reviewed; coverage ends November 8 00:00 New York."
+        "review_scope": "Current official product standard schedule and 2026 CME Globex holiday list reviewed for New York November 11-15 only. Veterans Day is not in that Globex holiday list; its separate official settlement notice states normal settlement times. This is a bounded standard reference, not proof of actual venue status, no temporary halts, or quote freshness. New coverage begins at this verification instant, without filling November 8-11 gaps; ends November 16 00:00 New York."
       },
       "contract_review": {
         "verified_at_ms": 1792936777518,
@@ -275,25 +248,15 @@
         "timezone": "America/New_York",
         "source_published_date": null,
         "first_seen_at_ms": 1792936777518,
-        "verified_at_ms": 1793625272064,
-        "valid_from_ms": 1792936777518,
-        "valid_until_ms": 1794114000000,
+        "verified_at_ms": 1794406505867,
+        "valid_from_ms": 1794406505867,
+        "valid_until_ms": 1794805200000,
         "reviewed_local_dates": [
-          "2026-10-24",
-          "2026-10-25",
-          "2026-10-26",
-          "2026-10-27",
-          "2026-10-28",
-          "2026-10-29",
-          "2026-10-30",
-          "2026-10-31",
-          "2026-11-01",
-          "2026-11-02",
-          "2026-11-03",
-          "2026-11-04",
-          "2026-11-05",
-          "2026-11-06",
-          "2026-11-07"
+          "2026-11-11",
+          "2026-11-12",
+          "2026-11-13",
+          "2026-11-14",
+          "2026-11-15"
         ],
         "holiday_exclusions": [],
         "session_id": "yahoo_usdjpy",
@@ -303,7 +266,7 @@
           "https://www.oanda.com/us-en/trading/hours-of-operation/",
           "https://www.oanda.com/us-en/trading/holiday-trading-hours/"
         ],
-        "review_scope": "OANDA standard non-TRY/non-NZD FX reference reviewed for New York November 2-7 only: Sunday 17:05 through Friday 16:59 with a daily six-minute break. Holiday page did not provide date-specific confirmation for this future week. Indicative broker reference only; not Yahoo or OTC actual venue status, holiday certification or a quote-freshness override. November 8 is unreviewed; coverage ends November 8 00:00 New York."
+        "review_scope": "Current OANDA standard non-TRY/non-NZD FX reference reviewed for New York November 11-15 only: Sunday 17:05-Friday 16:59 and daily six-minute break. Holiday page does not confirm these specific 2026 dates. Indicative broker reference, not Yahoo/OTC actual venue status or holiday certification. No quote freshness exemption. Coverage begins at this verification instant, without filling earlier gaps; ends November 16 00:00 New York."
       }
     },
     {

@@ -5,7 +5,7 @@
   "provider": "codex",
   "model": "gpt-6.1-sol",
   "reasoning_effort": "medium",
-  "codex_bin": "C:\\Users\\10230\\.vscode\\extensions\\openai.chatgpt-26.1021.22027-win32-x64\\bin\\windows-x86_64\\codex.exe",
-  "codex_sha256": "4fd2f057bad603bf53dc202457ffd0c3591de62e867a8b01e73816e3fbce5a73",
-  "cli_version": "codex-cli 0.164.0-alpha.11.1"
+  "codex_bin": "C:\\Users\\10230\\.vscode\\extensions\\openai.chatgpt-26.1106.51428-win32-x64\\bin\\windows-x86_64\\codex.exe",
+  "codex_sha256": "f53b53fdc6501240c4f6282ba0983f381ea07c60f19fde4276bd1a78f6aa989a",
+  "cli_version": "codex-cli 0.167.0-alpha.4.1"
 }
