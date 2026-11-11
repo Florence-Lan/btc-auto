@@ -60,6 +60,42 @@ def test_active_paper_waiver_retains_unknown_quality_and_original_provenance(tmp
     assert json.loads(path.read_text()) == before
 
 
+def test_renewed_mu_paper_exception_keeps_calendar_and_official_review_unchanged():
+    root = Path(__file__).resolve().parents[1]
+    path = 'config/stock_event_calendar_20261020.json'
+    raw = json.loads((root/path).read_text(encoding='utf-8'))
+    renewal = raw['verification_history'][-1]
+    assert renewal['review_id'] == 'mu_simulation_unverified_waiver_renewal_20261111'
+    previous = json.loads((root/renewal['previous_calendar_archive']).read_text(encoding='utf-8'))
+    for field in ('first_seen_at_ms', 'available_at_ms', 'verified_at_ms',
+                  'valid_until_ms', 'coverage_start_ms', 'coverage_end_ms', 'events'):
+        assert raw[field] == previous[field]
+    for symbol in ('SNDKUSDT', 'SKHYNIXUSDT'):
+        assert raw['symbol_reviews'][symbol] == previous['symbol_reviews'][symbol]
+    review = raw['symbol_reviews']['MUUSDT']
+    old_review = previous['symbol_reviews']['MUUSDT']
+    key = 'simulation_unverified_review_waiver'
+    assert {k:v for k,v in review.items() if k != key} == {k:v for k,v in old_review.items() if k != key}
+    current = review[key]
+    assert current == renewal['new_waiver']
+    assert old_review[key] == renewal['previous_waiver']
+    assert current['user_authorization'] == old_review[key]['user_authorization']
+    start = current['effective_from_ms']
+    assert start == current['first_seen_at_ms'] == current['available_at_ms']
+    assert start > old_review[key]['valid_until_ms']
+    assert current['valid_until_ms'] == raw['valid_until_ms']
+    cfg = {risk.POLICY_KEY: {**risk.POLICY, 'calendar_path': path,
+                            'effective_from_ms': raw['available_at_ms']},
+           'live_orders_allowed': False}
+    assert not risk.evaluate(cfg, 'MUUSDT', start-1, root=root)['allowed']
+    admitted = risk.evaluate(cfg, 'MUUSDT', start, root=root)
+    assert admitted['allowed'] and admitted['status'] == 'unverified_review_ignored'
+    assert admitted['data_quality'] == 'unverified' and admitted['protective_exits_allowed']
+    assert not risk.evaluate({**cfg, 'live_orders_allowed': True}, 'MUUSDT', start, root=root)['allowed']
+    expired = risk.evaluate(cfg, 'MUUSDT', current['valid_until_ms'], root=root)
+    assert not expired['allowed'] and expired['reasons'] == ['stock_event_calendar_expired']
+
+
 @pytest.mark.parametrize('context', ['absent', True, None, 0, '', []])
 def test_only_literal_order_disabled_context_may_apply_waiver(tmp_path, context):
     config, _, _ = waived_calendar(tmp_path)

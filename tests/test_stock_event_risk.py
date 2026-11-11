@@ -186,7 +186,7 @@ def test_archived_october_calendar_preserves_events_and_blocks_unverified_symbol
 
 def test_november_calendar_review_is_forward_only_and_keeps_mu_waiver_expired():
     root = Path(__file__).resolve().parents[1]
-    path = 'config/stock_event_calendar_20261020.json'
+    path = 'config/stock_event_calendar_20261020_history/d04f889828c33f53804d78a8eccf5e99c8273238c47b65ae23b13e4c5d9cd907.json'
     raw = json.loads((root/path).read_text(encoding='utf-8'))
     review = raw['verification_history'][-1]
     previous = json.loads((root/review['prior_calendar_archive']).read_text(encoding='utf-8'))

@@ -7,7 +7,7 @@
   "valid_until_ms": 1794758400000,
   "coverage_start_ms": 1792427764000,
   "coverage_end_ms": 1794758400000,
-  "review_due_reason": "Partial coverage expires at 2026-11-16 00:00 Asia/Shanghai, before the listed Sandisk November 17 shareholder meeting. Re-read official lists before expiry; MU latest list remains unverified and its prior simulation waiver expired.",
+  "review_due_reason": "Partial coverage expires at 2026-11-16 00:00 Asia/Shanghai, before the listed Sandisk November 17 shareholder meeting. Re-read official lists before expiry. MU remains unverified; the renewed paper-only exception skips its unverified-review blocker within this coverage, retaining known-event windows and all other risk gates.",
   "verification_scope": "Finite operational review of currently announced earnings only. Recheck new notices before expiry; no completeness guarantee. Known anchors and event availability are unchanged. No signal backfill.",
   "symbol_reviews": {
     "MUUSDT": {
@@ -52,10 +52,10 @@
       },
       "simulation_unverified_review_waiver": {
         "mode": "ignore_unverified_review_for_simulation",
-        "first_seen_at_ms": 1793626484602,
-        "available_at_ms": 1793626484602,
-        "effective_from_ms": 1793626484602,
-        "valid_until_ms": 1794067200000,
+        "first_seen_at_ms": 1794407831140,
+        "available_at_ms": 1794407831140,
+        "effective_from_ms": 1794407831140,
+        "valid_until_ms": 1794758400000,
         "user_authorization": "用户明确要求拿不到的事件资料先不管；仅跳过模拟盘未核验资料阻断，已知事件与其他风控保留。"
       }
     },
@@ -281,6 +281,32 @@
         }
       ],
       "scope": "Finite operational review of currently announced earnings only. Recheck new notices before expiry; no completeness guarantee. Known anchors and event availability are unchanged. No signal backfill."
+    },
+    {
+      "review_id": "mu_simulation_unverified_waiver_renewal_20261111",
+      "first_seen_at_ms": 1794407831140,
+      "available_at_ms": 1794407831140,
+      "effective_from_ms": 1794407831140,
+      "valid_until_ms": 1794758400000,
+      "scope": "Renew only the existing user-authorized MU paper unverified-review exception. No official verification, calendar extension, source change, event change, historical entry or signal replay.",
+      "authorization_evidence": "docs/mu_event_review_waiver_20261102.md",
+      "previous_calendar_archive": "config/stock_event_calendar_20261020_history/d04f889828c33f53804d78a8eccf5e99c8273238c47b65ae23b13e4c5d9cd907.json",
+      "previous_waiver": {
+        "mode": "ignore_unverified_review_for_simulation",
+        "first_seen_at_ms": 1793626484602,
+        "available_at_ms": 1793626484602,
+        "effective_from_ms": 1793626484602,
+        "valid_until_ms": 1794067200000,
+        "user_authorization": "用户明确要求拿不到的事件资料先不管；仅跳过模拟盘未核验资料阻断，已知事件与其他风控保留。"
+      },
+      "new_waiver": {
+        "mode": "ignore_unverified_review_for_simulation",
+        "first_seen_at_ms": 1794407831140,
+        "available_at_ms": 1794407831140,
+        "effective_from_ms": 1794407831140,
+        "valid_until_ms": 1794758400000,
+        "user_authorization": "用户明确要求拿不到的事件资料先不管；仅跳过模拟盘未核验资料阻断，已知事件与其他风控保留。"
+      }
     }
   ]
 }
