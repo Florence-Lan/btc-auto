@@ -58,3 +58,7 @@ CME标准时段及2026 Globex假期列表已核对；Veterans Day未列入该Glo
 相关回归 **449 passed、43 subtests passed**；合成审核诊断通过，停机保全核验通过。旧日历归档增加明确LF规则，避免Windows与其他平台检出后改变按字节命名的历史哈希。运行配置在发布前统一为仓库LF字节，观察器记录单独指纹维护，解析内容、时钟和报价身份不变。
 
 测试和实际恢复结果记录在同目录 `pytest.log`、`verified_stopped.json`、`verified_stopped_normalized.json`、`resumed_main.json`、`resumed_observer.json`、`verified_live.json`。恢复验证必须分别确认监督器/账户心跳、模拟模式、原账本、取消账户、外部报价及仍存在的限制，不能只以进程存在宣称可交易或盈利改善。
+
+实际于北京时间 **22:19:20** 恢复主包装器、**22:19:27** 恢复观察器，运行代码提交为 `829f174`，启动前核对远程main一致。**22:20:10** 核验PASS：监督器及 `main / btc_signals` 均健康，原四账户心跳更新，初始本金合计4000，102账户与98取消账户及金融历史前缀通过保全检查；终端HTTP200。观察器加载新参考时段，NQ及USDJPY均为 `fresh / eligible_intraday=true`，原实验起点保留。
+
+运行恢复仍有限制：BTC停机前已有公共接口冷却记录，截止 **11月12日18:11:05北京时间**；当前时钟和行情读取受其阻止，账户维持 `degraded / exchange_clock_unavailable`、空仓。未清除冷却或更换端点绕过。到期后服务会按原逻辑重试，不能保证届时提供商已解除限制。MU仍因未验证事件资料及已到期豁免拒绝新增；SNDK、SK等待新小时信号，纳指30分钟有效历史需要前瞻积累。独立观察器总体仍为degraded，包括过期的十月国际事件覆盖；这与进程心跳健康分开报告。完整截面在 `runtime_health.json`，后续不得将当前空仓和这些阻断误报为策略收益验证。
