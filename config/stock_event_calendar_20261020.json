@@ -7,56 +7,19 @@
   "valid_until_ms": 1794758400000,
   "coverage_start_ms": 1792427764000,
   "coverage_end_ms": 1794758400000,
-  "review_due_reason": "Partial coverage expires at 2026-11-16 00:00 Asia/Shanghai, before the listed Sandisk November 17 shareholder meeting. Re-read official lists before expiry. MU remains unverified; the renewed paper-only exception skips its unverified-review blocker within this coverage, retaining known-event windows and all other risk gates.",
+  "review_due_reason": "Active SNDK/SK official event coverage expires at 2026-11-16 00:00 Asia/Shanghai. Re-read their sources before expiry. The unavailable MU list was removed by user; it requires no periodic simulation waiver. Other known MU events, if recorded, retain their ordinary event gates and coverage requirements.",
   "verification_scope": "Finite operational review of currently announced earnings only. Recheck new notices before expiry; no completeness guarantee. Known anchors and event availability are unchanged. No signal backfill.",
   "symbol_reviews": {
     "MUUSDT": {
-      "status": "latest_review_unverified",
+      "status": "source_removed",
       "verified_at_ms": 1792427764000,
-      "source_urls": [
-        "https://investors.micron.com/events-and-presentations/default.aspx"
-      ],
-      "note": "No next earnings date was confirmed in this review; absence is not proof no event will be announced.",
-      "last_review_attempt": {
-        "attempted_at_ms": 1794406233880,
-        "available_at_ms": 1794406233880,
-        "verification_success": false,
-        "status": "unverified_dynamic_content_or_access",
-        "source_urls": [
-          "https://investors.micron.com/events-and-presentations/default.aspx"
-        ]
-      },
-      "previous_verified_review": {
-        "status": "no_announced_event_found",
-        "verified_at_ms": 1792427764000,
-        "source_urls": [
-          "https://investors.micron.com/events-and-presentations/default.aspx"
-        ],
-        "note": "No next earnings date was confirmed in this review; absence is not proof no event will be announced.",
-        "last_review_attempt": {
-          "attempted_at_ms": 1792936215689,
-          "first_seen_at_ms": 1792936215689,
-          "available_at_ms": 1792936215689,
-          "status": "unverified_dynamic_content_or_access",
-          "verification_success": false,
-          "source_urls": [
-            "https://investors.micron.com/events-and-presentations/",
-            "https://investors.micron.com/news/default.aspx"
-          ],
-          "http_statuses": [
-            403,
-            403
-          ],
-          "note": "Public HTTP requests were access-denied; the web reader exposed dynamic page shells without a current event list. The previous no-announced-event review and its verified_at_ms are preserved; no new absence claim or next earnings date is inferred."
-        }
-      },
-      "simulation_unverified_review_waiver": {
-        "mode": "ignore_unverified_review_for_simulation",
-        "first_seen_at_ms": 1794407831140,
-        "available_at_ms": 1794407831140,
-        "effective_from_ms": 1794407831140,
-        "valid_until_ms": 1794758400000,
-        "user_authorization": "用户明确要求拿不到的事件资料先不管；仅跳过模拟盘未核验资料阻断，已知事件与其他风控保留。"
+      "source_urls": [],
+      "source_removal": {
+        "mode": "remove_unavailable_source_for_simulation",
+        "first_seen_at_ms": 1794499990407,
+        "available_at_ms": 1794499990407,
+        "effective_from_ms": 1794499990407,
+        "user_authorization": "?????????????"
       }
     },
     "SNDKUSDT": {
@@ -307,6 +270,15 @@
         "valid_until_ms": 1794758400000,
         "user_authorization": "用户明确要求拿不到的事件资料先不管；仅跳过模拟盘未核验资料阻断，已知事件与其他风控保留。"
       }
+    },
+    {
+      "review_id": "mu_event_source_removal_20261113",
+      "first_seen_at_ms": 1794499990407,
+      "available_at_ms": 1794499990407,
+      "effective_from_ms": 1794499990407,
+      "previous_calendar_archive": "config/stock_event_calendar_20261020_history/8c10aa680cec50b52768d0bc3ba19b7a0d310cf27fd35075fb8b5d5d8efdadcb.json",
+      "scope": "User removed the unavailable MU events list from active simulation sources. No source URLs or timed review waiver remain in its active review. No official verification or event absence claim. Other symbols, events and calendar clocks unchanged.",
+      "user_authorization": "?????????????"
     }
   ]
 }

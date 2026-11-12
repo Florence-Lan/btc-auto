@@ -62,7 +62,7 @@ def test_active_paper_waiver_retains_unknown_quality_and_original_provenance(tmp
 
 def test_renewed_mu_paper_exception_keeps_calendar_and_official_review_unchanged():
     root = Path(__file__).resolve().parents[1]
-    path = 'config/stock_event_calendar_20261020.json'
+    path = 'config/stock_event_calendar_20261020_history/8c10aa680cec50b52768d0bc3ba19b7a0d310cf27fd35075fb8b5d5d8efdadcb.json'
     raw = json.loads((root/path).read_text(encoding='utf-8'))
     renewal = raw['verification_history'][-1]
     assert renewal['review_id'] == 'mu_simulation_unverified_waiver_renewal_20261111'

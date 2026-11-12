@@ -96,13 +96,14 @@ function stockEventDetails(account) {
   const gate = account.stock_event_risk;
   if (!gate?.enabled) return '';
   const label = {clear: '当前窗口外', blackout: '暂停新增', unavailable: '日历需要复核',
+    source_removed: '不可用来源已移除，模拟盘继续评估',
     unverified_review_ignored: '资料未核验，模拟盘继续评估',
     not_active_yet: '等待生效'}[gate.status] || '等待检查';
   const pieces = [`财报风控：${label}`];
   if (gate.next_event?.anchor_time_ms) pieces.push(`下一电话会 ${localTime(gate.next_event.anchor_time_ms)}`);
   const resume = Math.max(0, ...(gate.blocked_events || []).map(event => Number(event.earliest_resume_at_ms) || 0));
   if (resume) pieces.push(`最早复核 ${localTime(resume)}，并等待两根完整小时行情`);
-  if (gate.valid_until_ms) pieces.push(`日历有效至 ${localTime(gate.valid_until_ms)}`);
+  if (gate.valid_until_ms && gate.calendar_required !== false) pieces.push(`日历有效至 ${localTime(gate.valid_until_ms)}`);
   if (!gate.allowed) pieces.push('保护退出继续');
   return pieces.join(' · ');
 }

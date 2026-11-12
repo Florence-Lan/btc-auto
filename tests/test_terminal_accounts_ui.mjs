@@ -42,6 +42,18 @@ test('stock cards explain earnings blackout, recovery bars and expired calendar 
   view.destroy();
 });
 
+test('removed MU source has no expiring calendar warning or unverified waiver label', async () => {
+  const value = status();
+  Object.assign(value.accounts.mu, {stock_event_risk: {enabled: true, allowed: true,
+    status: 'source_removed', calendar_required: false, valid_until_ms: Date.UTC(2026, 10, 16)}});
+  const page = root('stocks');
+  const view = createPaperAccounts(page, fetcher(value));
+  await view.ready;
+  assert.match(page.fields.cards.innerHTML, /不可用来源已移除，模拟盘继续评估/);
+  assert.doesNotMatch(page.fields.cards.innerHTML, /日历有效至|资料未核验，模拟盘继续评估/);
+  view.destroy();
+});
+
 test('stock swing filtering explains the completed higher timeframe while the worker stays healthy', async () => {
   const value = status();
   Object.assign(value.accounts.mu, {signal_family: 'donchian20', signal_timeframe: '1h',

@@ -5,6 +5,8 @@ retry and immediately before booking an entry; a cached initial signal approval
 is never an entry permit. A missing/expired calendar blocks new risk only.
 An explicit, dated MU simulation waiver can skip an unverified source review;
 it never relabels the source as verified or suppresses a known event window.
+An explicitly removed MU source needs no periodic simulation waiver. Its empty
+event coverage is not a claim that no events exist; other known events still gate.
 
 The v1 anchor is the OFFICIAL SCHEDULED CALL START, not an invented first release
 or call end. Unknown release/end times stay explicit. Calendar review must cover
@@ -64,6 +66,34 @@ def _nonempty(value, name):
     return value
 
 
+def _removed_source(review, symbol, reference_ms, *, simulation):
+    """A causal, MU-only removal; never grant the same exception to live orders."""
+    if not isinstance(review, Mapping) or review.get('status') != 'source_removed':
+        return {}
+    error = 'stock_event_source_removal_invalid'
+    if (not simulation or symbol != 'MUUSDT'
+            or set(review) != {'status', 'verified_at_ms', 'source_urls', 'source_removal'}
+            or review['source_urls'] != []):
+        raise ValueError(error)
+    removal = review['source_removal']
+    if (not isinstance(removal, Mapping) or set(removal) != {
+            'mode', 'first_seen_at_ms', 'available_at_ms', 'effective_from_ms',
+            'user_authorization'} or removal['mode'] != 'remove_unavailable_source_for_simulation'):
+        raise ValueError(error)
+    first, available, effective = (_time(removal[k], error) for k in (
+        'first_seen_at_ms', 'available_at_ms', 'effective_from_ms'))
+    if not _time(review['verified_at_ms'], error) <= first <= available <= effective:
+        raise ValueError(error)
+    if reference_ms < effective:
+        raise ValueError('stock_event_source_removal_not_yet_active')
+    authorization = _nonempty(removal['user_authorization'], error)
+    return {'source_removed': True, 'data_quality': 'source_removed',
+            'source_removal_effective_from_ms': effective,
+            'source_removal_reason': authorization,
+            'review_due_reason': 'Unavailable MU source removed by user; no periodic '
+                                 'waiver required. Other known event windows remain enforced.'}
+
+
 def _calendar(raw, reference_ms, symbol, *, allow_simulation_waiver=False):
     if not isinstance(raw, Mapping) or type(raw.get('version')) is not int or raw['version'] != 1:
         raise ValueError('stock_event_calendar_invalid')
@@ -80,19 +110,23 @@ def _calendar(raw, reference_ms, symbol, *, allow_simulation_waiver=False):
     # Do not disclose or apply events from a snapshot first observed in the future.
     if reference_ms < times['available_at_ms'] or reference_ms < times['verified_at_ms']:
         raise ValueError('stock_event_calendar_not_yet_available')
-    if reference_ms >= times['valid_until_ms']:
-        raise ValueError('stock_event_calendar_expired')
-    if not times['coverage_start_ms'] <= reference_ms < times['coverage_end_ms']:
-        raise ValueError('stock_event_calendar_outside_coverage')
     coverage = raw.get('symbol_reviews')
+    candidate = coverage.get(symbol) if isinstance(coverage, Mapping) else None
+    removed = _removed_source(candidate, symbol, reference_ms, simulation=allow_simulation_waiver)
+    if not removed:
+        if reference_ms >= times['valid_until_ms']:
+            raise ValueError('stock_event_calendar_expired')
+        if not times['coverage_start_ms'] <= reference_ms < times['coverage_end_ms']:
+            raise ValueError('stock_event_calendar_outside_coverage')
     if not isinstance(coverage, Mapping) or symbol not in coverage:
         raise ValueError('stock_event_symbol_not_covered')
     review = coverage[symbol]
     if (not isinstance(review, Mapping)
             or review.get('status') not in ('official_event_verified', 'no_announced_event_found',
-                                             'latest_review_unverified')
+                                             'latest_review_unverified', 'source_removed')
             or _time(review.get('verified_at_ms'), 'stock_event_symbol_review_invalid') > times['verified_at_ms']
-            or not isinstance(review.get('source_urls'), list) or not review['source_urls']
+            or not isinstance(review.get('source_urls'), list)
+            or (not review['source_urls'] and not removed)
             or any(not isinstance(url, str) or not url.startswith('https://') for url in review['source_urls'])):
         raise ValueError('stock_event_symbol_review_invalid')
     if reference_ms < review['verified_at_ms']:
@@ -157,8 +191,15 @@ def _calendar(raw, reference_ms, symbol, *, allow_simulation_waiver=False):
             events.append(dict(row))
     if review['status'] == 'official_event_verified' and not events:
         raise ValueError('stock_event_symbol_event_missing')
+    if removed and events:
+        # Removal of one unavailable list cannot discard known events from
+        # other sources, or refresh their calendar coverage after expiry.
+        if reference_ms >= times['valid_until_ms']:
+            raise ValueError('stock_event_calendar_expired')
+        if not times['coverage_start_ms'] <= reference_ms < times['coverage_end_ms']:
+            raise ValueError('stock_event_calendar_outside_coverage')
     return {'calendar_id': calendar_id, **times, 'symbol_review_status': review['status'],
-            **waiver_metadata}, events
+            **waiver_metadata, **removed, 'calendar_required': not removed or bool(events)}, events
 
 
 def _post_event_bars(rows, anchor, reference_ms):
@@ -270,7 +311,7 @@ def evaluate(config, symbol, reference_ms, *, closed_hourly_bars=None, root=None
                 if not bars_ok:
                     blocked.append({**detail, 'observed_post_event_hour_starts_ms': pair})
                     reasons.append('stock_event_post_event_bars_unavailable')
-        status = ('blackout' if reasons else 'unverified_review_ignored'
+        status = ('blackout' if reasons else 'source_removed' if result.get('source_removed') else 'unverified_review_ignored'
                   if result.get('review_waiver_applied') else 'clear')
         result.update(allowed=not reasons, status=status,
                       reasons=list(dict.fromkeys(reasons)), blocked_events=blocked,
