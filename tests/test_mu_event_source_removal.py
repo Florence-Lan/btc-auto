@@ -146,6 +146,8 @@ def test_current_calendar_removes_mu_source_without_changing_other_reviews_or_ev
         assert raw['symbol_reviews'][symbol] == previous['symbol_reviews'][symbol]
     review = raw['symbol_reviews']['MUUSDT']
     assert review['source_urls'] == [] and 'simulation_unverified_review_waiver' not in review
+    assert review['source_removal']['user_authorization'] == '持续拿不到那就删掉这个来源'
+    assert record['user_authorization'] == review['source_removal']['user_authorization']
     assert review['verified_at_ms'] == previous['symbol_reviews']['MUUSDT']['verified_at_ms']
     cfg = {risk.POLICY_KEY: {**risk.POLICY, 'calendar_path': 'config/stock_event_calendar_20261020.json',
                            'effective_from_ms': raw['available_at_ms']}, 'live_orders_allowed': False}
