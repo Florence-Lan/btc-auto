@@ -35,8 +35,15 @@ Set-Location -LiteralPath $rootLiteral
 while (`$true) {
     `$stamp = [DateTime]::UtcNow.ToString('yyyyMMddTHHmmss')
     `$log = Join-Path $directoryLiteral ('observer_' + `$stamp + '_' + `$PID + '.log')
-    & $pythonLiteral '-X' 'utf8' '-u' $scriptLiteral '--require-existing' *>> `$log
-    `$exitCode = `$LASTEXITCODE
+    # Windows PowerShell 5 turns native stderr into error records. Preserve
+    # the Python exit code so an existing observer (73) exits cleanly.
+    `$savedErrorActionPreference = `$ErrorActionPreference
+    try {
+        `$ErrorActionPreference = 'Continue'
+        & $pythonLiteral '-X' 'utf8' '-u' $scriptLiteral '--require-existing' *>> `$log
+        `$exitCode = `$LASTEXITCODE
+    }
+    finally { `$ErrorActionPreference = `$savedErrorActionPreference }
     if (`$exitCode -in @(0,73,78)) { exit 0 }
     `$attempt++
     `$delay = [Math]::Min(300,10 * [Math]::Pow(2,[Math]::Min(`$attempt - 1,5)))

@@ -16,8 +16,9 @@ def literal(value):
     return "'" + str(value).replace("'", "''") + "'"
 
 
-def wrapper(tmp_path, codes, *, working_directory=None):
-    installer = (ROOT / 'scripts/install_paper_services_task.ps1').read_text(encoding='utf-8')
+def wrapper(tmp_path, codes, *, working_directory=None,
+            installer_name='install_paper_services_task.ps1'):
+    installer = (ROOT / 'scripts' / installer_name).read_text(encoding='utf-8')
     generated = installer.split('$launcher = @"\n', 1)[1].split('\n"@', 1)[0]
     generated = generated.replace('`$', '$')
     counter, sleeps = tmp_path / 'attempts.json', tmp_path / 'sleeps.jsonl'
