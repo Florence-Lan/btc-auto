@@ -3,11 +3,11 @@
   "calendar_id": "stock_official_earnings_20261020_v1",
   "first_seen_at_ms": 1792427764000,
   "available_at_ms": 1792427764000,
-  "verified_at_ms": 1794406233880,
-  "valid_until_ms": 1794758400000,
+  "verified_at_ms": 1794664222861,
+  "valid_until_ms": 1794844800000,
   "coverage_start_ms": 1792427764000,
-  "coverage_end_ms": 1794758400000,
-  "review_due_reason": "Active SNDK/SK official event coverage expires at 2026-11-16 00:00 Asia/Shanghai. Re-read their sources before expiry. The unavailable MU list was removed by user; it requires no periodic simulation waiver. Other known MU events, if recorded, retain their ordinary event gates and coverage requirements.",
+  "coverage_end_ms": 1794844800000,
+  "review_due_reason": "Active SNDK/SK earnings review expires November 17 00:00 Asia/Shanghai, before the listed SNDK shareholder meeting. Review new notices before expiry. MU source remains removed and needs no timed waiver.",
   "verification_scope": "Finite operational review of currently announced earnings only. Recheck new notices before expiry; no completeness guarantee. Known anchors and event availability are unchanged. No signal backfill.",
   "symbol_reviews": {
     "MUUSDT": {
@@ -24,16 +24,16 @@
     },
     "SNDKUSDT": {
       "status": "official_event_verified",
-      "verified_at_ms": 1794406233880,
+      "verified_at_ms": 1794664222861,
       "source_urls": [
         "https://investor.sandisk.com/node/8381/pdf",
         "https://investor.sandisk.com/news-events/events",
         "https://www.sandisk.com/company/newsroom/press-releases/2026/2026-10-29-sandisk-reports-fiscal-first-quarter-2027-financial-results"
       ],
-      "note": "Latest populated official list reviewed. Finite review horizon; original earnings anchor retained; no actual publication minute or call end inferred.",
+      "note": "Current populated official list reviewed; original earnings anchor retained. Finite horizon, not complete future announcement coverage.",
       "last_review_attempt": {
-        "attempted_at_ms": 1794406233880,
-        "available_at_ms": 1794406233880,
+        "attempted_at_ms": 1794664222861,
+        "available_at_ms": 1794664222861,
         "verification_success": true,
         "status": "official_populated_list_reviewed",
         "source_urls": [
@@ -43,16 +43,16 @@
     },
     "SKHYNIXUSDT": {
       "status": "official_event_verified",
-      "verified_at_ms": 1794406233880,
+      "verified_at_ms": 1794664222861,
       "source_urls": [
         "https://www.sec.gov/Archives/edgar/data/2120882/000119312526420934/d413172d6k.htm",
         "https://news.skhynix.com/en/q3-2026-earnings-conference-call-invitation/",
         "https://news.skhynix.com/en/category/ir/"
       ],
-      "note": "Latest populated official list reviewed. Finite review horizon; original earnings anchor retained; no actual publication minute or call end inferred.",
+      "note": "Current populated official list reviewed; original earnings anchor retained. Finite horizon, not complete future announcement coverage.",
       "last_review_attempt": {
-        "attempted_at_ms": 1794406233880,
-        "available_at_ms": 1794406233880,
+        "attempted_at_ms": 1794664222861,
+        "available_at_ms": 1794664222861,
         "verification_success": true,
         "status": "official_populated_list_reviewed",
         "source_urls": [
@@ -279,6 +279,32 @@
       "previous_calendar_archive": "config/stock_event_calendar_20261020_history/8c10aa680cec50b52768d0bc3ba19b7a0d310cf27fd35075fb8b5d5d8efdadcb.json",
       "scope": "User removed the unavailable MU events list from active simulation sources. No source URLs or timed review waiver remain in its active review. No official verification or event absence claim. Other symbols, events and calendar clocks unchanged.",
       "user_authorization": "持续拿不到那就删掉这个来源"
+    },
+    {
+      "review_id": "official_company_calendar_partial_20261114",
+      "first_seen_at_ms": 1794664222861,
+      "available_at_ms": 1794664222861,
+      "verified_at_ms": 1794664222861,
+      "coverage_end_ms": 1794844800000,
+      "previous_calendar_archive": "config/stock_event_calendar_20261020_history/085f056ca9a60ecd0525792d616aecaeb759ef05e41df2523440306ae5778840.json",
+      "verified_symbols": [
+        "SNDKUSDT",
+        "SKHYNIXUSDT"
+      ],
+      "mu_removed_source_unchanged": true,
+      "verification_method": "official_public_web_reader_populated_current_lists",
+      "raw_http_payload_or_hash_claimed": false,
+      "sources": [
+        {
+          "url": "https://investor.sandisk.com/news-events/events",
+          "finding": "Populated upcoming November 17 2026 08:00 PST annual shareholder meeting and past October 29 earnings call; finite coverage ends before the meeting and no shareholder meeting is relabeled an earnings call."
+        },
+        {
+          "url": "https://news.skhynix.com/en/category/ir/",
+          "finding": "Populated IR list still has October 28 Q3 earnings access/results and October 21 invitation; no newer scheduled earnings in the reviewed list."
+        }
+      ],
+      "scope": "Earnings-call review only. No coverage inferred for all world or company events. MU unavailable source not queried or restored. No historical signal backfill."
     }
   ]
 }

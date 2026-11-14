@@ -136,7 +136,8 @@ def test_runtime_rereads_new_known_event_after_a_source_removed_initial_check(tm
 
 def test_current_calendar_removes_mu_source_without_changing_other_reviews_or_event_clocks():
     root = Path(__file__).resolve().parents[1]
-    raw = json.loads((root/'config/stock_event_calendar_20261020.json').read_text(encoding='utf-8'))
+    calendar_path = 'config/stock_event_calendar_20261020_history/085f056ca9a60ecd0525792d616aecaeb759ef05e41df2523440306ae5778840.json'
+    raw = json.loads((root/calendar_path).read_text(encoding='utf-8'))
     record = raw['verification_history'][-1]
     previous = json.loads((root/record['previous_calendar_archive']).read_text(encoding='utf-8'))
     for key in ('events', 'first_seen_at_ms', 'available_at_ms', 'verified_at_ms',
@@ -149,7 +150,7 @@ def test_current_calendar_removes_mu_source_without_changing_other_reviews_or_ev
     assert review['source_removal']['user_authorization'] == '持续拿不到那就删掉这个来源'
     assert record['user_authorization'] == review['source_removal']['user_authorization']
     assert review['verified_at_ms'] == previous['symbol_reviews']['MUUSDT']['verified_at_ms']
-    cfg = {risk.POLICY_KEY: {**risk.POLICY, 'calendar_path': 'config/stock_event_calendar_20261020.json',
+    cfg = {risk.POLICY_KEY: {**risk.POLICY, 'calendar_path': calendar_path,
                            'effective_from_ms': raw['available_at_ms']}, 'live_orders_allowed': False}
     after_expiry = raw['valid_until_ms'] + HOUR
     assert risk.evaluate(cfg, 'MUUSDT', after_expiry, root=root)['allowed']
